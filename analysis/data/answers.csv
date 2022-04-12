@@ -1,0 +1,146 @@
+﻿task,field,word,onset,exact,acceptable,sentence
+zenker,algae_01,very,ve,ry,very,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
+zenker,algae_02,because,bec,ause,because,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
+zenker,algae_03,make,ma,ke,make,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
+zenker,algae_04,which,wh,ich,which,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
+zenker,algae_05,need,ne,ed,need,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
+zenker,algae_06,breathe,bre,athe,breathe,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
+zenker,algae_07,seaweed,sea,weed,seaweed,"Some algae, such as sea[weed], look li[ke] plants."
+zenker,algae_08,like,li,ke,like,"Some algae, such as sea[weed], look li[ke] plants."
+zenker,algae_09,However,how,ever,However,"How[ever], algae are actu[ally] neither plants n[or] animals."
+zenker,algae_10,actually,actu,ally,actually,"How[ever], algae are actu[ally] neither plants n[or] animals."
+zenker,algae_11,nor,n,or,nor,"How[ever], algae are actu[ally] neither plants n[or] animals."
+zenker,algae_12,Instead,ins,tead,Instead,"Ins[tead], they bel[ong] to a gr[oup] of living things cal[led] protists."
+zenker,algae_13,belong,bel,ong,belong,"Ins[tead], they bel[ong] to a gr[oup] of living things cal[led] protists."
+zenker,algae_14,group,gr,oup,group,"Ins[tead], they bel[ong] to a gr[oup] of living things cal[led] protists."
+zenker,algae_15,called,cal,led,called,"Ins[tead], they bel[ong] to a gr[oup] of living things cal[led] protists."
+zenker,algae_16,There,th,ere,There,"Th[ere] are ma[ny] spe[cies], or ty[pes], of algae."
+zenker,algae_17,many,ma,ny,many,"Th[ere] are ma[ny] spe[cies], or ty[pes], of algae."
+zenker,algae_18,species,spe,cies,species,"Th[ere] are ma[ny] spe[cies], or ty[pes], of algae."
+zenker,algae_19,types,ty,pes,types,"Th[ere] are ma[ny] spe[cies], or ty[pes], of algae."
+zenker,algae_20,most,mo,st,most,"They are mo[st] commonly found in bod[ies] of wa[ter], such as oce[ans], rivers, la[kes], streams, po[nds], and marshes."
+zenker,algae_21,bodies,bod,ies,bodies,"They are mo[st] commonly found in bod[ies] of wa[ter], such as oce[ans], rivers, la[kes], streams, po[nds], and marshes."
+zenker,algae_22,water,wa,ter,water,"They are mo[st] commonly found in bod[ies] of wa[ter], such as oce[ans], rivers, la[kes], streams, po[nds], and marshes."
+zenker,algae_23,oceans,oce,ans,oceans,"They are mo[st] commonly found in bod[ies] of wa[ter], such as oce[ans], rivers, la[kes], streams, po[nds], and marshes."
+zenker,algae_24,lakes,la,kes,lakes,"They are mo[st] commonly found in bod[ies] of wa[ter], such as oce[ans], rivers, la[kes], streams, po[nds], and marshes."
+zenker,algae_25,ponds,po,nds,ponds,"They are mo[st] commonly found in bod[ies] of wa[ter], such as oce[ans], rivers, la[kes], streams, po[nds], and marshes."
+zenker,noise_26,generated,gene,rated,generated,"Noise pollution is commonly gene[rated] inside indus[trial] facilities and other workp[laces], but it also co[mes] from hig[hway], railway, and airp[lane] traffic and from outdoor constr[uction] activities."
+zenker,noise_27,industrial,indus,trial,industrial,"Noise pollution is commonly gene[rated] inside indus[trial] facilities and other workp[laces], but it also co[mes] from hig[hway], railway, and airp[lane] traffic and from outdoor constr[uction] activities."
+zenker,noise_28,workplaces,workp,laces,workplaces,"Noise pollution is commonly gene[rated] inside indus[trial] facilities and other workp[laces], but it also co[mes] from hig[hway], railway, and airp[lane] traffic and from outdoor constr[uction] activities."
+zenker,noise_29,comes,co,mes,comes,"Noise pollution is commonly gene[rated] inside indus[trial] facilities and other workp[laces], but it also co[mes] from hig[hway], railway, and airp[lane] traffic and from outdoor constr[uction] activities."
+zenker,noise_30,highway,hig,hway,highway,"Noise pollution is commonly gene[rated] inside indus[trial] facilities and other workp[laces], but it also co[mes] from hig[hway], railway, and airp[lane] traffic and from outdoor constr[uction] activities."
+zenker,noise_31,airplane,airp,lane,airplane,"Noise pollution is commonly gene[rated] inside indus[trial] facilities and other workp[laces], but it also co[mes] from hig[hway], railway, and airp[lane] traffic and from outdoor constr[uction] activities."
+zenker,noise_32,construction,constr,uction,construction,"Noise pollution is commonly gene[rated] inside indus[trial] facilities and other workp[laces], but it also co[mes] from hig[hway], railway, and airp[lane] traffic and from outdoor constr[uction] activities."
+zenker,noise_33,more,mo,re,more,Noise is mo[re] than a me[re] nuisance.
+zenker,noise_34,mere,me,re,mere,Noise is mo[re] than a me[re] nuisance.
+zenker,noise_35,certain,cer,tain,certain,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_36,durations,dura,tions,durations,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_37,physical,phys,ical,physical,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_38,eardrum,ear,drum,eardrum,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_39,sensitive,sens,itive,sensitive,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_40,inner,in,ner,inner,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_41,result,res,ult,result,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_42,temporary,temp,orary,temporary,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_43,permanent,perm,anent,permanent,"At cer[tain] levels and dura[tions] of exposure, it can cause phys[ical] damage to the ear[drum] and the sens[itive] hairs of the in[ner] ear and res[ult] in temp[orary] or perm[anent] hearing loss."
+zenker,noise_44,addition,addi,tion,addition,"In addi[tion] to causing hearing loss, excessive noise exposure can also ra[ise] blood pres[sure], cause irritability, anx[iety], and men[tal] fatigue, and inte[rfere] with sl[eep], recreation, and personal communication."
+zenker,noise_45,raise,ra,ise,raise,"In addi[tion] to causing hearing loss, excessive noise exposure can also ra[ise] blood pres[sure], cause irritability, anx[iety], and men[tal] fatigue, and inte[rfere] with sl[eep], recreation, and personal communication."
+zenker,noise_46,pressure,pres,sure,pressure,"In addi[tion] to causing hearing loss, excessive noise exposure can also ra[ise] blood pres[sure], cause irritability, anx[iety], and men[tal] fatigue, and inte[rfere] with sl[eep], recreation, and personal communication."
+zenker,noise_47,anxiety,anx,iety,anxiety,"In addi[tion] to causing hearing loss, excessive noise exposure can also ra[ise] blood pres[sure], cause irritability, anx[iety], and men[tal] fatigue, and inte[rfere] with sl[eep], recreation, and personal communication."
+zenker,noise_48,mental,men,tal,mental,"In addi[tion] to causing hearing loss, excessive noise exposure can also ra[ise] blood pres[sure], cause irritability, anx[iety], and men[tal] fatigue, and inte[rfere] with sl[eep], recreation, and personal communication."
+zenker,noise_49,interfere,inte,rfere,interfere,"In addi[tion] to causing hearing loss, excessive noise exposure can also ra[ise] blood pres[sure], cause irritability, anx[iety], and men[tal] fatigue, and inte[rfere] with sl[eep], recreation, and personal communication."
+zenker,noise_50,sleep,sl,eep,sleep,"In addi[tion] to causing hearing loss, excessive noise exposure can also ra[ise] blood pres[sure], cause irritability, anx[iety], and men[tal] fatigue, and inte[rfere] with sl[eep], recreation, and personal communication."
+brown,brown_01,his,,his,his man's our the                      ,[His] ever restless brain has used the [knowledge] and wisdom of his ancestors [to] improve his way of life.
+brown,brown_02,knowledge,,knowledge,knowledge accomplishments culture cunning examples experience experiences hands ideas information ingenuity instinct intelligence mistakes nature power skill skills talent teaching technique thought will wit words work,[His] ever restless brain has used the [knowledge] and wisdom of his ancestors [to] improve his way of life.
+brown,brown_03,to,,to,to                         ,[His] ever restless brain has used the [knowledge] and wisdom of his ancestors [to] improve his way of life.
+brown,brown_04,man,,man,man he                        ,"Since [man] is able to walk and run [on] his feet, his hands have always [been] free to carry and to use [tools]."
+brown,brown_05,on,,on,on upon using with                      ,"Since [man] is able to walk and run [on] his feet, his hands have always [been] free to carry and to use [tools]."
+brown,brown_06,been,,been,been felt hung remained                      ,"Since [man] is able to walk and run [on] his feet, his hands have always [been] free to carry and to use [tools]."
+brown,brown_07,tools,,tools,tools adequately carefully conventionally creatively diligently efficiently freely implements objects productively readily them things weapons           ,"Since [man] is able to walk and run [on] his feet, his hands have always [been] free to carry and to use [tools]."
+brown,brown_08,during,,during,during all for improving in through throughout with                  ,Man's hands have served him well [during] his life of earth.
+brown,brown_09,which,,which,which also basically conveniently easily historically however often since that thus               ,"His development, [which] can be divided into three major [periods], is marked by several different ways [of] life."
+brown,brown_10,periods,,periods,periods areas categories divisions eras facets groups parts phases sections stages steps topics trends            ,"His development, [which] can be divided into three major [periods], is marked by several different ways [of] life."
+brown,brown_11,of,,of,of for in through towards                     ,"His development, [which] can be divided into three major [periods], is marked by several different ways [of] life."
+brown,brown_12,all,,all,all early hungry many most only primitive the these                 ,"Up to 10,000 years ago, [all] human beings lived by hunding and [fishing]."
+brown,brown_13,fishing,,fishing,fishing farming foraging gathering killing scavenging scrounging sleeping trapping                 ,"Up to 10,000 years ago, [all] human beings lived by hunding and [fishing]."
+brown,brown_14,and,,and,and often ravenously some the                     ,"They also picked berries and fruits, [and] dug for various edible roots."
+brown,brown_15,often,,often,often always emphatically important nights normally of times trips                 ,"Most [often], the men were the hunters, and [the] women acted as food gatherers."
+brown,brown_16,the,,the,the all house many most older their younger                  ,"Most [often], the men were the hunters, and [the] women acted as food gatherers."
+brown,brown_17,the,,the,the all many married most often older primate these                 ,"Since [the] women were busy with the children, [the] men handled the tools."
+brown,brown_18,the,,the,the all constructive many most older primate tough younger                 ,"Since [the] women were busy with the children, [the] men handled the tools."
+brown,brown_19,man's,,man's,man's able big closed coordinated creative deft empty free human human's hunter's learned needed needy person's right single skilled skillful small strong trained   ,"In a [man's] hand, a dead branch became a [tool] to knock down fruit or to [dig] for tasty roots."
+brown,brown_20,tool,,tool,tool club device instrument pole rod spear stick weapon                 ,"In a [man's] hand, a dead branch became a [tool] to knock down fruit or to [dig] for tasty roots."
+brown,brown_21,dig,,dig,dig burrow excavate probe search test                    ,"In a [man's] hand, a dead branch became a [tool] to knock down fruit or to [dig] for tasty roots."
+brown,brown_22,bone,,bone,bone arm easily foot had hide horn leg skull tusk                ,"Sometimes, an animal [bone] served as a club, and a [sharp] piece of stone, fitting comfortably into [the] hand, could be used to break [nuts] or to throw at an animal."
+brown,brown_23,sharp,,sharp,sharp big chipped fashioned flat hard heavy large rough round shaped sizeable small smooth solid strong soft thin        ,"Sometimes, an animal [bone] served as a club, and a [sharp] piece of stone, fitting comfortably into [the] hand, could be used to break [nuts] or to throw at an animal."
+brown,brown_24,the,,the,the a his man's one one's                    ,"Sometimes, an animal [bone] served as a club, and a [sharp] piece of stone, fitting comfortably into [the] hand, could be used to break [nuts] or to throw at an animal."
+brown,brown_25,nuts,,nuts,nuts apart bark bones branches coconuts down firewood food heads ice items meat objects open rocks shells sticks stone things tinder trees wood   ,"Sometimes, an animal [bone] served as a club, and a [sharp] piece of stone, fitting comfortably into [the] hand, could be used to break [nuts] or to throw at an animal."
+brown,brown_26,one,,one,one a each flat flint glass hard obsidian shale softer some the then this            ,[One] stone was chipped against another until [it] had a sharp edge.
+brown,brown_27,it,,it,it each one they                      ,[One] stone was chipped against another until [it] had a sharp edge.
+brown,brown_28,man,,man,man being creature human's hunter men owner people person                 ,"The primitive [man] who first thought of putting a [sharp] stone at the end of a [stick] made a brilliant discovery: he [had] joined two things to make a [very] useful tool, the spear."
+brown,brown_29,sharp,,sharp,sharp glass hard jagged large lime pointed sharpened small                 ,"The primitive [man] who first thought of putting a [sharp] stone at the end of a [stick] made a brilliant discovery: he [had] joined two things to make a [very] useful tool, the spear."
+brown,brown_30,stick,,stick,stick bone branch club log pole rod shaft                  ,"The primitive [man] who first thought of putting a [sharp] stone at the end of a [stick] made a brilliant discovery: he [had] joined two things to make a [very] useful tool, the spear."
+brown,brown_31,had,,had,had accidentally cleverly clumsily conveniently creatively dexterously double easily first ingeniously securely simply soon suddenly tastefully tightly then would       ,"The primitive [man] who first thought of putting a [sharp] stone at the end of a [stick] made a brilliant discovery: he [had] joined two things to make a [very] useful tool, the spear."
+brown,brown_32,very,,very,very bad extremely good hunter's incredibly intelligent long modern most necessarily new portentiously quite temendously useful          ,"The primitive [man] who first thought of putting a [sharp] stone at the end of a [stick] made a brilliant discovery: he [had] joined two things to make a [very] useful tool, the spear."
+brown,brown_33,in,,in,in all among amongst by inside on that using within                ,"Flint, found [in] many rocks, became a common cutting [tool] in the Paleolithic period of man's [development]."
+brown,brown_34,tool,,tool,tool device edge implement instrument item material method objects piece practice stone utensil             ,"Flint, found [in] many rocks, became a common cutting [tool] in the Paleolithic period of man's [development]."
+brown,brown_35,development,,development,development age ancestry discoveries era evolution existence exploration history life time               ,"Flint, found [in] many rocks, became a common cutting [tool] in the Paleolithic period of man's [development]."
+brown,brown_36,have,,have,have actually apparently ever                      ,"Since no wood or bone tools [have] survived, we know of this man [by] his stone implements, with which he [could] kill animals, cut up the meat, [and] scrape the skins, as well as [draw] pictures on the walls of the [cave] where he lived during the winter."
+brown,brown_37,by,,by,by and for from had made through used using                 ,"Since no wood or bone tools [have] survived, we know of this man [by] his stone implements, with which he [could] kill animals, cut up the meat, [and] scrape the skins, as well as [draw] pictures on the walls of the [cave] where he lived during the winter."
+brown,brown_38,could,,could,could did would                       ,"Since no wood or bone tools [have] survived, we know of this man [by] his stone implements, with which he [could] kill animals, cut up the meat, [and] scrape the skins, as well as [draw] pictures on the walls of the [cave] where he lived during the winter."
+brown,brown_39,and,,and,and carefully help or skillfully then would                   ,"Since no wood or bone tools [have] survived, we know of this man [by] his stone implements, with which he [could] kill animals, cut up the meat, [and] scrape the skins, as well as [draw] pictures on the walls of the [cave] where he lived during the winter."
+brown,brown_40,draw,,draw,draw carve create drawing engrave hang paint painting place sketch some the              ,"Since no wood or bone tools [have] survived, we know of this man [by] his stone implements, with which he [could] kill animals, cut up the meat, [and] scrape the skins, as well as [draw] pictures on the walls of the [cave] where he lived during the winter."
+brown,brown_41,cave,,cave,cave caves animals place places room                    ,"Since no wood or bone tools [have] survived, we know of this man [by] his stone implements, with which he [could] kill animals, cut up the meat, [and] scrape the skins, as well as [draw] pictures on the walls of the [cave] where he lived during the winter."
+brown,brown_42,in,,in,in and during with                      ,"[In] the warmer seasons, man wandered on [the] steppes of Europe without a fixed [home], always foraging for food."
+brown,brown_43,the,,the,the across aimless all barren in dry flat high long many plain stone through to toward unknown various        ,"[In] the warmer seasons, man wandered on [the] steppes of Europe without a fixed [home], always foraging for food."
+brown,brown_44,home,,home,home appetite camp course destination destiny diet direction domain foundation habitat income knowledge location lunch map meal path pattern place plan route supplement supply time weapons,"[In] the warmer seasons, man wandered on [the] steppes of Europe without a fixed [home], always foraging for food."
+brown,brown_45,women,,women,women children families group human hunter man men people primitives voyager wanderers woman             ,"Perhaps the [women] carried nuts and berries in shells [or] skins or even in light, woven [baskets]."
+brown,brown_46,or,,or,or and animal animal's covered in like often on their using with              ,"Perhaps the [women] carried nuts and berries in shells [or] skins or even in light, woven [baskets]."
+brown,brown_47,baskets,,baskets,baskets bags blankets chests cloth clothes fabric garments hides material nets pouches sacks             ,"Perhaps the [women] carried nuts and berries in shells [or] skins or even in light, woven [baskets]."
+brown,brown_48,made,,made,made began built lighted lit produced started used                  ,"Wherever they camped, the primitive people [made] fires by striking flint for sparks [and] using dried seeds, moss, and rotten [wood] for tinder."
+brown,brown_49,and,,and,and also by occasionally or then together while                  ,"Wherever they camped, the primitive people [made] fires by striking flint for sparks [and] using dried seeds, moss, and rotten [wood] for tinder."
+brown,brown_50,wood,,wood,wood bark branches dung forage grass leaves lumber roots skin timber tree trees             ,"Wherever they camped, the primitive people [made] fires by striking flint for sparks [and] using dried seeds, moss, and rotten [wood] for tinder."
+park&choi,steven_01,him,h,im,him,
+park&choi,steven_02,nice,n,ice,nice,
+park&choi,steven_03,visited,v,isted,visited,
+park&choi,steven_04,sweater,s,weater,sweater,
+park&choi,steven_05,small,s,mall,small,
+park&choi,steven_06,keep,k,eep,keep,
+park&choi,steven_07,away,a,way,away,
+park&choi,steven_08,day,d,ay,day,
+park&choi,steven_09,see,s,ee,see,
+park&choi,steven_10,said,s,aid,said,
+park&choi,steven_11,made,m,ade,made,
+park&choi,depression_12,life,l,ife,life,
+park&choi,depression_13,from,f,rom,from,
+park&choi,depression_14,someone,s,omeone,someone,
+park&choi,depression_15,experiencing,e,xperiencing,experiencing,
+park&choi,depression_16,anger,a,nger,anger,
+park&choi,depression_17,normal,n,atural,normal natural,
+park&choi,depression_18,family,f,amily,family,
+park&choi,depression_19,yourself,y,ourself,yourself,
+park&choi,depression_20,steps,s,teps,steps,
+park&choi,depression_21,about,a,bout,about,
+park&choi,depression_22,look,l,ook,look,
+park&choi,depression_23,health,h,ealth,health,
+park&choi,depression_24,act,a,act,act,
+park&choi,depression_25,allow,a,llow,allow,
+park&choi,communication_26,space,s,pace,space,
+park&choi,communication_27,shorter,s,maller,shorter smaller,
+park&choi,communication_28,intimate,i,ntimate,intimate,
+park&choi,communication_29,avoids,a,voids,avoids,
+park&choi,communication_30,uncomfortable,u,ncomfortable,uncomfortable uneasy,
+park&choi,communication_31,language,l,anguage,language,
+park&choi,communication_32,gestures,g,estures,gestures,
+park&choi,communication_33,making,m,aking,making,
+park&choi,communication34,fly,f,ly,fly,
+park&choi,communication_35,wings,w,ings,wings,
+park&choi,communication_36,verbal,v,erbal,verbal,
+park&choi,communication_37,in,i,n,in,
+park&choi,communication_38,raising,r,aising,raising,
+park&choi,communication_39,something,s,omething,something,
+park&choi,communication_40,differ,d,iffer,differ,
+park&choi,communication_41,looking,l,ooking,looking,
+park&choi,communication_42,rude,r,ude,rude,
+park&choi,communication_43,holding,h,olding,holding,
+park&choi,communication_44,cheek,c,heek,cheek cheeks,
+park&choi,communication_45,indication,i,ndication,indication,

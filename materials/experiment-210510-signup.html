@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/plugins/jspsych-survey-html-form.js"></script>
+    <script src="jspsych/plugins/jspsych-html-button-response.js"></script>
+    <script src="jspsych/plugins/jspsych-html-keyboard-response.js"></script>
+    <script src="jspsych/plugins/jspsych-preload.js"></script>
+    <meta http-equiv='content-Type' content='text/html; charset=UTF-8'/>
+    <link rel="stylesheet" href="jspsych/css/jspsych.css"></link>
+</head>
+<body></body>
+<script>
+
+    // ##### preliminaries #####
+
+    // capture url parameters
+    var study = jsPsych.data.getURLVariable('study');
+    var site = jsPsych.data.getURLVariable('site');
+
+    var study = 'ko210510su';
+    var site = 'ptt2';
+    var RUN_ID = 300;
+    var CONDITION = 1;
+
+    // define variable to capture email address
+
+    var email = '';
+
+    // set language
+
+    if (['ko210510do', 'ko210510su', 'ko210827'].includes(study)) {
+        var language = 'korean';
+    } else if (['zh210510do', 'zh210510su', 'zh210827'].includes(study)) {
+        var language = 'mandarin';
+    } else {
+        var language = 'english';
+    };
+    jsPsych.data.addProperties({language: language});
+
+    // set experiment as open or closed
+
+    if (RUN_ID > 300) {
+        var open = false;
+    } else {
+        var open = true;
+    }
+    jsPsych.data.addProperties({open: open});
+
+    // define media variable
+
+    var media = [
+        'img_confirmation.jpg',
+        'img_overview.jpg', 
+        'img_loading.jpg',
+        'img_signup.jpg',
+        'img_warning.png'
+    ];
+
+    // define variable to keep track of eligibility
+    var eligibility = true;
+
+    // ##### html #####
+
+    // button label html
+
+    var en_signup_label = 'Sign Up';
+    var en_submit_label = 'Submit';
+    var ko_signup_label = '실험에 등록';
+    var ko_submit_label = '제출';
+    var zh_signup_label = '報名參加實驗';
+    var zh_submit_label = '提交';
+
+    if (language == 'korean') {
+        signup_label = ko_signup_label;
+        submit_label = ko_submit_label;
+    } else if (language == 'mandarin') {
+        signup_label = zh_signup_label;
+        submit_label = zh_submit_label;
+    } else if (language == 'english') {
+        signup_label = en_signup_label;
+        submit_label = en_submit_label;
+    };
+
+    // eligibility criteria html
+
+    var en210510_criteria = 
+        '<ul>'+
+        '<li>You are 18 years of age or older</li>'+
+        '<li>You are a native speaker of Korean or Mandarin</li>'+
+        '<li>You started learning English at age 8 or older</li>'+
+        '<li>You have not already participated in one of this researcher\'s studies</li>'+
+        '</ul>'
+    ;
+    var ko210510_criteria = 
+        '<ul>'+
+        '<li>만 18세 이상</li>'+
+        '<li>한국어 원어민</li>'+
+        '<li>영어를 만 8세 이후에 처음 공부하기 시작한 분</li>'+
+        '<li>본 연구자의 이전 실험에 참여한 적이 없는 분</li>'+
+        '</ul>'
+    ;
+    var zh210510_criteria = 
+        '<ul>'+
+        '<li>18歲以上</li>'+
+        '<li>中文母語者</li>'+
+        '<li>8歲以後才開始學習英文</li>'+
+        '<li>您沒有參加過本研究者(Fred Zenker)的其他實驗</li>'+
+        '</ul>'
+    ;
+    var en210827_criteria = 
+        '<ul>'+
+        '<li>You are 18 years of age or older</li>'+
+        '<li>You are a native speaker of Korean or Mandarin</li>'+
+        '<li>You speak English as a second or foreign language</li>'+
+        '<li>You have not already participated in one of this researcher\'s studies</li>'+
+        '</ul>'
+    ;
+    var ko210827_criteria = 
+        '<ul>'+
+        '<li>만 18세 이상</li>'+
+        '<li>한국어 원어민</li>'+
+        '<li>영어를 제2언어 또는 외국어로 배운 분</li>'+
+        '<li>본 연구자의 이전 실험에 참여한 적이 없는 분</li>'+
+        '</ul>'
+    ;
+    var zh210827_criteria = 
+        '<ul>'+
+        '<li>18歲以上</li>'+
+        '<li>中文母語者</li>'+
+        '<li>英語是您的第二語言或外語</li>'+
+        '<li>您沒有參加過本研究者(Fred Zenker)的其他實驗</li>'+
+        '</ul>'
+    ;
+
+    // overview page html
+
+    var overview_header =
+        '<style>fieldset {border:1px solid #999;box-shadow:2px 2px 5px #999;} legend {background:#fff;text-align:left;font-size:110%;} p {text-align:left;} ul {text-align:left}</style>'+ 
+        '<img src="img_overview.jpg" height="150" title="image credit: pch.vector / Freepik (www.freepik.com)">'
+    ;
+
+    var en210510_overview_section1 = 
+        '<h3 style="text-align:center; font-size:125%;">English Language Experiment</h3>'+
+        '<fieldset><legend><b>Overview</b></legend>'+
+        '<p>Welcome! This experiment consists of five tasks designed to test how people process certain types of sentences in their first language and/or a second language. You can do all the tasks at once or spread them out over multiple days as long as you complete the entire experiment within seven days. At the end of each task, you will receive a new task ID that will allow you to proceed to the next task. The entire experiment should take 60&ndash;90 minutes.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>Eligibility Criteria</b></legend>'
+    ;
+    var en210827_overview_section1 = 
+        '<h3 style="text-align:center; font-size:125%;">English Language Experiment</h3>'+
+        '<fieldset><legend><b>Overview</b></legend>'+
+        '<p>Welcome! In this experiment, you will complete a language background survey and five tasks that involve speaking, writing, and filling in the blanks in passages. The entire experiment should take about 30&ndash;45 minutes.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>Eligibility Criteria</b></legend>'
+    ;
+    var en_overview_section2 = 
+        '</fieldset><br>'+
+        '<fieldset><legend><b>Equipment Needed</b></legend>'+
+        '<p>The experiment must be completed on a laptop or desktop computer running the Chrome or Firefox browser. Do not attempt to do it on a smartphone or a tablet. Because one of the tasks involves recording short audio samples, you should make sure that your computer is capable of recording audio before starting the experiment. Most computers have built-in microphones that allow users to make audio recordings.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>Eliminating Distractions</b></legend>'+
+        '<p>This experiment collects valuable data for a dissertation research project. It is therefore important that you give the tasks your full attention and that you make sure you are in a quiet and distraction-free location before getting started. Please close all unrelated browser windows and refrain from using resources such as dictionaries and search engines while you are participating. If you need to, you can leave this page now and return later when you have found a suitable place to participate.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>Participant Compensation</b></legend>'
+    ;
+    var en210510_overview_section3 = 
+        '<p>I am offering 15,000 KRW / 400 NTD as a reward for completing the experiment. '
+    ; 
+    var en210827_overview_section3 = 
+        '<p>I am offering 7,500 KRW / 180 NTD as a reward for completing the experiment. '
+    ;    
+    var en_overview_section4 =
+        'At the end of the final task, you will be asked to provide the following information so that I can transfer the funds to your Korean or Taiwanese bank account: (1) name of bank, (2) name of account holder, (3) account number. I do my best to process payments within 72 hours of receiving participant submissions. You should feel confident that your submission will be accepted as long as you read the instructions carefully and complete each task to the best of your ability. Feel free to contact me at fzenker@hawaii.edu if you have questions about participant compensation.</p></fieldset><br>'
+    ;
+
+    var ko210510_overview_section1 = 
+        '<h3 style="text-align:center; font-size:125%;">영어와 한국어에 관한 언어 실험</h3>'+
+        '<fieldset><legend><b>실험 설명</b></legend>'+
+        '<p>안녕하세요! 본 실험은 다섯 개의 과제로 이루어져 있습니다. 실험 전체를 한 번에 다 끝낼 수도 있고, 각 과제 하나씩 나눠서 할 수도 있습니다. 과제 전체는 시작 후 7일 이내에 완료하여 주시기 바랍니다. 각 과제의 마지막 부분에서 다음 과제로 진행할 수 있는 새로운 과제ID가 주어질 것입니다. 실험 전체는 60&ndash;90분 정도 소요될 것이라 예상됩니다.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>실험 참가 자격 요건</b></legend>'
+    ;
+    var ko210827_overview_section1 = 
+        '<h3 style="text-align:center; font-size:125%;">영어에 관한 언어 실험</h3>'+
+        '<fieldset><legend><b>실험 설명</b></legend>'+
+        '<p>안녕하세요! 본 실험에서는 언어 배경 관련 설문조사와 말하기, 쓰기, 빈칸 채우기와 같은 다섯 개의 짧은 영어 과제를 하실 것입니다. 실험 전체는 30&ndash;45분 정도 소요될 것이라 예상됩니다.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>실험 참가 자격 요건</b></legend>'
+    ;
+    var ko_overview_section2 =
+        '</fieldset><br>'+
+        '<fieldset><legend><b>필요 기기</b></legend>'+
+        '<p>본 실험은 크롬이나 파이어폭스 브라우저로 노트북이나 컴퓨터로만 접속하실 수 있습니다 (스마트폰이나 태블릿 사용 불가). 한 과제는 짧은 녹음을 답변으로 제출해야 하기 때문에 실험 시작 전 컴퓨터로 녹음이 가능한 지 확인하여 주시기 바랍니다. 대부분의 컴퓨터는 마이크가 내장되어 있어 녹음이 가능할 것으로 예상됩니다.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>방해 요소 제거</b></legend>'+
+        '<p>본 실험은 논문 연구에 매우 중요한 자료를 수집하는 것을 목적으로 합니다. 그러므로 과제를 수행하실 때 최대한 집중하실 수 있도록 방해 요소가 없는 조용한 장소에서 참여하여 주시기 바랍니다. 실험 외의 다른 브라우저나 프로그램은 닫아 주시기 바랍니다. 더하여, 실험 중 검색이나 사전 등 다른 자료를 사용하는 것을 자제하여 주십시오. 필요하시다면, 실험을 할 수 있는 적합한 장소에서 다시 접속하여 주시기 바랍니다.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>실험 참가 사례금</b></legend>'
+    ;
+    var ko210510_overview_section3 =
+        '<p>실험에 참가하시는 분들께 15,000원의 사례금을 드립니다. '
+    ;
+    var ko210827_overview_section3 =
+        '<p>실험에 참가하시는 분들께 7,500원의 사례금을 드립니다. '
+    ;
+    var ko_overview_section4 =            
+        '사례금은 한국의 계좌로 이체될 예정이며, 실험 마지막 부분에 (1) 은행명, (2) 예금주 명, (3) 계좌번호를 작성하여 주시면 해당 계좌로 송금될 것입니다. 더하여 송금 관련하여 연구자가 연락을 드릴 수 있도록 이메일 주소도 남겨주시면 감사하겠습니다. 실험 참가비는 72시간 이내에 지급될 수 있도록 최선을 다하겠습니다. 사례금 관련하여 질문사항이 있으시면 저에게 이메일 fzenker@hawaii.edu로 연락주시기 바랍니다.</p></fieldset><br>'
+    ;
+
+    var zh210510_overview_section1 = 
+        '<h3 style="text-align:center; font-size:125%;">中英文語言實驗</h3>'+
+        '<fieldset><legend><b>流程說明</b></legend>'+
+        '<p>這個實驗一共包含五項測驗，目的在於了解人們如何用他們的母語或/和第二語言處理某些類型的句子。您可以選擇一次做完所有測驗，或者在七天內分批做完各項測驗。在每個測驗的最後，您會收到一組新的測驗序號。透過這組序號，您可以繼續下一個測驗。完成整個實驗大概需要60&ndash;120分鐘。</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>參加資格</b></legend>'
+    ;
+    var zh210827_overview_section1 = 
+        '<h3 style="text-align:center; font-size:125%;">English Language Experiment</h3>'+
+        '<fieldset><legend><b>Overview</b></legend>'+
+        '<p>Welcome! In this experiment, you will complete a language background survey and five tasks that involve speaking, writing, and filling in the blanks in passages. The entire experiment should take about 30&ndash;45 minutes.</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>Eligibility Criteria</b></legend>'
+    ;
+    var zh_overview_section2 = 
+        '</fieldset><br>'+
+        '<fieldset><legend><b>設備條件</b></legend>'+
+        '<p>整個實驗必須使用能連接穩定網路的筆電或桌電，而且要能開啟Google或Firefox瀏覽器。請務必不要使用手機或平板來完成實驗。請確認您使用的設備可以錄音，因為其中一項測驗將會需要您錄製簡短的音檔。大多數的電腦都有內建的麥克風可以錄音。另外，請確認您的瀏覽器可以顯示跳出式視窗。</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>減少分心的事物</b></legend>'+
+        '<p>這個實驗蒐集的數據會拿來當博士論文的研究資料，因此需要您在參與實驗時能有高度的專心。例如，做實驗的環境請務必安靜且沒有干擾；關掉所有不相關的視窗；實驗中不要使用任何字典或網頁。如果有必要，您可以登出實驗，找到理想無干擾的環境再繼續參加實驗。</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>實驗報酬</b></legend>'
+    ;
+    var zh210510_overview_section3 = 
+        '<p>我將會提供完成所有實驗的受試者新台幣400元當作報酬。 '
+    ;
+    var zh210827_overview_section3 = 
+        '<p>I am offering 180 NTD as a reward for completing the experiment. '
+    ;    
+    var zh_overview_section4 =
+        '在最後一個測驗之後，系統會請您提供以下資訊，以助我匯款到您台灣的銀行帳戶：(1)銀行名稱，（2）收款人姓名，（3）銀行帳號。我會盡力在收到您的資料後72小時內完成匯款。如果您仔細遵守實驗說明，並盡力完成每一項測驗，那麼您可以預期繳交的資料被受理。如果您對轉帳資訊有任何疑慮，歡迎寄信到fzenker@hawaii.edu （中英文皆可）。</p></fieldset><br>'
+    ;
+
+    var en210510_overview = 
+        overview_header + 
+        en210510_overview_section1 +
+        en210510_criteria +
+        en_overview_section2 +
+        en210510_overview_section3 +
+        en_overview_section4
+    ;
+    var ko210510_overview = 
+        overview_header + 
+        ko210510_overview_section1 +
+        ko210510_criteria +
+        ko_overview_section2 +
+        ko210510_overview_section3 +
+        ko_overview_section4
+    ;
+    var zh210510_overview = 
+        overview_header + 
+        zh210510_overview_section1 +
+        zh210510_criteria +
+        zh_overview_section2 +
+        zh210510_overview_section3 +
+        zh_overview_section4
+    ;
+
+    var en210827_overview = 
+        overview_header + 
+        en210827_overview_section1 +
+        en210827_criteria +
+        en_overview_section2 +
+        en210827_overview_section3 +
+        en_overview_section4
+    ;
+    var ko210827_overview = 
+        overview_header + 
+        ko210827_overview_section1 +
+        ko210827_criteria +
+        ko_overview_section2 +
+        ko210827_overview_section3 +
+        ko_overview_section4
+    ;
+    var zh210827_overview = 
+        overview_header + 
+        zh210827_overview_section1 +
+        zh210827_criteria +
+        zh_overview_section2 +
+        zh210827_overview_section3 +
+        zh_overview_section4
+    ;
+
+    var overview_html = function() {
+        if (study == 'ko210827') {
+            return ko210827_overview;
+        } else if (study == 'zh210827') {
+            return zh210827_overview;
+        } else if (study == 'en210827') {
+            return en210827_overview;
+        } else if (['ko210510do', 'ko210510su'].includes(study)) {
+            return ko210510_overview;
+        } else if (['zh210510do', 'zh210510su'].includes(study)) {
+            return zh210510_overview;
+        } else if (['en210510do', 'en210510su'].includes(study)) {
+            return en210510_overview;
+        }
+    };
+
+    // signup form html
+
+    var signup_header =
+        '<style>p {text-align:center; spellcheck=false;} input[type="text"] {width:25ch;} fieldset {border:1px solid #999;box-shadow:2px 2px 5px #999; margin:0 auto;} legend {background:#fff;text-align:left;font-size:110%;} td {padding:5px;} ul {text-align:left; display: table; margin: 0 auto;}</style>'+
+        '<img src="img_signup.jpg" height="150" title="image credit: redgreystock / Freepik (www.freepik.com)"><br>'
+    ;
+    var en_signup_section1 =
+        '<span style="font-size:125%; font-weight:bold;">Signup Form</span>'+
+        '<fieldset><legend><b>1</b></legend>'+
+        '<p>Do you meet all the criteria for participating in this experiment?</p>'
+    ;
+    var ko_signup_section1 =
+        '<span style="font-size:125%; font-weight:bold;">언어실험 신청 양식</span>'+
+        '<fieldset><legend><b>1</b></legend>'+
+        '<p>실험 참가 자격을 모두 충족하십니까?</p>'
+    ;
+    var zh_signup_section1 =
+        '<span style="font-size:125%; font-weight:bold;">報名表</span>'+
+        '<fieldset><legend><b>1</b></legend>'+
+        '<p>請問您符合以下所有參加本研究的條件嗎？</p>'
+    ;
+    var en_signup_section2 =
+        '<p><input type="radio" name="eligible" value="yes" required>Yes '+
+        '<input type="radio" name="eligible" value="no">No</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>2</b></legend>'+
+        '<p>Where did you find out about this experiment?</p>'+
+        '<p><input type="text" name="source" style="width:28ch;" required></p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>3</b></legend>'+
+        '<p>Please provide your email address in case I need to contact you about your participation in the experiment.</p>'+
+        '<p><input type="email" name="email" style="width:28ch;" required></p>'+
+        '</fieldset><br>'
+    ;
+    var ko_signup_section2 =
+        '<p><input type="radio" name="eligible" value="yes" required>네 '+
+        '<input type="radio" name="eligible" value="no">아니오</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>2</b></legend>'+
+        '<p>실험에 대해 어디서 알게 되셨나요? (예: 스누라이프, 이화이언)</p>'+
+        '<p><input type="text" name="source" style="width:28ch;" required></p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>3</b></legend>'+
+        '<p>실험 참가 관련하여 필요한 경우 연락드릴 수 있도록 이메일주소를 남겨주시기 바랍니다. </p>'+
+        '<p><input type="email" name="email" style="width:28ch;" required></p>'+
+        '</fieldset><br>'
+    ;
+    var zh_signup_section2 =
+        '<p><input type="radio" name="eligible" value="yes" required>是 '+
+        '<input type="radio" name="eligible" value="no">否</p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>2</b></legend>'+
+        '<p>您透過什麼方式得知關於這項實驗？</p>'+
+        '<p><input type="text" name="source" style="width:28ch;" required></p>'+
+        '</fieldset><br>'+
+        '<fieldset><legend><b>3</b></legend>'+
+        '<p>請提供您的電子信箱，讓研究者在實驗階段有需要的時候能聯絡得到您，謝謝。</p>'+
+        '<p><input type="email" name="email" style="width:28ch;" required></p>'+
+        '</fieldset><br>'
+    ;
+
+    var en210510_signup = 
+        signup_header + 
+        en_signup_section1 +
+        en210510_criteria +
+        en_signup_section2
+    ;
+    var ko210510_signup = 
+        signup_header + 
+        ko_signup_section1 +
+        ko210510_criteria +
+        ko_signup_section2
+    ;
+    var zh210510_signup = 
+        signup_header + 
+        zh_signup_section1 +
+        zh210510_criteria +
+        zh_signup_section2
+    ;
+
+    var en210827_signup = 
+        signup_header + 
+        en_signup_section1 +
+        en210827_criteria +
+        en_signup_section2
+    ;
+    var ko210827_signup = 
+        signup_header + 
+        ko_signup_section1 +
+        ko210827_criteria +
+        ko_signup_section2
+    ;
+    var zh210827_signup = 
+        signup_header + 
+        zh_signup_section1 +
+        zh210827_criteria +
+        zh_signup_section2
+    ;
+
+    var signup_html = function() {
+        if (study == 'ko210827') {
+            return ko210827_signup;
+        } else if (study == 'zh210827') {
+            return zh210827_signup;
+        } else if (study == 'en210827') {
+            return en210827_signup;
+        } else if (['ko210510do', 'ko210510su'].includes(study)) {
+            return ko210510_signup;
+        } else if (['zh210510do', 'zh210510su'].includes(study)) {
+            return zh210510_signup;
+        } else if (['en210510do', 'en210510su'].includes(study)) {
+            return en210510_signup;
+        }
+    };
+
+    // ineligible message html
+
+    var ineligible_header =
+        '<style>p {text-align:left;} li {margin-bottom:10px} ul {text-align:left}</style>'+
+        '<img src="img_warning.png" height="150" title="image credit: Flaticon / Freepik (www.freepik.com)"><br>'
+    ;
+    var en_ineligible_section1 =
+        '<h3 style="text-align:center">Notice of Ineligibility to Participate</h3>'+
+        '<p>According to the responses you gave, it appears that you are not eligible to participate in the experiment. As a reminder, the experiment is currently only open to those who meet the following criteria:</p>'
+    ;
+    var ko_ineligible_section1 =
+        '<h3 style="text-align:center">실험 조건 부적합 안내</h3>'+
+        '<p>작성하여 주신 답변에 따르면 본 실험에 참가할 수 없습니다. 실험은 아래의 조건에 부합하는 사람만을 대상으로 하고 있습니다:</p>'
+    ;
+    var zh_ineligible_section1 =
+        '<h3 style="text-align:center">注意：不符合參加資格</h3>'+
+        '<p>根據您提供的回答，您可能不符合參加本次實驗的標準。本次實驗僅開放給符合以下標準者：</p>'
+    ;
+    var en_ineligible_section2 =
+        '<p>If you believe that you have received this message in error, please contact me at fzenker@hawaii.edu.</p>'
+    ;
+    var ko_ineligible_section2 =
+        '<p>만약 위의 조건에 부합한다고 생각되신다면 연구자에게 fzenker@hawaii.edu로 메일을 보내주시기 바랍니다.</p>'
+    ;
+    var zh_ineligible_section2 =
+        '<p>如果您相信您不該收到這份不符合資格的訊息，請您聯絡我 fzenker@hawaii.edu.</p>'
+    ;
+
+    var en210510_ineligible = 
+        ineligible_header + 
+        en_ineligible_section1 +
+        en210510_criteria +
+        en_ineligible_section2
+    ;
+    var ko210510_ineligible = 
+        ineligible_header + 
+        ko_ineligible_section1 +
+        ko210510_criteria +
+        ko_ineligible_section2
+    ;
+    var zh210510_ineligible = 
+        ineligible_header + 
+        zh_ineligible_section1 +
+        zh210510_criteria +
+        zh_ineligible_section2
+    ;
+
+    var en210827_ineligible = 
+        ineligible_header + 
+        en_ineligible_section1 +
+        en210827_criteria +
+        en_ineligible_section2
+    ;
+    var ko210827_ineligible = 
+        ineligible_header + 
+        ko_ineligible_section1 +
+        ko210827_criteria +
+        ko_ineligible_section2
+    ;
+    var zh210827_ineligible = 
+        ineligible_header + 
+        zh_ineligible_section1 +
+        zh210827_criteria +
+        zh_ineligible_section2
+    ;
+
+    var ineligible_html = function() {
+        if (study == 'ko210827') {
+            return ko210827_ineligible;
+        } else if (study == 'zh210827') {
+            return zh210827_ineligible;
+        } else if (study == 'en210827') {
+            return en210827_ineligible;
+        } else if (['ko210510do', 'ko210510su'].includes(study)) {
+            return ko210510_ineligible;
+        } else if (['zh210510do', 'zh210510su'].includes(study)) {
+            return zh210510_ineligible;
+        } else if (['en210510do', 'en210510su'].includes(study)) {
+            return en210510_ineligible;
+        }
+    };
+
+    // loading message html
+
+    var loading_header = 
+        '<img src="img_loading.jpg" height="150" title="image credit: tenor (tenor.com)"><br>'
+    ;
+    var en_loading_html = 
+        '<p>Loading. Please wait.</p>'
+    ;
+    var ko_loading_html = 
+        '<p>로딩중입니다. 잠시만 기다려 주십시오.</p>'
+    ;
+    var zh_loading_html = 
+        '<p>下載中，請稍等。</p>'
+    ;
+
+    var loading_html = function() {
+        if (language == 'korean') {
+            return loading_header + ko_loading_html;
+        } else if (language == 'mandarin') {
+            return loading_header + zh_loading_html;
+        } else {
+            return loading_header + en_loading_html;
+        }
+    };  
+
+    // set list of letters to use in participant id
+
+    var letters = [
+        'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z'
+    ];
+
+    // set participant id
+
+    var participant = 
+        jsPsych.randomization.sampleWithReplacement(letters, 1) +
+        jsPsych.randomization.sampleWithReplacement(letters, 1) +
+        jsPsych.randomization.sampleWithReplacement(letters, 1) +
+        jsPsych.randomization.sampleWithReplacement(letters, 1) +
+        jsPsych.randomization.sampleWithReplacement(letters, 1) +
+        RUN_ID +
+        CONDITION
+    ;
+    jsPsych.data.addProperties({participant: participant});
+
+    // set 'link' variables
+
+    if (study == 'ko210510do') {
+        var link = 'https://e9rwki50xj.cognition.run';
+    } else if (study == 'ko210510su') {
+        var link = 'https://vf52sbyg1h.cognition.run';
+    } else if (study == 'ko210827') {
+        var link = 'https://5jh5le9qfp.cognition.run';
+    } else if (study == 'zh210510do') {
+        var link = 'https://ehwawywleo.cognition.run';
+    } else if (study == 'zh210510su') {
+        var link = 'https://msutmlzisp.cognition.run';
+    } else if (study == 'zh210827') {
+        var link = 'https://5jh5le9qfp.cognition.run/?language=mandarin';
+    };
+    jsPsych.data.addProperties({link: link});
+
+    // task id
+
+    en_task = 
+        '<tr>' +
+            '<td>' +
+                'Task ID for the 1st Task:' +
+            '</td>' +
+            '<td>' +
+                'apple' +
+            '</td>' +
+        '</tr>'
+    ;
+    ko_task = 
+        '<tr>' +
+            '<td>' +
+                '첫번째 과제ID:' +
+            '</td>' +
+            '<td>' +
+                'apple' +
+            '</td>' +
+        '</tr>'
+    ;
+    zh_task = 
+        '<tr>' +
+            '<td>' +
+                '第一組測驗序號：' +
+            '</td>' +
+            '<td>' +
+                'apple' +
+            '</td>' +
+        '</tr>'
+    ;
+
+    if (['ko210510do', 'ko210510su'].includes(study)) {
+        var task = ko_task;
+    } else if (['zh210510do', 'zh210510su'].includes(study)) {
+        var task = zh_task;
+    } else if (['en210510do', 'en210510su'].includes(study)) {
+        var task = en_task;
+    } else {
+        var task = '';
+    };
+
+    // information page html
+
+    var info_header =
+        '<style>ul {text-align:left; width:75ch;} li {margin: 10px 0;} table {margin:auto; border:2px; border-style:ridge; text-align:left;} td {vertical-align:middle; padding:1em;} .form {margin:auto; border:2px; border-style:ridge; padding:1em; text-align:left; width:45ch;}</style>'+ 
+        '<img src="img_confirmation.jpg" height="150" title="image credit: stories / Freepik (www.freepik.com)"><br>'
+    ;
+
+    var en_info_text = 
+        '<span style="font-size:125%; font-weight:bold;">Thank you for signing up!</span>'+
+        '<p>You can access the experiment using the information below.</p>' +
+        '<table>' +
+            '<tr>' +
+                '<td>' +
+                    'Experiment Link:' +
+                '</td>' +
+                '<td>' +
+                    '<a href="' +
+                    link +
+                    '" target="_blank">' +
+                    link +
+                    '</a>' +
+                '</td>' +
+            '</tr>' +
+            '<tr>' +
+                '<td>' +
+                    'Participant ID:' + 
+                '</td>' +
+                '<td>' + 
+                    participant + 
+                '</td>' +
+            '</tr>' +
+            task +
+        '</table>' +
+        '<ul>' +
+            '<li>' +
+                'Keep this information somewhere safe, because you will need it when you are taking the experiment.' +
+            '</li>' +
+            '<li>' +
+                'If however you do misplace the information, you can contact me at fzenker@hawaii.edu and I will send it to you.' +
+            '</li>' +
+            '<li>' +
+                'You can start now or wait and participate later, as long as you complete the experiment within the next 7 days.' +
+            '</li>' +
+        '</ul>'
+    ;
+
+    var ko_info_text = 
+        '<span style="font-size:125%; font-weight:bold;">감사합니다!</span>'+
+        '<p>저의 실험에 참여 신청을 해주셔서 감사합니다. 아래 정보를 사용하여 실험을 시작하실 수 있습니다.</p>' +
+        '<table>' +
+            '<tr>' +
+                '<td>' +
+                    '실험 링크:' +
+                '</td>' +
+                '<td>' +
+                    '<a href="' +
+                    link +
+                    '" target="_blank">' +
+                    link +
+                    '</a>' +
+                '</td>' +
+            '</tr>' +
+            '<tr>' +
+                '<td>' +
+                    '참가ID:' + 
+                '</td>' +
+                '<td>' + 
+                    participant + 
+                '</td>' +
+            '</tr>' +
+            task +
+        '</table>' +
+        '<ul>' +
+            '<li>' +
+                '실험을 할 때 필요하므로 위의 정보를 안전한 곳에 저장하여 주시기 바랍니다.' +
+            '</li>' +
+            '<li>' +
+                '만약 정보를 잃어버리신 경우 fzenker@hawaii.edu로 연락주시기 바랍니다.' +
+            '</li>' +
+            '<li>' +
+                '실험은 바로 시작하거나, 7일 이내에만 완료하신다면 언제든 편하신 시간대에 시작할 수 있습니다.' +
+            '</li>' +
+        '</ul>'
+    ;
+
+    var zh_info_text = 
+        '<span style="font-size:125%; font-weight:bold;">感謝您的報名！</span>'+
+        '<p>您可以透過以下資訊連結到本實驗：</p>' +
+        '<table>' +
+            '<tr>' +
+                '<td>' +
+                    '實驗連結：' +
+                '</td>' +
+                '<td>' +
+                    '<a href="' +
+                    link +
+                    '" target="_blank">' +
+                    link +
+                    '</a>' +
+                '</td>' +
+            '</tr>' +
+            '<tr>' +
+                '<td>' +
+                    '受試者序號 (ID)：' + 
+                '</td>' +
+                '<td>' + 
+                    participant + 
+                '</td>' +
+            '</tr>' +
+            task +
+        '</table>' +
+        '<ul>' +
+            '<li>' +
+                '請妥善保存實驗連結和受試者序號 (ID)，因為每次開啟實驗時，您都需要這組資訊。' +
+            '</li>' +
+            '<li>' +
+                '如果您不慎遺失此組資訊，請用fzenker@hawaii.edu聯絡我，我會將資訊發送給您。' +
+            '</li>' +
+            '<li>' +
+                '您可以現在馬上開始實驗或者等等再做，但麻煩您在接下來的七天內完成。' +
+            '</li>' +
+        '</ul>'
+    ;
+
+    var en_info =
+        info_header +
+        en_info_text
+    ;
+    var ko_info =
+        info_header +
+        ko_info_text
+    ;
+    var zh_info =
+        info_header +
+        zh_info_text
+    ;
+
+    // closed message html
+
+    var closed_header =
+        '<style>p {text-align:left;} li {margin-bottom:10px} ul {text-align:left}</style>'+
+        '<img src="img_warning.png" height="150" title="image credit: Flaticon / Freepik (www.freepik.com)"><br>'
+    ;
+    var en_closed = 
+        '<h3 style="text-align:center">Experiment Closed</h3>'+
+        '<p>The experiment is currently closed due to a large number of signups.</p>'+
+        '<p>I will email you within the next few days if I decide to open it back up for more participants.</p>'+
+        '<p>Thank you again for your interest in this research.</p>'
+    ;
+    var ko_closed = 
+        '<h3 style="text-align:center">죄송합니다</h3>'+
+        '<p>현재는 참가자의 수가 많아 실험 참가신청을 받지 않습니다.</p>'+
+        '<p>수일 이내로 참가 모집을 다시 시작하는 경우 이메일로 연락드리겠습니다.</p>'+
+        '<p>저희 실험에 관심을 가져주셔서 감사합니다.</p>'
+    ;
+    var zh_closed = 
+        '<h3 style="text-align:center">已徵滿受試者</h3>'+
+        '<p>因大量報名人數，此實驗目前暫時不再新徵受試者</p>'+
+        '<p>如果我決定重開實驗，我會在幾天內再行email通知您</p>'+
+        '<p>非常感謝您對本實驗的興趣</p>'
+    ;
+
+    if (language == 'korean') {
+        var closed_html = closed_header + ko_closed;
+    } else if (language == 'mandarin') {
+        var closed_html = closed_header + zh_closed;
+    } else {
+        var closed_html = closed_header + en_closed;
+    };
+
+    // ##### procedure #####
+
+    // create main timeline for experiment
+
+    let timeline = [];
+
+    // overview page
+
+    var overview = {
+        type: 'html-button-response',
+        data: {trial_name: 'overview'},
+        choices: [signup_label],
+        stimulus: overview_html,
+        show_clickable_nav: true,
+    };
+
+    var preload = {
+        type: 'preload',
+        images: media,
+        on_finish: function() {
+            console.log('study: ', study);
+            console.log('language: ', language);
+        }
+    };
+
+    var overview_conditional = {
+        timeline: [overview, preload],
+        conditional_function: function() {
+            if (site == 'ptt2') {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    };
+    timeline.push(overview_conditional);
+
+    // signup form
+
+    var signup = {
+        type: 'survey-html-form',
+        data: {trial_name: 'signup'},
+        button_label: submit_label,
+        html: signup_html,
+        on_finish: function(data){
+            var qualified = true;
+            email = data.response.email;
+            console.log('eligible: ', data.response.eligible);
+            console.log('email: ', email);
+            if(data.response.eligible == 'no') {
+                qualified = false;
+            }
+            console.log('qualified: ', qualified);
+            eligibility = qualified;
+            console.log('eligibility: ', eligibility);
+        }
+    };
+
+    var ineligible_message = {
+        type: 'html-keyboard-response',
+        data: {trial_name: 'ineligible_message'},
+        stimulus: ineligible_html,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: null,
+    };
+
+    var ineligible_message_conditional = {
+        timeline: [ineligible_message],
+        conditional_function: function() {
+            if (eligibility == false) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var signup_section = {
+        timeline: [signup, ineligible_message_conditional],
+        randomize_order: false,
+        on_finish: function() {
+            jsPsych.getDisplayElement().innerHTML = loading_html;
+        }
+    };
+    timeline.push(signup_section);
+
+    // initiate experiment
+
+    jsPsych.init({
+        timeline: timeline,
+        show_preload_progress_bar: true,
+        on_finish: function() {
+            if (open == false) {
+                jsPsych.getDisplayElement().innerHTML = closed_html;
+            } else if (language == 'korean') {
+                jsPsych.getDisplayElement().innerHTML = ko_info;
+            } else if (language == 'mandarin') {
+                jsPsych.getDisplayElement().innerHTML = zh_info;
+            } else {
+                jsPsych.getDisplayElement().innerHTML = en_info;
+            }
+        }
+    });
+
+</script>
+</html>

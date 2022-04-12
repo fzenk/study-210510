@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/plugins/jspsych-call-function.js"></script>
+    <script src="jspsych/plugins/jspsych-instructions.js"></script>
+    <script src="jspsych/plugins/jspsych-html-button-response.js"></script>
+    <script src="jspsych/plugins/jspsych-html-keyboard-response.js"></script>
+    <script src="jspsych/plugins/jspsych-survey-html-form.js"></script>
+    <script src="jspsych/plugins/jspsych-survey-text.js"></script>
+    <script src="jspsych/plugins/jspsych-fullscreen.js"></script>
+    <script src="jspsych/plugins/jspsych-preload.js"></script>
+    <script src="jspsych-comprehension-question.js"></script>
+    <script src="jspsych-elicited-production-setup.js"></script>
+    <script src="jspsych-elicited-production-response.js"></script>
+    <script src="jspsych-moving-window.js"></script>
+    <script src="jspsych-acceptability-judgment.js"></script>
+    <script src="instructions.js"></script>
+    <script src="shuffle.js"></script>
+    <script src="trial-info.js"></script>
+    <link rel="stylesheet" href="jspsych/css/jspsych.css"></link>
+</head>
+<body></body>
+<script>
+
+    // *** preliminaries ***
+
+    // capture url parameters
+    var participant = jsPsych.data.getURLVariable('participant');
+    jsPsych.data.addProperties({participant: participant});
+
+    // define running list
+    var running_list = CONDITION;
+    console.log('running_list: ', running_list);
+    jsPsych.data.addProperties({
+        running_list: running_list
+    });
+
+    // create main timeline for experiment
+    let timeline = [];
+
+    // preload media
+
+    var preload = {
+        type: 'preload',
+        images: media,
+    }
+    timeline.push(preload);
+
+    // consent form
+
+     var consent = {
+        type: 'survey-html-form',
+        data: {trial_name: 'consent'},
+        button_label: en_continue_label,
+        html: lbc_consent_html,
+        on_load: function() {
+        document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(consent);
+
+    // language survey
+
+    var language_survey = {
+        type: 'survey-html-form',
+        data: {trial_name: 'language_survey'},
+        button_label: en_continue_label,
+        html: en_language_survey_html,
+    };
+
+    var language_survey_section = {
+        timeline: [language_survey],
+        randomize_order: false,
+        on_load: function() {
+            document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(language_survey_section);
+
+    // *** task 1: elicited production task ***
+
+    // define running order for stimuli
+    var plist1 = rshuffle(spx1, pfill);
+    var plist2 = rshuffle(spx2, pfill);
+    var plist3 = rshuffle(spx3, pfill);
+
+    var ept_instructions = {
+        type: 'survey-html-form',
+        data: {trial_name: 'ept_instructions'},
+        button_label: en_continue_label,
+        html: en_ept_instructions_html,
+    };
+
+    var ept_prac_alert = {
+        type: 'html-button-response',
+        stimulus: en_ept_prac_alert_stimulus,
+        choices: [en_continue_label],
+    };
+
+    var ept_prac_setup = {
+        type: 'html-button-response',
+        stimulus: jsPsych.timelineVariable('stimulus1'),
+        choices: [en_continue_label],
+        data: {
+            trial_name: 'ept_practice',
+            trial_part: 'ept_prac_setup',
+        }
+    };
+
+    var ept_prac_response = {
+        type: 'html-button-response',
+        data: {
+            item: jsPsych.timelineVariable('item'),
+            correct: jsPsych.timelineVariable('correct'),
+            trial_name: 'ept_practice',
+            trial_part:'ept_prac_question',
+        },
+        stimulus: jsPsych.timelineVariable('stimulus2'),
+        choices: jsPsych.timelineVariable('choices'),
+        on_finish: function(data) {
+            var acc = false;
+            console.log('data.correct: ', data.correct);
+            console.log('data.response: ', data.response);
+            if (data.correct == data.response) {
+                acc = true;
+            }
+            data.accuracy = acc;
+            console.log('data.accuracy: ', data.accuracy);
+        }
+    };
+  
+    var ept_prac_feedback = {
+        type: 'html-keyboard-response',
+        stimulus: en_incorrect_stimulus,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 3000,
+    };
+
+    var ept_prac_feedback_conditional = {
+        timeline: [ept_prac_feedback],
+        conditional_function: function() {
+            var last_resp_acc = jsPsych.data.getLastTrialData().values()[0].accuracy;
+            if (last_resp_acc == false) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ept_prac_procedure = {
+        timeline: [ept_prac_setup, ept_prac_response, ept_prac_feedback_conditional],
+        timeline_variables: ept_prac_list,
+        randomize_order: true,
+    };
+
+    var ept_repeat_instructions_message = {
+        type: 'html-button-response',
+        stimulus: en_repeat_instructions_stimulus,
+        choices: [en_continue_label],
+    };
+
+    var ept_repeat_instructions_conditional = {
+        timeline: [ept_repeat_instructions_message],
+        conditional_function: function() {
+            var last_prac_trials = jsPsych.data.get().filter({trial_part:'ept_prac_question'}).last(ept_prac_list.length);
+            var n_correct = last_prac_trials.filter({accuracy: true}).count();
+            var prop_corr = n_correct/ept_prac_list.length;
+            if (prop_corr < 1) {
+                repeat_prac = true;
+                return true;
+            } else {
+                repeat_prac = false;
+                return false;
+            }
+        }
+    };
+
+    var ept_instructions_prac_loop = {
+        timeline: [ept_instructions, ept_prac_alert, ept_prac_procedure, ept_repeat_instructions_conditional],
+        loop_function: function() {
+            if (repeat_prac == true) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+        on_load: function() {
+            document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(ept_instructions_prac_loop);
+
+    var start_task1 = {
+        type: 'fullscreen',
+        fullscreen_mode: true,
+        message: en_start_task1_message,
+        button_label: en_continue_label,
+        on_finish: function() {
+        document.getElementById("jspsych-progressbar-container").style.visibility = "visible";
+        }
+    };
+    timeline.push(start_task1);
+
+    var ept_count = 0; // number of trials completed, for updated progress bar
+    var ept_n_trials = 30; // number of trials in task, for updating progress bar
+
+    var ept_trial_setup = {
+        type: 'elicited-production-setup',
+        text1: jsPsych.timelineVariable('setup1'),
+        text2: jsPsych.timelineVariable('setup2'),
+        stimulus1: jsPsych.timelineVariable('image1'),
+        stimulus2: jsPsych.timelineVariable('image2'),
+        choices: [en_continue_label],
+        data: {
+            trial_name: 'ept_task',
+            trial_part: 'ept_setup',
+        }
+    };
+
+    var ept_trial_response = {
+        type: 'elicited-production-response',
+        text1: jsPsych.timelineVariable('response1'),
+        text2: jsPsych.timelineVariable('response2'),
+        stimulus1: jsPsych.timelineVariable('image1'),
+        stimulus2: jsPsych.timelineVariable('image2'),
+        prompt: en_ept_response_prompt,
+        button1: en_ept_response_button1,
+        button2: en_ept_response_button2,
+        buffer_length: 7000,
+        data: {
+            item: jsPsych.timelineVariable('item'),
+            cond: jsPsych.timelineVariable('cond'),
+            stimulus: jsPsych.timelineVariable('stimulus'),
+            target: jsPsych.timelineVariable('target'),
+            task: 'english-elicited-production-task',
+            trial_name: 'ept_task',
+            trial_part: 'ept_response',
+        },
+        on_finish: function(data) {
+            ept_count++;
+            var progress = ept_count/ept_n_trials;
+            jsPsych.setProgressBar(progress);
+        }
+    };
+
+    var ept_variables_list1 = {
+        timeline: [ept_trial_setup, ept_trial_response],
+        timeline_variables: plist1,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 1 || running_list == 2) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ept_variables_list2 = {
+        timeline: [ept_trial_setup, ept_trial_response],
+        timeline_variables: plist2,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 3 || running_list == 4) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ept_variables_list3 = {
+        timeline: [ept_trial_setup, ept_trial_response],
+        timeline_variables: plist3,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 5 || running_list == 6) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ept_variables_list0 = {
+        timeline: [ept_trial_setup, ept_trial_response],
+        timeline_variables: dp_test,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ept_main_procedure = {
+        timeline: [ept_variables_list1, ept_variables_list2, ept_variables_list3, ept_variables_list0]
+    };
+    timeline.push(ept_main_procedure);
+
+    // exit fullscreen
+
+    var exit_fullscreen_1 = {
+        type: 'fullscreen',
+        fullscreen_mode: false,
+        on_finish: function() {
+        document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(exit_fullscreen_1);
+
+    // break
+
+    var break1 = {
+        type: 'html-button-response',
+        stimulus: en_break1_stimulus,
+        choices: [en_continue_label]
+    };
+    timeline.push(break1);
+
+    // *** task 2: self-paced reading task ***
+
+    // define running order for stimuli
+    var rlist1 = rshuffle(srx1, rfill);
+    var rlist2 = rshuffle(srx2, rfill);
+    var rlist3 = rshuffle(srx3, rfill);
+    var rlist4 = rshuffle(srx4, rfill);
+    var rlist5 = rshuffle(srx5, rfill);
+    var rlist6 = rshuffle(srx6, rfill);
+
+    var spr_instructions = {
+        type: 'survey-html-form',
+        data: {trial_name: 'spr_instructions'},
+        button_label: 'Continue',
+        html: en_spr_instructions_html,
+    };
+
+    var spr_prac_alert = {
+        type: 'html-button-response',
+        stimulus: en_spr_prac_alert_stimulus,
+        choices: [en_continue_label],
+    };
+
+    // turn cursor off
+
+    var cursor_off = {
+        type: 'call-function',
+        func: function() {
+            document.body.style.cursor= "none";
+        }
+    };
+
+    var spr_prac_stimulus = {
+        type: 'moving-window',
+        sent: jsPsych.timelineVariable('sent'),
+        font_size: 17,
+        data: {
+            type: jsPsych.timelineVariable('type'),
+            item: jsPsych.timelineVariable('item'),
+            trial_name: 'spr_practice',
+            trial_part: 'spr_prac_stimulus',
+        }
+    };
+
+    var spr_prac_rushing = {
+        type: 'html-keyboard-response',
+        stimulus: en_rushing_stimulus,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 3000,
+    };
+
+    var spr_prac_rushing_conditional = {
+        timeline: [spr_prac_rushing],
+        conditional_function: function() {
+            var string = jsPsych.data.getLastTrialData().values()[0].rt; // get reading times from last trial
+            var values = string.replace(/[\[\]']+/g,'').split`,`.map(x=>+x); // convert from string to array of numbers
+            var sum = values.reduce((previous, current) => current += previous); // calculate sum
+            var avg = sum / values.length; // calculate average
+            if (avg < 200) { // display warning if average reading time is too fast
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    // turn cursor on
+
+    var cursor_on = {
+        type: 'call-function',
+        func: function() {
+            document.body.style.cursor= "auto";
+        }
+    };
+
+    var spr_prac_question = {
+        type: 'comprehension-question',
+        prompt: en_spr_question_prompt,
+        text_left: jsPsych.timelineVariable('text_left'),
+        text_center: jsPsych.timelineVariable('text_center'),
+        text_right: jsPsych.timelineVariable('text_right'),
+        options_left: jsPsych.timelineVariable('choices1'),
+        options_right: jsPsych.timelineVariable('choices2'),
+        correct_left: jsPsych.timelineVariable('correct1'),
+        correct_right: jsPsych.timelineVariable('correct2'),
+        data: {
+            type: jsPsych.timelineVariable('type'),
+            item: jsPsych.timelineVariable('item'),
+            trial_name: 'spr_practice',
+            trial_part: 'spr_prac_question',
+            correct1: jsPsych.timelineVariable('correct1'),
+            correct2: jsPsych.timelineVariable('correct2'),
+        },
+    };
+
+    var spr_prac_feedback = {
+        type: 'html-keyboard-response',
+        stimulus: en_incorrect_stimulus,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 3000,
+    };
+
+    var spr_prac_feedback_conditional = {
+        timeline: [spr_prac_feedback],
+        conditional_function: function() {
+            var last_resp_acc = jsPsych.data.getLastTrialData().values()[0].accuracy;
+            console.log(last_resp_acc);
+            if (last_resp_acc == false) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_prac_procedure = {
+        timeline: [cursor_off, spr_prac_stimulus, spr_prac_rushing_conditional, cursor_on, spr_prac_question, spr_prac_feedback_conditional],
+        timeline_variables: spr_prac_list,
+        randomize_order: true,
+    };
+
+    var spr_repeat_instructions_message = {
+        type: 'html-button-response',
+        stimulus: en_repeat_instructions_stimulus,
+        choices: [en_continue_label],
+    };
+
+    var spr_repeat_instructions_conditional = {
+        timeline: [spr_repeat_instructions_message],
+        conditional_function: function() {
+            var last_prac_trials = jsPsych.data.get().filter({trial_part:'spr_prac_question'}).last(spr_prac_list.length);
+            var n_correct = last_prac_trials.filter({accuracy: true}).count();
+            var prop_corr = n_correct/spr_prac_list.length;
+            if (prop_corr < 1) {
+                repeat_prac = true;
+                return true;
+            } else {
+                repeat_prac = false;
+                return false;
+            }
+        }
+    };
+
+    var spr_instructions_prac_loop = {
+        timeline: [spr_instructions, spr_prac_alert, spr_prac_procedure, spr_repeat_instructions_conditional],
+        loop_function: function() {
+            if (repeat_prac == true) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+        on_load: function() {
+            document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(spr_instructions_prac_loop);
+
+    var start_task2 = {
+        type: 'fullscreen',
+        fullscreen_mode: true,
+        message: en_start_task2_message,
+        button_label: en_continue_label,
+        on_finish: function() {
+        document.getElementById("jspsych-progressbar-container").style.visibility = "visible";
+        jsPsych.setProgressBar(0);
+        }
+    };
+    timeline.push(start_task2);
+
+    var spr_count = 0; // number of trials completed, for updated progress bar
+    var spr_n_trials = 72; // number of trials in task, for updating progress bar
+
+    var spr_stimulus = {
+        type: 'moving-window',
+        sent: function(){return jsPsych.timelineVariable('eng', true)+jsPsych.timelineVariable('coda', true)},
+        font_size: 17,
+        data: {
+            type: jsPsych.timelineVariable('type'),
+            item: jsPsych.timelineVariable('item'),
+            cond: jsPsych.timelineVariable('cond'),
+            task: 'english-self-paced-reading',
+            trial_name: 'spr-task',
+            trial_part: 'spr-stimulus',
+        }
+    };
+
+    var spr_rushing = {
+        type: 'html-keyboard-response',
+        stimulus: en_rushing_stimulus,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 3000,
+    };
+
+    var spr_rushing_conditional = {
+        timeline: [spr_rushing],
+        conditional_function: function() {
+            var string = jsPsych.data.getLastTrialData().values()[0].rt; // get reading times from last trial
+            var values = string.replace(/[\[\]']+/g,'').split`,`.map(x=>+x); // convert from string to array of numbers
+            var sum = values.reduce((previous, current) => current += previous); // calculate sum
+            var avg = sum / values.length; // calculate average
+            if (avg < 200) { // display warning if average reading time is too fast
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_question = {
+        type: 'comprehension-question',
+        prompt: en_spr_question_prompt,
+        text_left: jsPsych.timelineVariable('text_left'),
+        text_center: jsPsych.timelineVariable('text_center'),
+        text_right: jsPsych.timelineVariable('text_right'),
+        options_left: jsPsych.timelineVariable('choices1'),
+        options_right: jsPsych.timelineVariable('choices2'),
+        correct_left: jsPsych.timelineVariable('correct1'),
+        correct_right: jsPsych.timelineVariable('correct2'),
+        data: {
+            type: jsPsych.timelineVariable('type'),
+            item: jsPsych.timelineVariable('item'),
+            cond: jsPsych.timelineVariable('cond'),
+            task: 'english-self-paced-reading',
+            trial_name: 'spr_task',
+            trial_part: 'spr_question',
+            correct1: jsPsych.timelineVariable('correct1'),
+            correct2: jsPsych.timelineVariable('correct2'),
+        },
+        on_finish: function(data) {
+            spr_count++;
+            var progress = spr_count/spr_n_trials;
+            jsPsych.setProgressBar(progress);
+        }
+    };
+
+    var spr_feedback = {
+        type: 'html-keyboard-response',
+        stimulus: en_incorrect_stimulus,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 3000,
+    };
+
+    var spr_feedback_conditional = {
+        timeline: [spr_feedback],
+        conditional_function: function() {
+            var last_resp_acc = jsPsych.data.getLastTrialData().values()[0].accuracy;
+            console.log(last_resp_acc);
+            if (last_resp_acc == false) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_variables_list1 = {
+        timeline: [cursor_off, spr_stimulus, spr_rushing_conditional, cursor_on, spr_question, spr_feedback_conditional],
+        timeline_variables: rlist1,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 1) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_variables_list2 = {
+        timeline: [cursor_off, spr_stimulus, spr_rushing_conditional, cursor_on, spr_question, spr_feedback_conditional],
+        timeline_variables: rlist2,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 2) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_variables_list3 = {
+        timeline: [cursor_off, spr_stimulus, spr_rushing_conditional, cursor_on, spr_question, spr_feedback_conditional],
+        timeline_variables: rlist3,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 3) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_variables_list4 = {
+        timeline: [cursor_off, spr_stimulus, spr_rushing_conditional, cursor_on, spr_question, spr_feedback_conditional],
+        timeline_variables: rlist4,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 4) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_variables_list5 = {
+        timeline: [cursor_off, spr_stimulus, spr_rushing_conditional, cursor_on, spr_question, spr_feedback_conditional],
+        timeline_variables: rlist5,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 5) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_variables_list6 = {
+        timeline: [cursor_off, spr_stimulus, spr_rushing_conditional, cursor_on, spr_question, spr_feedback_conditional],
+        timeline_variables: rlist6,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 6) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_variables_list0 = {
+        timeline: [cursor_off, spr_stimulus, spr_rushing_conditional, cursor_on, spr_question, spr_feedback_conditional],
+        timeline_variables: dr_test,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var spr_main_procedure = {
+        timeline: [spr_variables_list1, spr_variables_list2, spr_variables_list3, spr_variables_list4, spr_variables_list5, spr_variables_list6, spr_variables_list0]
+    };
+    timeline.push(spr_main_procedure);
+
+    // exit fullscreen
+
+    var exit_fullscreen_2 = {
+        type: 'fullscreen',
+        fullscreen_mode: false,
+        on_finish: function() {
+        document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(exit_fullscreen_2);
+
+    // break
+
+    var break2 = {
+        type: 'html-button-response',
+        stimulus: en_break2_stimulus,
+        choices: [en_continue_label]
+    };
+    timeline.push(break2);
+
+    // *** task 3: acceptability judgment task ***
+
+    // define running order for stimuli
+    var jlist1 = rshuffle(srx2, rfill);
+    var jlist2 = rshuffle(srx3, rfill);
+    var jlist3 = rshuffle(srx4, rfill);
+    var jlist4 = rshuffle(srx5, rfill);
+    var jlist5 = rshuffle(srx6, rfill);
+    var jlist6 = rshuffle(srx1, rfill);
+
+    var ajt_instructions = {
+        type: 'survey-html-form',
+        data: {trial_name: 'ajt_instructions'},
+        button_label: 'Continue',
+        html: en_ajt_instructions_html,
+    };
+
+    var ajt_prac_alert = {
+        type: 'html-button-response',
+        stimulus: en_ajt_practice_alert_stimulus,
+        choices: [en_continue_label],
+    };
+
+    var ajt_prac_trial = {
+        type: 'acceptability-judgment',
+        stimulus: jsPsych.timelineVariable('eng'),
+        styling: 'font-size:1.1em',
+        choices: ['1', '2', '3', '4', '5', '6'],
+        leftComment: '<i>Completely Unacceptable</i>',
+        rightComment: '<i>Completely Acceptable</i>',
+        prompt: '<p>Press the zero key if you cannot rate the sentence</p>',
+        keypress: '0',
+        data: {
+            type: jsPsych.timelineVariable('type'),
+            item: jsPsych.timelineVariable('item'),
+            cond: jsPsych.timelineVariable('eng_cond'),
+            trial_name: 'ajt_practice',
+            trial_part:'ajt_prac_trial',
+        },
+        on_finish: function(data) {
+            var acc = false;
+            if (data.cond == 'grammatical' && data.button_pressed > 2) {
+                acc = true;
+            } else if (data.cond == 'ungrammatical' && data.button_pressed < 3) {
+                acc = true;
+            }
+            data.accuracy = acc;
+        }
+    };
+
+    var ajt_prac_feedback_correct = {
+        type: 'html-keyboard-response',
+        stimulus: '',
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 500,
+    };
+
+    var ajt_prac_feedback_conditional_correct = {
+        timeline: [ajt_prac_feedback_correct],
+        conditional_function: function() {
+            var last_resp_acc = jsPsych.data.getLastTrialData().values()[0].accuracy;
+            console.log('last_resp_acc: ', last_resp_acc);
+            if (last_resp_acc == true) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_prac_feedback_incorrect = {
+        type: 'html-keyboard-response',
+        stimulus: en_incorrect_stimulus,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 3000,
+    };
+
+    var ajt_prac_feedback_conditional_incorrect = {
+        timeline: [ajt_prac_feedback_incorrect],
+        conditional_function: function() {
+            var last_resp_acc = jsPsych.data.getLastTrialData().values()[0].accuracy;
+            if (last_resp_acc == false) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_prac_procedure = {
+        timeline: [ajt_prac_trial, ajt_prac_feedback_conditional_correct, ajt_prac_feedback_conditional_incorrect],
+        timeline_variables: eng_ajt_prac_list,
+        randomize_order: true,
+    };
+
+    var ajt_repeat_instructions_message = {
+        type: 'html-button-response',
+        stimulus: en_repeat_instructions_stimulus,
+        choices: [en_continue_label],
+    };
+
+    var ajt_repeat_instructions_conditional = {
+        timeline: [ajt_repeat_instructions_message],
+        conditional_function: function() {
+            var last_prac_trials = jsPsych.data.get().filter({trial_part:'ajt_prac_trial'}).last(eng_ajt_prac_list.length);
+            var n_correct = last_prac_trials.filter({accuracy: true}).count();
+            var prop_corr = n_correct/eng_ajt_prac_list.length;
+            if (prop_corr < 1) {
+                repeat_prac = true;
+                return true;
+            } else {
+                repeat_prac = false;
+                return false;
+            }
+        }
+    };
+
+    var ajt_instructions_prac_loop = {
+        timeline: [ajt_instructions, ajt_prac_alert, ajt_prac_procedure, ajt_repeat_instructions_conditional],
+        loop_function: function() {
+            if (repeat_prac == true) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+        on_load: function() {
+            document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(ajt_instructions_prac_loop);
+
+    var start_task3 = {
+        type: 'fullscreen',
+        fullscreen_mode: true,
+        message: en_start_ajt_message,
+        button_label: en_continue_label,
+        on_finish: function() {
+        document.getElementById("jspsych-progressbar-container").style.visibility = "visible";
+        jsPsych.setProgressBar(0);
+        }
+    };
+    timeline.push(start_task3);
+
+    var ajt_count = 0; // number of trials completed, for updated progress bar
+    var ajt_n_trials = 72; // number of trials in task, for updating progress bar
+
+    var ajt_trial = {
+        type: 'acceptability-judgment',
+        stimulus: function(){return jsPsych.timelineVariable('eng', true)+jsPsych.timelineVariable('time', true)},
+        styling: 'font-size:1.1em',
+        choices: ['1', '2', '3', '4', '5', '6'],
+        leftComment: en_leftComment,
+        rightComment: en_rightComment,
+        prompt: en_zero_option,
+        keypress: '0',
+        post_trial_gap: 500,
+        data: {
+            type: jsPsych.timelineVariable('type'),
+            item: jsPsych.timelineVariable('item'),
+            cond: jsPsych.timelineVariable('cond'),
+            task: 'english-acceptability-judgment-task',
+            trial_name: 'ajt_task',
+            trial_part: 'ajt_trial',
+        },
+        on_finish: function(data) {
+            var acc = false;
+            if ((data.cond == 'grammatical' || data.cond == 'cond1' || data.cond == 'cond2') && data.button_pressed > 2) {
+                acc = true;
+            } else if ((data.cond == 'ungrammatical' || data.cond == 'cond3' || data.cond == 'cond4' || data.cond == 'cond5' || data.cond == 'cond6') && data.button_pressed < 3) {
+                acc = true;
+            }
+            data.accuracy = acc;
+            ajt_count++;
+            var progress = ajt_count/ajt_n_trials;
+            jsPsych.setProgressBar(progress);
+        },
+    };
+
+    var ajt_feedback_rushing = {
+        type: 'html-keyboard-response',
+        stimulus: en_rushing_stimulus,
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 3000,
+    };
+
+    var ajt_feedback_rushing_conditional = {
+        timeline: [ajt_feedback_rushing],
+        conditional_function: function() {
+            var last_resp_rt = jsPsych.data.getLastTrialData().values()[0].rt;
+            if (last_resp_rt < 2000) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_variables_list1 = {
+        timeline: [ajt_trial, ajt_feedback_rushing_conditional],
+        timeline_variables: jlist1,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 1) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_variables_list2 = {
+        timeline: [ajt_trial, ajt_feedback_rushing_conditional],
+        timeline_variables: jlist2,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 2) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_variables_list3 = {
+        timeline: [ajt_trial, ajt_feedback_rushing_conditional],
+        timeline_variables: jlist3,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 3) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_variables_list4 = {
+        timeline: [ajt_trial, ajt_feedback_rushing_conditional],
+        timeline_variables: jlist4,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 4) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_variables_list5 = {
+        timeline: [ajt_trial, ajt_feedback_rushing_conditional],
+        timeline_variables: jlist5,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 5) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_variables_list6 = {
+        timeline: [ajt_trial, ajt_feedback_rushing_conditional],
+        timeline_variables: jlist6,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 6) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_variables_list0 = {
+        timeline: [ajt_trial, ajt_feedback_rushing_conditional],
+        timeline_variables: dr_test,
+        randomize_order: false,
+        conditional_function: function() {
+            if (running_list == 0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    };
+
+    var ajt_main_procedure = {
+        timeline: [ajt_variables_list1, ajt_variables_list2, ajt_variables_list3, ajt_variables_list4, ajt_variables_list5, ajt_variables_list6, ajt_variables_list0]
+    };
+    timeline.push(ajt_main_procedure);
+
+    // exit fullscreen
+
+    var exit_fullscreen_3 = {
+        type: 'fullscreen',
+        fullscreen_mode: false,
+        on_finish: function() {
+        document.getElementById("jspsych-progressbar-container").style.visibility = "hidden";
+        }
+    };
+    timeline.push(exit_fullscreen_3);
+
+    // break
+
+    var break3 = {
+        type: 'html-button-response',
+        stimulus: en_break3_stimulus,
+        choices: [en_continue_label]
+    };
+    timeline.push(break3);
+
+    // *** task 4: c-test ***
+
+    var ctest = {
+        type: 'survey-html-form',
+        data: {trial_name: 'ctest'},
+        button_label: en_continue_label,
+        html: en_ctest_html
+    };
+    timeline.push(ctest);
+
+    // *** wrap-up ***
+
+    // exit survey
+
+    var exit_survey = {
+        type: 'survey-html-form',
+        data: {trial_name: 'exit_survey'},
+        button_label: en_continue_label,
+        html: en_exit_survey_html
+    };
+    timeline.push(exit_survey);
+
+    // confirmation page
+
+    var confirmation_html =
+        '<style>p {text-align:center; spellcheck=false;} input[type="text"] {width:8ch;} fieldset {border:1px solid #999;box-shadow:2px 2px 5px #999;} legend {background:#fff;text-align:left;font-size:110%;}</style>'+
+        '<img src="img_confirmation.jpg" height="200" title="image credit: stories / Freepik (www.freepik.com)"><br>' +
+        '<span style="font-size:125%;">Thank you for completing the experiment!</span>' +
+        '<p>The researcher has been notified of your submission.</p>' +
+        '<p>It is now safe for you to exit this window.</p>'
+    ;
+
+    // initiate experiment
+
+    jsPsych.init({
+        timeline: timeline,
+        show_preload_progress_bar: true,
+        show_progress_bar: true,
+        auto_update_progress_bar: false,
+        on_finish: () => jsPsych.getDisplayElement().innerHTML = confirmation_html
+    });
+
+</script>
+</html>

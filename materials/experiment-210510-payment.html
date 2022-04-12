@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/plugins/jspsych-survey-html-form.js"></script>
+    <script src="jspsych/plugins/jspsych-preload.js"></script>
+    <meta http-equiv='content-Type' content='text/html; charset=UTF-8'/>
+    <link rel="stylesheet" href="jspsych/css/jspsych.css"></link>
+</head>
+<body></body>
+<script>
+
+    // capture url parameters
+    var participant = jsPsych.data.getURLVariable('participant');
+    var language = jsPsych.data.getURLVariable('language');
+    console.log('language: ', language);
+
+    // delete before uploading
+    var participant = 'researcher';
+    var language = 'mandarin';
+
+    // set default id to 'participant' or to '' if undefined
+    if (participant != undefined) {
+        var pid = participant;
+    } else {
+        var pid = '';
+    };
+
+    // define media variable
+
+    var media = ['img_payment.jpg', 'img_loading.jpg', 'img_confirmation.jpg'];
+
+    // button label html
+
+    var en_submit_label = 'Submit';
+    var ko_submit_label = '제출';
+    var zh_submit_label = '提交';
+
+    if (language == 'korean') {
+        var submit_label = ko_submit_label;
+    } else if (language == 'mandarin') {
+        var submit_label = zh_submit_label;
+    } else {
+        var submit_label = en_submit_label;
+    };
+
+    // payment survey html
+
+    var payment_survey_header =
+        '<style>p {text-align:center; spellcheck=false;} input[type="text"] {width:25ch;} fieldset {border:1px solid #999;box-shadow:2px 2px 5px #999;} legend {background:#fff;text-align:left;font-size:110%;} table {margin:auto; border:2px; border-style:ridge; padding:1em; text-align:left;} td {padding:5px}</style>'+
+        '<img src="img_payment.jpg" height="150" title="image credit: redgreystock / Freepik (www.freepik.com)"><br>'
+    ;
+    var en_payment_survey_text =
+        '<span style="font-size:125%; font-weight:bold;">Exit Survey</span>'+
+        '<p>Please answer the questions below so that your participant payment can be processed.</p>'+
+        '<table>'+
+        '<tr><td>Participant ID: </td><td><input name="pid" type="text" value="'+pid+'" required></td></tr>'+
+        '<tr><td>Bank: </td><td><input name="bank" type="text" required></td></tr>'+
+        '<tr><td>Account Holder\'s Name: </td><td><input name="name" type="text" required></td></tr>'+
+        '<tr><td>Account Number: </td><td><input name="account" type="text" required></td></tr>'+
+        '<tr><td>Email Address: </td><td><input name="email" type="text" required></td></tr>'+
+        '</table>'+
+        '<p>I do my best to process participant payments within 72 hours.</p>'+
+        '<p>If you have questions, please email me at fzenker@hawaii.edu.</p>'
+    ;
+    var ko_payment_survey_text =
+        '<span style="font-size:125%; font-weight:bold;">실험 참가비 지급 관련 정보</span>'+
+        '<p>실험 참가비 지급을 위해 다음 정보를 입력하여 주십시오.</p>'+
+        '<table>'+
+        '<tr><td>참가ID: </td><td><input name="pid" type="text" value="'+pid+'" required></td></tr>'+
+        '<tr><td>은행명: </td><td><input name="bank" type="text" required></td></tr>'+
+        '<tr><td>예금주: </td><td><input name="name" type="text" required></td></tr>'+
+        '<tr><td>계좌번호: </td><td><input name="account" type="text" required></td></tr>'+
+        '<tr><td>이메일 주소: </td><td><input name="email" type="text" required></td></tr>'+
+        '</table>'+
+        '<p>실험 참가비는 72시간 이내에 지급될 수 있도록 최선을 다하겠습니다.</p>'+
+        '<p>질문사항이 있으시면 저에게 이메일 fzenker@hawaii.edu로 연락주시기 바랍니다.</p>'
+    ;
+    var zh_payment_survey_text =
+        '<span style="font-size:125%; font-weight:bold;">匯款資訊</span>'+
+        '<p>請填寫以下資訊以利我們將受試費匯款給您。</p>'+
+        '<table>'+
+        '<tr><td>受試者編號： </td><td><input name="pid" type="text" value="'+pid+'" required></td></tr>'+
+        '<tr><td>匯款銀行： </td><td><input name="bank" type="text" required></td></tr>'+
+        '<tr><td>帳戶名稱： </td><td><input name="name" type="text" required></td></tr>'+
+        '<tr><td>匯款帳號： </td><td><input name="account" type="text" required></td></tr>'+
+        '<tr><td>銀行代號： </td><td><input name="bank_code" type="text" required></td></tr>'+
+        '<tr><td>電子信箱地址： </td><td><input name="email" type="text" required></td></tr>'+
+        '</table>'+
+        '<p>我會盡力在收到您的資料後72小時內完成匯款。</p>'+
+        '<p>如果您對於匯款進度有任何疑慮，歡迎隨時寄信到 fzenker@hawaii.edu和我聯絡。</p>'
+    ;
+    var en_payment_survey_html =
+        payment_survey_header+en_payment_survey_text
+    ;
+    var ko_payment_survey_html =
+        payment_survey_header+ko_payment_survey_text
+    ;
+    var zh_payment_survey_html =
+        payment_survey_header+zh_payment_survey_text
+    ;
+
+    if (language == 'korean') {
+        payment_survey_html = ko_payment_survey_html;
+    } else if (language == 'mandarin') {
+        payment_survey_html = zh_payment_survey_html;
+    } else {
+        payment_survey_html = en_payment_survey_html;
+    };
+
+    // loading message
+
+    var loading_header = 
+        '<img src="img_loading.jpg" height="150" title="image credit: tenor (tenor.com)"><br>'
+    ;
+    var en_loading_text = 
+        '<p>Loading. Please wait.</p>'
+    ;
+    var ko_loading_text = 
+        '<p>로딩중입니다. 잠시만 기다려 주십시오.</p>'
+    ;
+    var zh_loading_text = 
+        '<p>處理中。請稍候。</p>'
+    ;
+    var en_loading_message = 
+        loading_header + en_loading_text
+    ;
+    var ko_loading_message = 
+        loading_header + ko_loading_text
+    ;
+    var zh_loading_message = 
+        loading_header + zh_loading_text
+    ;
+
+    // confirmation page html
+
+    var confirmation_header =
+        '<style>p {text-align:center; spellcheck=false;} input[type="text"] {width:8ch;} fieldset {border:1px solid #999;box-shadow:2px 2px 5px #999;} legend {background:#fff;text-align:left;font-size:110%;}</style>'+
+        '<img src="img_confirmation.jpg" height="200" title="image credit: stories / Freepik (www.freepik.com)"><br>'
+    ;
+    var en_confirmation_text =
+        '<span style="font-size:125%;">Thank you!</span>' +
+        '<p>The researcher has been notified of your submission.</p>'
+    ;
+    var ko_confirmation_text =
+        '<span style="font-size:125%;">감사합니다!</span>' +
+        '<p>연구자에게 제출 확인 안내가 발송 되었습니다.</p>'
+    ;
+    var zh_confirmation_text =
+        '<span style="font-size:125%;">謝謝！</span>' +
+        '<p>研究人員已收到您提交的通知。</p>'
+    ;
+    var en_confirmation =
+        confirmation_header+en_confirmation_text
+    ;
+    var ko_confirmation =
+        confirmation_header+ko_confirmation_text
+    ;
+    var zh_confirmation =
+        confirmation_header+zh_confirmation_text
+    ;
+
+    // create main timeline for experiment
+
+    let timeline = [];
+
+    // preload media
+
+    var preload = {
+        type: 'preload',
+        images: media,
+    }
+    timeline.push(preload);
+
+    // payment survey
+
+    var payment_survey = {
+        type: 'survey-html-form',
+        data: {trial_name: 'exit_survey'},
+        button_label: submit_label,
+        html: payment_survey_html,
+        on_finish: function(){
+            if (language == 'korean') {
+                jsPsych.getDisplayElement().innerHTML = ko_loading_message;
+            } else if (language == 'mandarin') {
+                jsPsych.getDisplayElement().innerHTML = zh_loading_message;
+            } else {
+                jsPsych.getDisplayElement().innerHTML = en_loading_message;
+            }
+        }
+    };
+    timeline.push(payment_survey);
+
+    // initiate experiment
+
+    jsPsych.init({
+        timeline: timeline,
+        show_preload_progress_bar: true,
+        on_finish: function() {
+            if (language == 'korean') {
+                jsPsych.getDisplayElement().innerHTML = ko_confirmation;
+            } else if (language == 'mandarin') {
+                jsPsych.getDisplayElement().innerHTML = zh_confirmation;
+            } else {
+                jsPsych.getDisplayElement().innerHTML = en_confirmation;
+            }
+        }
+    });
+
+</script>
+</html>
