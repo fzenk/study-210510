@@ -1,4 +1,4 @@
-﻿task,field,word,onset,exact,acceptable,sentence
+﻿task,item,word,onset,exact,acceptable,sentence
 zenker,algae_01,very,ve,ry,very,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
 zenker,algae_02,because,bec,ause,because,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."
 zenker,algae_03,make,ma,ke,make,"Algae are ve[ry] important bec[ause] they ma[ke] oxygen, wh[ich] humans and other animals ne[ed] to bre[athe]."

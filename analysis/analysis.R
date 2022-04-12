@@ -39,12 +39,13 @@ library(stringdist) # for calculating edit distance on c-test responses
 library(hunspell) # for spellchecking of c-test responses
 library(patchwork) # for plotting
 library(jsonlite) # for unpacking json
+library(beepr) # for notifications
 
 #------------------------------------------------------------------------------------------#
 #### read in data ####
 #------------------------------------------------------------------------------------------#
 
-df <- read_csv('data/data.csv', col_types = cols(.default = 'c')) %>%
+df <- read_csv('data/lfs/data.csv', col_types = cols(.default = 'c')) %>%
   select(-audio_data)
 
 #------------------------------------------------------------------------------------------#
@@ -80,7 +81,7 @@ ggplot(data = plot, aes(x = task, y = n, group = group, col = group, shape = gro
 
 # save
 
-ggsave("plots/ppts_per_task.png", width=6.5, height=4.5, dpi=600)
+ggsave("plots/participant_counts.png", width=6.5, height=4.5, dpi=600)
 
 #------------------------------------------------------------------------------------------#
 #### exit survey ####
@@ -99,6 +100,133 @@ survey <- df %>%
   filter(task == 'language_survey') %>%
   arrange(study, group, participant) %>%
   select_if(function(x){!all(is.na(x))})
+
+#------------------------------------------------------------------------------------------#
+#### ctest: prep dataframe ####
+#------------------------------------------------------------------------------------------#
+
+# filter to c-test
+
+ct <- df %>% filter(task == 'ctest') %>%
+  arrange(study, group, participant) %>%
+  select_if(function(x){!all(is.na(x))})
+
+ct <- ct %>%
+  mutate(response = str_remove_all(response, '[^[:alnum:]]'))
+
+#------------------------------------------------------------------------------------------#
+#### ctest: score responses ####
+#------------------------------------------------------------------------------------------#
+
+# check number of participants per group in ct
+
+check <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# drop unneeded columns
+
+ct <- ct %>% select(study, group, participant, item, response)
+
+# read in correct answers
+
+answers <- read_csv('data/answers.csv', col_types = cols(.default = 'c')) %>%
+  select(item, word, onset, exact, acceptable)
+
+# add correct answers to dataframe
+
+ct <- ct %>% left_join(answers, by = 'item')
+
+# correct spelling and determine accuracy
+
+ct <- ct %>%
+  mutate(response = str_trim(tolower(response)),
+         onset = str_trim(tolower(onset)),
+         acceptable = str_trim(tolower(acceptable)),
+         word = str_trim(tolower(word))) %>%
+  mutate(response = case_when(str_detect(item, 'brown') ~ response,
+                              TRUE ~ str_c(onset, response))) %>%
+  mutate(response_regex = str_c('\\b', response, '\\b')) %>%
+  mutate(match1 = str_detect(acceptable, response_regex)) %>%
+  mutate(spelling = case_when(match1 == FALSE ~ as.character(hunspell_check(response)))) %>%
+  mutate(suggestion = case_when(spelling == FALSE ~ as.character(hunspell_suggest(response)))) %>%
+  mutate(suggestion_regex = str_replace_all(suggestion, c('c\\("' = '\\\\b', 
+                                                          '", "' = '\\\\b|\\\\b',
+                                                          '"\\)' = '\\\\b'))) %>%
+  mutate(match2 = str_detect(acceptable, suggestion_regex)) %>%
+  mutate(accuracy = case_when(match1 == TRUE ~ TRUE,
+                              match2 == TRUE ~ TRUE,
+                              TRUE ~ FALSE))
+
+beepr::beep(1)
+
+# make list of proficiency scores
+
+proficiency <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise(proficiency = mean(accuracy, na.rm=T)) %>%
+  ungroup()
+
+# check incorrect responses
+
+check <- ct %>%
+  filter(accuracy == FALSE) %>%
+  select(study, group, participant, item, word, response, accuracy)
+
+# write to csv
+
+write_csv(ct, 'data/ctest_scored.csv')
+
+# read from file
+
+ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'c'))
+
+#------------------------------------------------------------------------------------------#
+#### ctest: plot ####
+#------------------------------------------------------------------------------------------#
+
+# summarise for plotting 
+
+plot <- ct %>%
+  filter(participant != 'researcher') %>%
+  group_by(study, group, participant) %>%
+  summarise(mean = mean(accuracy)) %>%
+  ungroup()
+
+# define plot data
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=group, y=mean*100, fill=group, label=participant))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=group, y=mean*100, fill=group, label=participant))
+
+# plot styling
+
+s <- list(
+  geom_hline(yintercept=50),
+  geom_violin(fill = 'lightblue'),
+  geom_boxplot(width = .1, fill='white'),
+  #geom_jitter(size=1, shape=1, alpha=.25, position = position_jitter(seed=2, width=.15)),
+  #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)),
+  theme_classic(),
+  scale_x_discrete(name="group",
+                   limits = c('english', 'korean', 'mandarin'), labels = c('ENS', 'KLE', 'MLE')),
+  scale_y_continuous(name="% accuracy",
+                     limits=c(0, 100)),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5),
+        legend.position = "hide")
+)
+
+# print plots
+
+p1 + s
+ggsave("plots/orc/ctest.png", width=6, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ctest.png", width=6, height=2, dpi=600)
 
 #------------------------------------------------------------------------------------------#
 #### ept: prep dataframe ####
@@ -160,80 +288,91 @@ s <- list(
 # print plots
 
 p1 + s
-ggsave("plots/orc/ept_simple.png", width=6.5, height=2.5, dpi=600)
+ggsave("plots/orc/ept_barplot.png", width=6.5, height=2.5, dpi=600)
 
 p2 + s
-ggsave("plots/src/ept_simple.png", width=6.5, height=2.5, dpi=600)
+ggsave("plots/src/ept_barplot.png", width=6.5, height=2.5, dpi=600)
 
 #------------------------------------------------------------------------------------------#
 #### ept: scatter plot of resumption rate against proficiency scores ####
 #------------------------------------------------------------------------------------------#
 
 # summarise data for plotting
+
 plot <- ep %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  mutate(category = case_when(type == 'gap' ~ 'gap',
+  filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
+  mutate(type = case_when(type == 'gap' ~ 'gap',
                               type == 'resumption' ~ 'resumption',
                               TRUE ~ 'other')) %>%
-  mutate(category = as.character(category)) %>%
-  group_by(group, participant) %>%
-  count(category) %>%
+  mutate(type = as.character(type)) %>%
+  group_by(study, group, participant) %>%
+  count(type) %>%
   ungroup() %>%
-  group_by(group, participant) %>%
+  group_by(study, group, participant) %>%
   mutate(sum = sum(n)) %>%
   ungroup() %>%
   mutate(prop = (n/sum)*100) %>%
   mutate(prc = as.character(round(prop))) %>%
   mutate(prc = as.numeric(case_when(prc == '0' ~ NA_character_, TRUE ~ prc))) %>%
-  mutate(category = factor(category, levels = c('gap', 'other', 'resumption')))
+  mutate(type = factor(type, levels = c('gap', 'other', 'resumption')))
 
-plot2 <- plot %>%
-  complete(category, nesting(group, participant), fill = list(prop = 0, n = 0)) %>%
-  select(group, participant, category, n, prop) %>%
-  arrange(group, participant, category, prop)
+plot <- plot %>%
+  complete(type, nesting(study, group, participant), fill = list(prop = 0, n = 0)) %>%
+  select(study, group, participant, type, n, prop) %>%
+  arrange(study, group, participant, type, prop)
 
-score <- ct %>%
-  group_by(participant) %>%
-  summarise(accuracy = mean(accuracy, na.rm=T)) %>%
-  ungroup()
-
-plot2 <- plot2 %>%
-  left_join(score, by = 'participant') %>%
-  filter(accuracy != 'NA') %>%
-  filter(category == 'resumption')
+plot <- plot %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  filter(proficiency != 'NA') %>%
+  filter(type == 'resumption')
 
 # facet labels
-groups <- c(`english` = 'L1-English Group', `korean` = 'L1-Korean Group')
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
+# define data for plots
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency*100, y=prop))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency*100, y=prop))
 
 # generate plot
-ggplot(plot2, aes(x=accuracy, y=prop)) + 
-  geom_smooth(method=lm, col="#785ef0") +
-  geom_point(shape = 1) +
-  theme_classic() +
-  scale_x_continuous(name='proficiency') +
-  scale_y_continuous(name="% resumption", limits = c(0, 50)) +
-  scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right") +
-  facet_wrap(~group, labeller = as_labeller(groups))
 
-# save plot
-ggsave("plots/ept_proficiency.png", width=10, height=10, dpi=600)
+s <- list(
+  geom_smooth(method=lm, col="#785ef0"), 
+  geom_point(shape = 1),
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name="% resumption", limits = c(-5, 100)),
+  scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right"),
+  facet_wrap(~group, labeller = as_labeller(groups))
+)
+
+# write plots
+
+p1 + s
+ggsave("plots/orc/ept_proficiency.png", width=6.5, height=3, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------------------#
+#### ept: simple linear regression analysis ####
+#------------------------------------------------------------------------------------------#
 
 # simple regression analysis
-md <- plot2 %>% filter(group == "english")
-cor(md$accuracy, md$prop) 
-model <- lm(prop ~ accuracy, data = md)
+md <- plot %>% filter(group == 'mandarin' & study == '210510_su')
+cor(md$proficiency, md$prop) 
+model <- lm(prop ~ proficiency, data = md)
 summary(model)
-# L1-Korean group:
-# not significant
-# Multiple R-squared:  0.02521,	Adjusted R-squared:  -0.009606 
-# F-statistic: 0.7241 on 1 and 28 DF,  p-value: 0.402
-# L1-English group:
-# not significant
-# Multiple R-squared:  0.0009545,	Adjusted R-squared:  -0.03127 
-# F-statistic: 0.02962 on 1 and 31 DF,  p-value: 0.8645
+# doen: ' ' (r-squared = 0.000434, F = 0.03778, p = 0.8463)
+# doko: '.' (r-squared = 0.05509, F = 3.848, p = 0.05402)
+# dozh: ' ' (r-squared = 0.006488, F = 0.4832, p = 0.4891)
+# suen: ' ' (r-squared = 0.005779, F = 0.343, p = 0.5604)
+# suko: ' ' (r-squared = 0.03603, F = 2.392, p = 0.1269)
+# suzh: ' ' (r-squared = 0.00, F = 0.00, p = 0.997)
 
 # *** bar plot by item ***
 
@@ -269,158 +408,6 @@ ggplot(data=plot, aes(x=cond, y=prop, group=category, fill=category, label=prc))
 
 # save plot
 ggsave("plots/ept_plot_item.png", width=10, height=10, dpi=600)
-
-#------------------------------------------------------------------------------------------#
-#### ept: interaction plot ####
-#------------------------------------------------------------------------------------------#
-
-# read in combined dataframe from .csv
-ep <- read_csv('data/ept/data.csv', col_types = cols(.default = 'f'))
-str(ep)
-
-# check participants
-check <- ep %>%
-  mutate(participant = as.factor(participant))
-str(check$participant)
-summary(check$participant)
-
-# filter to gap and resumption responses
-# ep <- ep %>%
-#   filter(type %in% c('gap', 'resumption')) %>%
-#   mutate(type = fct_drop(type))
-
-# exclude participants who repeated the test sentence or produced other deficient responses more than half the time
-ep <- ep %>%
-  mutate(repeat_count = case_when(type %in% c('repeat', 'nontarget', 'incomplete', 'NA') ~ 1, TRUE ~ 0)) %>%
-  group_by(participant, run_id) %>%
-  mutate(repeat_rate = mean(repeat_count, na.rm = T)) %>%
-  ungroup() %>%
-  filter(repeat_rate < .5) %>%
-  mutate(participant = fct_drop(participant))
-
-# check participants
-check <- ep %>%
-  mutate(participant = as.factor(participant))
-str(check$participant)
-summary(check$participant)
-
-# remove nontarget responses
-target <- ep %>%
-  filter(!type %in% c('repeat', 'nontarget', 'incomplete', 'NA'))
-
-# check participants
-check <- target %>%
-  mutate(participant = as.factor(participant))
-str(check$participant)
-summary(check$participant)
-
-# summarise data for plotting
-plot <- target %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  mutate(category = case_when(type == 'gap' ~ 'gap',
-                              type == 'resumption' ~ 'resumption',
-                              TRUE ~ 'other')) %>%
-  mutate(category = as.character(category)) %>%
-  group_by(group, cond, participant) %>%
-  count(category) %>%
-  ungroup() %>%
-  complete(category, nesting(group, cond, participant), fill = list(n = 0)) %>%
-  group_by(group, cond, category) %>%
-  summarise(mean = mean(n),
-            sd = sd(n),
-            num = n()) %>%
-  ungroup() %>%
-  mutate(se = sd / sqrt(num),
-         ci = qt(1 - (0.05 / 2), num - 1) * se) %>%
-  mutate(prop = (mean / 5) * 100,
-         ci2 = (ci / 5) * 100) %>%
-  mutate(panel = 'all participants')
-
-# facet labels
-groups <- c(`english` = 'L1-English Group\nEnglish OPT', `korean` = 'L1-Korean Group\nEnglish OPT')
-
-# interaction plot
-ggplot(data=plot, aes(x=cond, y=mean, group=category, col=category, shape=category)) +
-  geom_hline(yintercept=2.5) +
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c("cond1", "cond2", "cond3"), labels = c("short", "long", "island")) +
-  scale_y_continuous(name="mean tokens", limits=c(-.1, 5), breaks = c(0, 1, 2, 3, 4, 5)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000', "grey"), limits=c("gap", "resumption", "other")) +
-  scale_shape_manual(name="dependency", values=c(16, 15, 17), limits=c("gap", "resumption", "other")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
-  facet_wrap(~group, labeller = as_labeller(groups))
-
-# save plot
-ggsave("data/plots/ept_interaction_plot_exclude.png", width=5.5, height=2.5, dpi=600)
-
-# make list of participants who used resumption at least once
-resumers <- target %>%
-  filter(type == 'resumption') %>%
-  group_by(participant) %>%
-  summarise() %>%
-  ungroup() %>%
-  mutate(resumer = TRUE)
-
-# add information about who used resumption to dataframe
-target2 <- target %>%
-  left_join(resumers, by = 'participant')
-
-# filter to participants who used resumption at least once
-target2 <- target2 %>%
-  filter(resumer == TRUE)
-
-# summarise 'target2' for plotting
-plot2 <- target2 %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  mutate(category = case_when(type == 'gap' ~ 'gap',
-                              type == 'resumption' ~ 'resumption',
-                              TRUE ~ 'other')) %>%
-  mutate(category = as.character(category)) %>%
-  group_by(group, cond, participant) %>%
-  count(category) %>%
-  ungroup() %>%
-  complete(category, nesting(group, cond, participant), fill = list(n = 0)) %>%
-  group_by(group, cond, category) %>%
-  summarise(mean = mean(n),
-            sd = sd(n),
-            num = n()) %>%
-  ungroup() %>%
-  mutate(se = sd / sqrt(num),
-         ci = qt(1 - (0.05 / 2), num - 1) * se) %>%
-  mutate(prop = (mean / 5) * 100,
-         ci = (ci / 5) * 100) %>%
-  mutate(panel = 'resumption users')
-
-# combine plot dataframes
-plot3 <- bind_rows(plot, plot2) %>%
-  filter(category != 'other')
-
-# facet labels
-groups <- c(`english` = 'L1-English Group\nEnglish OPT', 
-            `korean` = 'L1-Korean Group\nEnglish OPT',
-            `all participants` = 'all participants (n = 68)',
-            `resumption users` = 'resumption users (n = 26)')
-
-# interaction plot
-ggplot(data=plot3, aes(x=cond, y=prop, group=category, col=category, shape=category)) +
-  geom_hline(yintercept=50) +
-  geom_errorbar(aes(ymin=prop-ci, ymax=prop+ci), width=.2, lwd=1, linetype=1) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c("cond1", "cond2", "cond3"), labels = c("short", "long", "island")) +
-  scale_y_continuous(name="% responses", limits=c(-5, 100), breaks = c(0, 20, 40, 60, 80, 100)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), limits=c("gap", "resumption")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), limits=c("gap", "resumption")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
-  facet_grid(panel~group, labeller = as_labeller(groups))
-
-# save plot
-ggsave("data/plots/ept_interaction_plot_resumer_comparison.png", width=5.5, height=4.5, dpi=600)
-
 
 #------------------------------------------------------------------------------------------#
 #### ept: modeling ####
@@ -638,7 +625,7 @@ summary(model1)
 # condcond3   9.543e-01  1.547e-01 1.249e+02   6.170 8.76e-09 ***
 
 #------------------------------------------------------------------------------------------#
-#### spr: preprocessing ####
+#### spr: prep dataframe ####
 #------------------------------------------------------------------------------------------#
 
 check <- df %>%
@@ -2565,161 +2552,6 @@ ggsave("data/objects/plots/ajt_rating_distribution.png", width=6.5, height=3.5, 
 ggsave("data/objects/plots/ajt_rating_distribution_everyone.png", width=5, height=1.5, dpi=600)
 
 #------------------------------------------------------------------------------------------#
-#### c-test ####
-#------------------------------------------------------------------------------------------#
-
-# filter to c-test
-ct <- df %>% filter(trial_name == 'ctest')
-
-# check number of participants per group in ct
-check <- ct %>%
-  group_by(group, participant) %>%
-  summarise() %>%
-  ungroup() %>%
-  group_by(group) %>%
-  summarise(n = n()) %>%
-  ungroup()
-
-# drop unneeded columns
-ct <- ct %>% select(run_id, participant, response, group)
-
-# separate form responses
-ct <- ct %>%
-  mutate(response = map(response, fromJSON)) %>% 
-  unnest_longer(col = response) %>%
-  rename(field = response_id, value = response) %>%
-  filter(str_detect(field, 'example', negate=T)) %>%
-  mutate(value = str_remove_all(value, '[^[:alnum:]]'))
-
-# read in correct answers
-answers <- read_csv('answers.csv') %>%
-  mutate_all(as.character) %>%
-  #mutate(field = str_remove_all(field, "[^[:alnum:]]")) %>%
-  select(field, word, onset, exact, acceptable)
-
-# add correct answers to dataframe
-ct <- ct %>% left_join(answers, by = 'field')
-
-# correct spelling and determine accuracy (new)
-ct2 <- ct %>%
-  mutate(value = str_trim(tolower(value)),
-         onset = str_trim(tolower(onset)),
-         acceptable = str_trim(tolower(acceptable)),
-         word = str_trim(tolower(word))) %>%
-  mutate(response = case_when(str_detect(field, 'brown') ~ value,
-                              TRUE ~ str_c(onset, value))) %>%
-  mutate(response_regex = str_c('\\b', response, '\\b')) %>%
-  mutate(match1 = str_detect(acceptable, response_regex)) %>%
-  mutate(spelling = case_when(match1 == FALSE ~ as.character(hunspell_check(response)))) %>%
-  mutate(suggestion = case_when(spelling == FALSE ~ as.character(hunspell_suggest(response)))) %>%
-  mutate(suggestion_regex = str_replace_all(suggestion, c('c\\("' = '\\\\b', 
-                                                          '", "' = '\\\\b|\\\\b',
-                                                          '"\\)' = '\\\\b'))) %>%
-  mutate(match2 = str_detect(acceptable, suggestion_regex)) %>%
-  mutate(accuracy = case_when(match1 == TRUE ~ TRUE,
-                              match2 == TRUE ~ TRUE,
-                              TRUE ~ FALSE))
-
-beepr::beep(1)
-
-# check accuracy by participant
-check <- ct2 %>%
-  group_by(group, participant) %>%
-  summarise(accuracy = mean(accuracy, na.rm=T)) %>%
-  ungroup()
-
-# check incorrect responses
-check <- ct2 %>%
-  filter(accuracy == FALSE) %>%
-  select(participant, field, word, response, accuracy)
-
-# summarise data for plotting 
-plot <- ct2 %>%
-  filter(participant != 'researcher') %>%
-  select(-value, -onset, -exact, -spelling, -suggestion, -match1, -match2) %>%
-  group_by(group, run_id, participant) %>%
-  summarise(mean = mean(accuracy)) %>%
-  ungroup() %>%
-  mutate(group = case_when(group == 'english' ~ 'L1-English',
-                           group == 'korean' ~ 'L1-Korean',
-                           group == 'mandarin' ~ 'L1-Mandarin'))
-
-# generate plot
-ggplot(plot, aes(x=group, y=mean*100, fill=group, label=run_id)) + 
-  geom_hline(yintercept=50) +
-  geom_violin(fill = 'lightblue') +
-  geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(size=1, shape=1, alpha=.25, position = position_jitter(seed=2, width=.15)) +
-  #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="group", 
-                   limits = c('L1-English', 'L1-Korean', 'L1-Mandarin'), labels = c('ENS', 'KLE', 'MLE')) +
-  scale_y_continuous(name="% accuracy", 
-                     limits=c(0, 100)) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "hide")
-
-# save plot
-ggsave("data/objects/plots/ctest.png", width=6, height=2, dpi=600)
-
-# calculate percent accuracy on each item based on levenshtein distance
-lev <- ct2 %>%
-  mutate(length = str_length(exact),
-         dist = stringdist(exact, value, method='lv')) %>%
-  mutate(diff = length - dist) %>%
-  mutate(diff = case_when(diff < 0 ~ 0,
-                          TRUE ~ diff)) %>%
-  mutate(itm_score = diff / length) %>%
-  group_by(run_id, participant) %>%
-  mutate(ppt_score = mean(itm_score)) %>%
-  ungroup()
-
-# check scores by participant
-check <- lev %>%
-  group_by(run_id, participant, ppt_score) %>%
-  summarise() %>%
-  ungroup()
-
-# check distribution of scores
-check <- lev %>%
-  group_by(group) %>%
-  summarise(mean = mean(ppt_score),
-            sd = sd(ppt_score),
-            min = min(ppt_score),
-            max = max(ppt_score)) %>%
-  ungroup()
-
-# summarize by plotting based on levenstein distance accuracy scores
-plot <- lev %>%
-  filter(participant != 'researcher') %>%
-  group_by(group, run_id, participant) %>%
-  summarise(mean = mean(itm_score)) %>%
-  ungroup() %>%
-  mutate(group = case_when(group == 'english' ~ 'L1-English',
-                           group == 'korean' ~ 'L1-Korean',
-                           group == 'mandarin' ~ 'L1-Mandarin'))
-
-# generate plot
-ggplot(plot, aes(x=group, y=mean*100, fill=group, label=run_id)) + 
-  geom_hline(yintercept=50) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  geom_jitter(size=1, shape=1, alpha=.25, position = position_jitter(seed=2, width=.15)) +
-  #geom_text(size = 2.5, col = "black", position = "jitter") +
-  theme_classic() +
-  scale_x_discrete(name="group", 
-                   limits = c('L1-English', 'L1-Korean', 'L1-Mandarin'), labels = c('ENS', 'KLE', 'MLE')) +
-  scale_y_continuous(name="% accuracy", 
-                     limits=c(0, 100)) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "hide")
-
-# save plot
-ggsave("data/objects/plots/ctest_levenstein.png", width=3.25, height=2.75, dpi=600)
-
-#------------------------------------------------------------------------------------------#
 #### corrections to files 
 #------------------------------------------------------------------------------------------#
 
@@ -2830,3 +2662,221 @@ ggsave("plots/orc/ept_simple.png", width=6.5, height=2.5, dpi=600)
 
 p2 + s
 ggsave("plots/src/ept_simple.png", width=6.5, height=2.5, dpi=600)
+
+#------------------------------------------------------------------------------------------#
+#### ept: interaction plot
+#------------------------------------------------------------------------------------------#
+
+# read in combined dataframe from .csv
+ep <- read_csv('data/ept/data.csv', col_types = cols(.default = 'f'))
+str(ep)
+
+# check participants
+check <- ep %>%
+  mutate(participant = as.factor(participant))
+str(check$participant)
+summary(check$participant)
+
+# filter to gap and resumption responses
+# ep <- ep %>%
+#   filter(type %in% c('gap', 'resumption')) %>%
+#   mutate(type = fct_drop(type))
+
+# exclude participants who repeated the test sentence or produced other deficient responses more than half the time
+ep <- ep %>%
+  mutate(repeat_count = case_when(type %in% c('repeat', 'nontarget', 'incomplete', 'NA') ~ 1, TRUE ~ 0)) %>%
+  group_by(participant, run_id) %>%
+  mutate(repeat_rate = mean(repeat_count, na.rm = T)) %>%
+  ungroup() %>%
+  filter(repeat_rate < .5) %>%
+  mutate(participant = fct_drop(participant))
+
+# check participants
+check <- ep %>%
+  mutate(participant = as.factor(participant))
+str(check$participant)
+summary(check$participant)
+
+# remove nontarget responses
+target <- ep %>%
+  filter(!type %in% c('repeat', 'nontarget', 'incomplete', 'NA'))
+
+# check participants
+check <- target %>%
+  mutate(participant = as.factor(participant))
+str(check$participant)
+summary(check$participant)
+
+# summarise data for plotting
+plot <- target %>%
+  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
+  mutate(category = case_when(type == 'gap' ~ 'gap',
+                              type == 'resumption' ~ 'resumption',
+                              TRUE ~ 'other')) %>%
+  mutate(category = as.character(category)) %>%
+  group_by(group, cond, participant) %>%
+  count(category) %>%
+  ungroup() %>%
+  complete(category, nesting(group, cond, participant), fill = list(n = 0)) %>%
+  group_by(group, cond, category) %>%
+  summarise(mean = mean(n),
+            sd = sd(n),
+            num = n()) %>%
+  ungroup() %>%
+  mutate(se = sd / sqrt(num),
+         ci = qt(1 - (0.05 / 2), num - 1) * se) %>%
+  mutate(prop = (mean / 5) * 100,
+         ci2 = (ci / 5) * 100) %>%
+  mutate(panel = 'all participants')
+
+# facet labels
+groups <- c(`english` = 'L1-English Group\nEnglish OPT', `korean` = 'L1-Korean Group\nEnglish OPT')
+
+# interaction plot
+ggplot(data=plot, aes(x=cond, y=mean, group=category, col=category, shape=category)) +
+  geom_hline(yintercept=2.5) +
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
+  geom_line(lwd = 1) +
+  geom_point(size = 2) +
+  theme_classic() +
+  scale_x_discrete(name="environment", limits = c("cond1", "cond2", "cond3"), labels = c("short", "long", "island")) +
+  scale_y_continuous(name="mean tokens", limits=c(-.1, 5), breaks = c(0, 1, 2, 3, 4, 5)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000', "grey"), limits=c("gap", "resumption", "other")) +
+  scale_shape_manual(name="dependency", values=c(16, 15, 17), limits=c("gap", "resumption", "other")) +
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
+  facet_wrap(~group, labeller = as_labeller(groups))
+
+# save plot
+ggsave("data/plots/ept_interaction_plot_exclude.png", width=5.5, height=2.5, dpi=600)
+
+# make list of participants who used resumption at least once
+resumers <- target %>%
+  filter(type == 'resumption') %>%
+  group_by(participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  mutate(resumer = TRUE)
+
+# add information about who used resumption to dataframe
+target2 <- target %>%
+  left_join(resumers, by = 'participant')
+
+# filter to participants who used resumption at least once
+target2 <- target2 %>%
+  filter(resumer == TRUE)
+
+# summarise 'target2' for plotting
+plot2 <- target2 %>%
+  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
+  mutate(category = case_when(type == 'gap' ~ 'gap',
+                              type == 'resumption' ~ 'resumption',
+                              TRUE ~ 'other')) %>%
+  mutate(category = as.character(category)) %>%
+  group_by(group, cond, participant) %>%
+  count(category) %>%
+  ungroup() %>%
+  complete(category, nesting(group, cond, participant), fill = list(n = 0)) %>%
+  group_by(group, cond, category) %>%
+  summarise(mean = mean(n),
+            sd = sd(n),
+            num = n()) %>%
+  ungroup() %>%
+  mutate(se = sd / sqrt(num),
+         ci = qt(1 - (0.05 / 2), num - 1) * se) %>%
+  mutate(prop = (mean / 5) * 100,
+         ci = (ci / 5) * 100) %>%
+  mutate(panel = 'resumption users')
+
+# combine plot dataframes
+plot3 <- bind_rows(plot, plot2) %>%
+  filter(category != 'other')
+
+# facet labels
+groups <- c(`english` = 'L1-English Group\nEnglish OPT', 
+            `korean` = 'L1-Korean Group\nEnglish OPT',
+            `all participants` = 'all participants (n = 68)',
+            `resumption users` = 'resumption users (n = 26)')
+
+# interaction plot
+ggplot(data=plot3, aes(x=cond, y=prop, group=category, col=category, shape=category)) +
+  geom_hline(yintercept=50) +
+  geom_errorbar(aes(ymin=prop-ci, ymax=prop+ci), width=.2, lwd=1, linetype=1) +
+  geom_line(lwd = 1) +
+  geom_point(size = 2) +
+  theme_classic() +
+  scale_x_discrete(name="environment", limits = c("cond1", "cond2", "cond3"), labels = c("short", "long", "island")) +
+  scale_y_continuous(name="% responses", limits=c(-5, 100), breaks = c(0, 20, 40, 60, 80, 100)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), limits=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), limits=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
+  facet_grid(panel~group, labeller = as_labeller(groups))
+
+# save plot
+ggsave("data/plots/ept_interaction_plot_resumer_comparison.png", width=5.5, height=4.5, dpi=600)
+
+#------------------------------------------------------------------------------------------#
+#### ept: scatter plot of resumption rate against proficiency scores (by environment) ####
+#------------------------------------------------------------------------------------------#
+
+# summarise data for plotting
+
+plot <- ep %>%
+  filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
+  mutate(type = case_when(type == 'gap' ~ 'gap',
+                          type == 'resumption' ~ 'resumption',
+                          TRUE ~ 'other')) %>%
+  mutate(type = as.character(type)) %>%
+  group_by(study, group, participant, environment) %>%
+  count(type) %>%
+  ungroup() %>%
+  group_by(study, group, participant, environment) %>%
+  mutate(sum = sum(n)) %>%
+  ungroup() %>%
+  mutate(prop = (n/sum)*100) %>%
+  mutate(prc = as.character(round(prop))) %>%
+  mutate(prc = as.numeric(case_when(prc == '0' ~ NA_character_, TRUE ~ prc))) %>%
+  mutate(type = factor(type, levels = c('gap', 'other', 'resumption'))) %>%
+  mutate(environment = factor(environment, levels = c('short', 'long', 'island')))
+
+plot <- plot %>%
+  complete(type, nesting(study, group, participant, environment), fill = list(prop = 0, n = 0)) %>%
+  select(study, group, environment, participant, type, n, prop) %>%
+  arrange(study, group, environment, participant, type, prop)
+
+plot <- plot %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  filter(proficiency != 'NA') %>%
+  filter(type == 'resumption')
+
+# facet labels
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE',
+            `short` = 'short', `long` = 'long', `island` = 'island')
+
+# define data for plots
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency*100, y=prop))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency*100, y=prop))
+
+# generate plot
+
+s <- list(
+  geom_smooth(method=lm, col="#785ef0"), 
+  geom_point(shape = 1),
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name="% resumption", limits = c(-5, 100)),
+  scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right"),
+  facet_grid(environment~group, labeller = as_labeller(groups))
+)
+
+# write plots
+
+p1 + s
+ggsave("plots/orc/ept_proficiency.png", width=6.5, height=3, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
