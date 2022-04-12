@@ -183,7 +183,7 @@ write_csv(ct, 'data/ctest_scored.csv')
 
 # read from file
 
-ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'c'))
+ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'f', accuracy = 'l'))
 
 #------------------------------------------------------------------------------------------#
 #### ctest: plot ####
@@ -192,7 +192,6 @@ ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'c'))
 # summarise for plotting 
 
 plot <- ct %>%
-  filter(participant != 'researcher') %>%
   group_by(study, group, participant) %>%
   summarise(mean = mean(accuracy)) %>%
   ungroup()
@@ -238,7 +237,7 @@ ep <- df %>%
   select_if(function(x){!all(is.na(x))})
 
 #------------------------------------------------------------------------------------------#
-#### ept: bar plot ####
+#### ept: bar plot critical ####
 #------------------------------------------------------------------------------------------#
 
 # remove nontarget responses
@@ -294,7 +293,121 @@ p2 + s
 ggsave("plots/src/ept_barplot.png", width=6.5, height=2.5, dpi=600)
 
 #------------------------------------------------------------------------------------------#
-#### ept: scatter plot of resumption rate against proficiency scores ####
+#### ept: bar plot filler ####
+#------------------------------------------------------------------------------------------#
+
+# remove nontarget responses
+
+target <- ep %>%
+  filter(type != 'nontarget')
+
+# summarise for plotting
+
+plot <- target %>%
+  filter(is.na(condition) == TRUE) %>%
+  mutate(type = as.character(type)) %>%
+  group_by(study, group) %>%
+  count(type) %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  mutate(sum = sum(n)) %>%
+  ungroup() %>%
+  mutate(prop = (n/sum)*100) %>%
+  mutate(prc = as.character(round(prop))) %>%
+  mutate(prc = as.numeric(case_when(prc == '0' ~ NA_character_, TRUE ~ prc))) %>%
+  mutate(type = factor(type, levels = c('gap', 'other', 'resumption')))
+
+# facet labels
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
+# define data for plots
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=group, y=prop, group=type, fill=type, label=prc))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=group, y=prop, group=type, fill=type, label=prc))
+
+# add styling
+
+s <- list(
+  geom_bar(stat = "identity", col = "black", width = .5, alpha=.8),
+  geom_text(size = 3, col = "black", position = position_stack(vjust = 0.5)),
+  theme_classic(),
+  scale_x_discrete(name="group", limits = c('english', 'korean', 'mandarin'), labels = c('ENS', 'KLE', 'MLE')),
+  scale_y_continuous(name="% responses", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)),
+  scale_fill_manual(name="dependency", values=c("#648fff", "gray", "#ffb000")),
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, 1))
+)
+
+# print plots
+
+p1 + s
+ggsave("plots/orc/ept_barplot_filler.png", width=6.5, height=2.5, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_barplot_filler.png", width=6.5, height=2.5, dpi=600)
+
+#------------------------------------------------------------------------------------------#
+#### ept: bar plot critical nontarget ####
+#------------------------------------------------------------------------------------------#
+
+# make list of participants that excludes those who only gave nontarget responses
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# summarise for plotting
+
+plot <- ep %>%
+  filter(participant %in% temp$participant) %>%
+  filter(is.na(condition) == FALSE) %>%
+  mutate(type = as.character(type)) %>%
+  group_by(study, group, condition) %>%
+  count(type) %>%
+  ungroup() %>%
+  complete(type, nesting(condition), fill = list(n = 0)) %>%
+  group_by(study, group, condition) %>%
+  mutate(sum = sum(n)) %>%
+  ungroup() %>%
+  mutate(prop = (n/sum)*100) %>%
+  mutate(prc = as.character(round(prop))) %>%
+  mutate(prc = as.numeric(case_when(prc == '0' ~ NA_character_, TRUE ~ prc))) %>%
+  mutate(type = factor(type, levels = c('gap', 'nontarget', 'other', 'resumption')))
+
+# facet labels
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
+# define data for plots
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=condition, y=prop, group=type, fill=type, label=prc))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=condition, y=prop, group=type, fill=type, label=prc))
+
+# add styling
+
+s <- list(
+  geom_bar(stat = "identity", col = "black", width = .5, alpha=.8),
+  geom_text(size = 3, col = "black", position = position_stack(vjust = 0.5)),
+  theme_classic(),
+  scale_x_discrete(name="environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('short', 'long', 'island')),
+  scale_y_continuous(name="% responses", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)),
+  scale_fill_manual(name="dependency", values=c('#648fff', 'gray60', 'gray85', '#ffb000'), labels = c('gap', 'nontarget', 'restructure', 'resumption')),
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, 1)),
+  facet_wrap(~group, labeller = as_labeller(groups))
+)
+
+# print plots
+
+p1 + s
+ggsave("plots/orc/ept_barplot_with_nontarget.png", width=6.5, height=2.75, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_barplot_with_nontarget.png", width=6.5, height=2.75, dpi=600)
+
+#------------------------------------------------------------------------------------------#
+#### ept: scatter plot of proficiency effects ####
 #------------------------------------------------------------------------------------------#
 
 # summarise data for plotting
@@ -363,10 +476,15 @@ ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
 #------------------------------------------------------------------------------------------#
 
 # simple regression analysis
+
 md <- plot %>% filter(group == 'mandarin' & study == '210510_su')
+
 cor(md$proficiency, md$prop) 
+
 model <- lm(prop ~ proficiency, data = md)
+
 summary(model)
+
 # doen: ' ' (r-squared = 0.000434, F = 0.03778, p = 0.8463)
 # doko: '.' (r-squared = 0.05509, F = 3.848, p = 0.05402)
 # dozh: ' ' (r-squared = 0.006488, F = 0.4832, p = 0.4891)
@@ -374,136 +492,98 @@ summary(model)
 # suko: ' ' (r-squared = 0.03603, F = 2.392, p = 0.1269)
 # suzh: ' ' (r-squared = 0.00, F = 0.00, p = 0.997)
 
-# *** bar plot by item ***
+#------------------------------------------------------------------------------------------#
+#### ept: bar plot critical by-item ####
+#------------------------------------------------------------------------------------------#
 
-# summarise data for plotting
+# summarise for plotting
+
 plot <- ep %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
+  filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
   mutate(category = case_when(type == 'gap' ~ 'gap',
                               type == 'resumption' ~ 'resumption',
                               TRUE ~ 'other')) %>%
   mutate(category = as.character(category)) %>%
-  group_by(item, cond) %>%
+  group_by(study, item, condition) %>%
   count(category) %>%
   ungroup() %>%
-  complete(category, nesting(cond), fill = list(n = 0)) %>%
-  group_by(item, cond) %>%
+  complete(category, nesting(condition), fill = list(n = 0)) %>%
+  group_by(study, item, condition) %>%
   mutate(sum = sum(n)) %>%
   ungroup() %>%
   mutate(prop = (n/sum)*100) %>%
   mutate(prc = as.character(round(prop))) %>%
   mutate(prc = as.numeric(case_when(prc == '0' ~ NA_character_, TRUE ~ prc))) %>%
-  mutate(category = factor(category, levels = c('gap', 'resumption', 'other', 'deficient')))
+  mutate(category = factor(category, levels = c('gap', 'other', 'resumption'))) %>%
+  mutate(study = case_when(study == '210510_do' ~ 'ORC',
+                           study == '210510_su' ~ 'SRC'))
 
 # generate plot
-ggplot(data=plot, aes(x=cond, y=prop, group=category, fill=category, label=prc)) +
-  geom_bar(stat = "identity", col = "black", width = .5) +
-  geom_text(size = 2.5, col = "white", position = position_stack(vjust = 0.5)) +
+
+ggplot(data=plot, aes(x=condition, y=prop, group=category, fill=category, label=prc)) +
+  geom_bar(stat = "identity", col = "black", width = .5, alpha = .8) +
+  geom_text(size = 3, col = "black", position = position_stack(vjust = 0.5)) +
   theme_classic() +
   scale_x_discrete(name="environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('short', 'long', 'island')) +
-  scale_y_continuous(name="% responses", limits=c(0, 100), breaks=c(0, 20, 40, 60, 80, 100)) +
-  scale_fill_manual(name="dependency", values=c('#648fff', '#ffb000', "black", "white")) +
+  scale_y_continuous(name="% responses", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)) +
+  scale_fill_manual(name="dependency", values=c('#648fff', 'gray', '#ffb000')) +
   theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right") +
-  facet_wrap(~item)
+  facet_grid(study~item)
 
 # save plot
-ggsave("plots/ept_plot_item.png", width=10, height=10, dpi=600)
+
+ggsave("plots/ept_plot_item.png", width=10, height=5, dpi=600)
 
 #------------------------------------------------------------------------------------------#
 #### ept: modeling ####
 #------------------------------------------------------------------------------------------#
 
-# check participants
-check <- ep %>%
-  mutate(participant = as.factor(participant))
-str(check$participant)
-summary(check$participant)
+# remove participants who only gave nontarget responses
 
-# remove nontarget responses
-ep <- ep %>%
-  filter(!type %in% c('repeat', 'nontarget', 'incomplete', 'NA'))
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
 
-md <- target %>%
-  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
-                                TRUE ~ FALSE),
-         group = first_lang) %>%
-  filter(group %in% c('english', 'korean', 'mandarin')) %>%
-  mutate(group = fct_drop(group))
+md <- ep %>%
+  filter(participant %in% temp$participant)
 
-# summarise data for plotting
-plot <- md %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  mutate(category = case_when(resumption == TRUE ~ 'resumption',
-                              resumption == FALSE ~ 'other')) %>%
-  mutate(category = as.character(category)) %>%
-  group_by(group, cond) %>%
-  count(category) %>%
-  ungroup() %>%
-  complete(category, nesting(cond), fill = list(n = 0)) %>%
-  group_by(group, cond) %>%
-  mutate(sum = sum(n)) %>%
-  ungroup() %>%
-  mutate(prop = (n/sum)*100) %>%
-  filter(group %in% c('english', 'korean', 'mandarin')) %>%
-  mutate(prc = as.character(round(prop))) %>%
-  mutate(category = factor(category, levels = c('other', 'resumption')))
+# code responses as ±resumption
 
-# bar plot
-ggplot(data=plot, aes(x=cond, y=prop, group=category, fill=category, label=prc)) +
-  geom_bar(stat = "identity", col = "black", width = .5) +
-  geom_text(size = 3.5, col = "black", position = position_stack(vjust = 0.5)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('short', 'long', 'island')) +
-  scale_y_continuous(name="% responses", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)) +
-  scale_fill_manual(name="dependency", values=c("grey", "#00a78f")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, 1)) +
-  facet_wrap(~group)
-
-# save plot
-ggsave("data/plots/ept_binary_plot.png", width=5.5, height=2.5, dpi=600)
-
-# add columns for factors
 md <- md %>%
-  mutate(environment = factor(case_when(cond == 'cond1' ~ 'short',
-                                        cond == 'cond2' ~ 'long',
-                                        cond == 'cond3' ~ 'island'))) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
+                                TRUE ~ FALSE)) %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'long', 'short', 'island'))
 
 md2 <- md %>%
-  filter(group == 'english') %>%
-  #filter(environment %in% c('short', 'long', 'island')) %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  mutate(cond = fct_drop(cond))
+  filter(study == '210510_do' & group == 'mandarin' & is.na(condition) == FALSE) %>%
+  mutate(condition = fct_drop(condition))
 
 md2 <- md2 %>%
   filter(type %in% c('gap', 'resumption'))
 
-md2 <- md2 %>%
-  mutate(cond = fct_relevel(cond, 'cond3', 'cond2', 'cond1'))
-
 # view contrasts
-contrasts(md2$cond)
+contrasts(md2$environment)
 
-model1 <- glmer(resumption ~ cond + (cond|participant) + (cond|item), 
+model1 <- glmer(resumption ~ environment + (environment|participant) + (environment|item), 
                 data = md2, family = binomial, glmerControl(optimizer = "bobyqa"))
 summary(model1)
 beepr::beep(1)
 
-# ENS (reference level = cond3)
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)  8.209e+00  8.774e-04    9356   <2e-16 ***
-#   condcond2   -4.492e+01  8.774e-04  -51193   <2e-16 ***
-#   condcond1   -5.201e+01  8.772e-04  -59289   <2e-16 ***
-# KLE (reference level = cond3)
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)  -2.009762   0.001235   -1627   <2e-16 ***
-#   condcond2    -2.757602   0.001276   -2162   <2e-16 ***
-#   condcond1   -16.200337   0.001235  -13115   <2e-16 ***
-# MLE (reference level = cond3)
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)  -0.3246     1.5824  -0.205 0.837481    
-# condcond2    -0.7772     1.1895  -0.653 0.513517    
-# condcond1   -11.5286     3.3635  -3.428 0.000609 ***
+# doen (reference level = cond2) singular fit
+# Fixed effects:
+#                     Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)       -10.424930   0.001255   -8309   <2e-16 ***
+# environmentshort  -31.971440   0.001296  -24673   <2e-16 ***
+# environmentisland   9.651172   0.001255    7692   <2e-16 ***
+
+# doko (reference level = cond2) failed to converge
+
+# dozh (reference level = cond2) failed to converge
+
 
 # models
 model1 <- glmer(resumption ~ environment + (environment|participant) + (environment|item), 
@@ -629,81 +709,29 @@ summary(model1)
 #------------------------------------------------------------------------------------------#
 
 check <- df %>%
-  filter(trial_part == 'spr-stimulus') %>%
+  filter(task == 'sprt') %>%
   group_by(participant) %>%
   summarise() %>%
   ungroup()
 
 # create dataframe for reading time data
-spr_stimulus <- df %>%
-  filter(trial_part == 'spr-stimulus') %>%
-  select(group, run_id, participant, condition, trial_index, item, cond, task, words, rt) %>%
-  mutate(task = as.character(task)) %>%
-  mutate(cond = case_when(cond == '"' ~ task, TRUE ~ cond)) %>% # make corrections to 'cond'
-  select(-task) %>%
-  # separate rt arrays
-  mutate(region = '') %>%
-  mutate(rt = str_remove_all(rt, '\\[|\\]')) %>%
-  separate_rows(words, rt) %>%
-  group_by(participant, item) %>%
-  mutate(region = row_number()) %>%
-  ungroup() %>%
-  # add columns for factors
-  mutate(dependency = factor(case_when(cond %in% c('cond1', 'cond2', 'cond3') ~ 'gap',
-                                       cond %in% c('cond4', 'cond5', 'cond6') ~ 'pronoun')),
-         environment = factor(case_when(cond %in% c('cond1', 'cond4') ~ 'short',
-                                        cond %in% c('cond2', 'cond5') ~ 'long',
-                                        cond %in% c('cond3', 'cond6') ~ 'island'))) %>%
-  # adjust regions in gap condition so they line up with pronoun condition
-  mutate(region = as.character(region)) %>%
-  mutate(region = case_when(dependency == 'gap' & region == '11' ~ '12',
-                            dependency == 'gap' & region == '12' ~ '13',
-                            dependency == 'gap' & region == '13' ~ '14',
-                            dependency == 'gap' & region == '14' ~ '15',
-                            dependency == 'gap' & region == '15' ~ '16',
-                            dependency == 'gap' & region == '16' ~ '17',
-                            TRUE ~ region))
-
-# create dataframe for response accuracy data
-spr_question <- df %>%
-  filter(trial_part == 'spr_question') %>%
-  mutate(accuracy = case_when(!accuracy %in% c('true', 'false') ~ success, TRUE ~ accuracy)) %>% # make corrections to 'accuracy'
-  select(group, run_id, participant, condition, trial_index, item, cond, task, words, accuracy, question_rt = rt) %>%
-  mutate(task = as.character(task)) %>%
-  mutate(cond = case_when(cond == '"' ~ task, TRUE ~ cond)) %>% # make corrections to 'cond'
-  select(-task)
-
-# reduce to accuracy and rt data
-spr_accuracy <- spr_question %>%
-  select(participant, item, accuracy, question_rt)
-
-# join reading time data and accuracy data into one dataframe
-spr <- left_join(spr_stimulus, spr_accuracy, by= c('participant', 'item')) %>%
-  mutate(accuracy = as.logical(accuracy)) %>%
-  group_by(participant) %>%
-  mutate(acc_rate = mean(accuracy, na.rm = T)) %>%
-  ungroup()
-
-# check accuracy rate by participant
-check <- spr %>%
-  group_by(run_id, participant) %>%
-  summarise(acc_rate = mean(acc_rate, na.rm = T)) %>%
-  ungroup()
-
-# check accuracy rate on fillers by participant
-check <- spr %>%
-  filter(str_detect(cond, 'gram')) %>%
-  group_by(run_id, participant) %>%
-  summarise(acc_rate = mean(accuracy, na.rm = T)) %>%
-  ungroup()
+spr <- df %>%
+  filter(task == 'sprt') %>%
+  arrange(study, group, participant) %>%
+  select_if(function(x){!all(is.na(x))})
 
 #------------------------------------------------------------------------------------------#
 #### spr plots for rt data ####
 #------------------------------------------------------------------------------------------#
 
+check <- spr %>%
+  group_by(condition) %>%
+  summarise() %>%
+  ungroup()
+
 # filter to critical trials
 ds <- spr %>%
-  filter(!cond %in% c('grammatical', 'ungrammatical', 'gram', 'ungr')) %>%
+  filter(!condition %in% c('grammatical', 'ungrammatical')) %>%
   mutate(rt = as.numeric(as.character(rt)),
          participant = as.factor(participant))
 
@@ -713,7 +741,7 @@ ds <- ds %>%
 
 # check participants
 check <- ds %>%
-  group_by(group, participant) %>%
+  group_by(study, group, participant) %>%
   summarise() %>%
   summarise(n = n()) %>%
   ungroup()
@@ -722,14 +750,22 @@ check <- ds %>%
 trim <- ds %>%
   filter(rt <= 3000) %>%
   filter(rt >= 200) %>%
-  group_by(group, cond, region) %>%
+  group_by(study, group, condition, region) %>%
   mutate(sd2 = mean(rt, na.rm=T) + (2 * (sd(rt, na.rm=T)))) %>%
   ungroup() %>%
   mutate(rt = case_when(rt > sd2 ~ sd2, TRUE ~ as.numeric(rt))) %>%
-  select(-sd2)
+  select(-sd2) %>%
+  group_by(study, group, participant) %>%
+  mutate(acc_rate = mean(as.logical(accuracy))) %>%
+  ungroup()
+
+plot <- trim %>%
+  group_by(study, group, participant, acc_rate) %>%
+  summarise() %>%
+  ungroup()
 
 # inspect accuracy rates
-ggplot(ds, aes(x=group, y=acc_rate, fill=group, label=participant)) + 
+ggplot(plot, aes(x=group, y=acc_rate, fill=group, label=participant)) + 
   geom_hline(yintercept=.5) +
   geom_violin() +
   geom_boxplot(width = .1, fill='white') +
@@ -741,7 +777,8 @@ ggplot(ds, aes(x=group, y=acc_rate, fill=group, label=participant)) +
                      limits=c(0, 1)) +
   theme(text = element_text(size = 12), 
         plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "hide")
+        legend.position = "hide") +
+  facet_wrap(~study)
 
 # trim based on accuracy
 trim <- trim %>%
@@ -749,7 +786,7 @@ trim <- trim %>%
 
 # check participants
 check <- trim %>%
-  group_by(group, participant) %>%
+  group_by(study, group, participant) %>%
   summarise() %>%
   summarise(n = n()) %>%
   ungroup()
@@ -758,7 +795,7 @@ check <- trim %>%
 plot <- trim %>%
   mutate(environment = as.factor(environment)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
-  group_by(group, region, dependency, environment, cond) %>%
+  group_by(study, group, region, dependency, environment, condition) %>%
   summarise(mean_rt = mean(rt, na.rm=T),
             sd = sd(rt, na.rm=T),
             n = n()) %>%
@@ -780,22 +817,22 @@ plot <- trim %>%
                            group == 'korean' ~ 'KLE',
                            group == 'mandarin' ~ 'MLE'))
 
-# create plot
-ggplot(data=plot, aes(x=region, y=mean_rt, group=cond, col=cond, shape=cond)) +
-  geom_line(lwd=1) +
-  geom_point(size=2) +
-  geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.2, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_y_continuous(name="mean reading time (ms)", limits=c(0, 1000)) +
-  scale_x_discrete(name="region", limits=c("9", "10", "11", "12", "13", "14"), labels=c('9\nMary', '10\narrested', '11\n(him)', '12\nat', '13\nthe', '14\nend')) +
-  scale_colour_manual(name="condition", values=c('#0072c3', '#007d79', '#d02670', '#0072c3', '#007d79', '#d02670'), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
-  scale_shape_manual(name="condition", values=c(16, 16, 16, 15, 15, 15), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
-  scale_linetype_manual(name="condition", values=c('dashed', 'dashed', 'dashed', 'solid', 'solid', 'solid'), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
-  facet_wrap(~group)
-
-# save plot
-ggsave("data/subjects/plots/spr_all.png", width=6.25, height=2.5, dpi=600)
+# # create plot
+# ggplot(data=plot, aes(x=region, y=mean_rt, group=condition, col=condition, shape=condition)) +
+#   geom_line(lwd=1) +
+#   geom_point(size=2) +
+#   geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.2, lwd=1, linetype=1) +
+#   theme_classic() +
+#   scale_y_continuous(name="mean reading time (ms)", limits=c(0, 1000)) +
+#   scale_x_discrete(name="region", limits=c("9", "10", "11", "12", "13", "14"), labels=c('9\nMary', '10\narrested', '11\n(him)', '12\nat', '13\nthe', '14\nend')) +
+#   scale_colour_manual(name="condition", values=c('#0072c3', '#007d79', '#d02670', '#0072c3', '#007d79', '#d02670'), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
+#   scale_shape_manual(name="condition", values=c(16, 16, 16, 15, 15, 15), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
+#   scale_linetype_manual(name="condition", values=c('dashed', 'dashed', 'dashed', 'solid', 'solid', 'solid'), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
+#   theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
+#   facet_grid(study~group)
+# 
+# # save plot
+# ggsave("data/subjects/plots/spr_all.png", width=6.25, height=2.5, dpi=600)
 
 # facet by environment
 plot <- plot %>%
