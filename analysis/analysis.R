@@ -40,6 +40,7 @@ library(hunspell) # for spellchecking of c-test responses
 library(patchwork) # for plotting
 library(jsonlite) # for unpacking json
 library(beepr) # for notifications
+library(ggh4x) # for plotting
 
 #------------------------------------------------------------------------------------------#
 #### read in data ####
@@ -105,8 +106,6 @@ survey <- df %>%
 #### ctest: prep dataframe ####
 #------------------------------------------------------------------------------------------#
 
-# filter to c-test
-
 ct <- df %>% filter(task == 'ctest') %>%
   arrange(study, group, participant) %>%
   select_if(function(x){!all(is.na(x))})
@@ -118,7 +117,7 @@ ct <- ct %>%
 #### ctest: score responses ####
 #------------------------------------------------------------------------------------------#
 
-# check number of participants per group in ct
+# check number of participants per group
 
 check <- ct %>%
   group_by(study, group, participant) %>%
@@ -708,12 +707,6 @@ summary(model1)
 #### spr: prep dataframe ####
 #------------------------------------------------------------------------------------------#
 
-check <- df %>%
-  filter(task == 'sprt') %>%
-  group_by(participant) %>%
-  summarise() %>%
-  ungroup()
-
 # create dataframe for reading time data
 spr <- df %>%
   filter(task == 'sprt') %>%
@@ -723,11 +716,6 @@ spr <- df %>%
 #------------------------------------------------------------------------------------------#
 #### spr plots for rt data ####
 #------------------------------------------------------------------------------------------#
-
-check <- spr %>%
-  group_by(condition) %>%
-  summarise() %>%
-  ungroup()
 
 # filter to critical trials
 ds <- spr %>%
@@ -802,79 +790,88 @@ plot <- trim %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
-  # add_row(group = 'english', region = "11", cond = "cond1", dependency = 'gap', environment = 'short') %>%
-  # add_row(group = 'english', region = "11", cond = "cond2", dependency = 'gap', environment = 'long') %>%
-  # add_row(group = 'english', region = "11", cond = "cond3", dependency = 'gap', environment = 'island') %>%
-  # add_row(group = 'korean', region = "11", cond = "cond1", dependency = 'gap', environment = 'short') %>%
-  # add_row(group = 'korean', region = "11", cond = "cond2", dependency = 'gap', environment = 'long') %>%
-  # add_row(group = 'korean', region = "11", cond = "cond3", dependency = 'gap', environment = 'island') %>%
-  # add_row(group = 'mandarin', region = "11", cond = "cond1", dependency = 'gap', environment = 'short') %>%
-  # add_row(group = 'mandarin', region = "11", cond = "cond2", dependency = 'gap', environment = 'long') %>%
-  # add_row(group = 'mandarin', region = "11", cond = "cond3", dependency = 'gap', environment = 'island') %>%
-  filter(region %in% c(9, 10, 11, 12, 13, 14)) %>%
+  filter(region %in% c(7, 8, 9, 10, 11, 12, 13, 14, 15)) %>%
   filter(group %in% c('english', 'korean', 'mandarin')) %>%
   mutate(panel = case_when(group == 'english' ~ 'ENS',
                            group == 'korean' ~ 'KLE',
-                           group == 'mandarin' ~ 'MLE'))
-
-# # create plot
-# ggplot(data=plot, aes(x=region, y=mean_rt, group=condition, col=condition, shape=condition)) +
-#   geom_line(lwd=1) +
-#   geom_point(size=2) +
-#   geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.2, lwd=1, linetype=1) +
-#   theme_classic() +
-#   scale_y_continuous(name="mean reading time (ms)", limits=c(0, 1000)) +
-#   scale_x_discrete(name="region", limits=c("9", "10", "11", "12", "13", "14"), labels=c('9\nMary', '10\narrested', '11\n(him)', '12\nat', '13\nthe', '14\nend')) +
-#   scale_colour_manual(name="condition", values=c('#0072c3', '#007d79', '#d02670', '#0072c3', '#007d79', '#d02670'), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
-#   scale_shape_manual(name="condition", values=c(16, 16, 16, 15, 15, 15), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
-#   scale_linetype_manual(name="condition", values=c('dashed', 'dashed', 'dashed', 'solid', 'solid', 'solid'), labels=c('short, gap', 'long, gap', 'island, gap', 'short, RP', 'long, RP', 'island, RP')) +
-#   theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
-#   facet_grid(study~group)
-# 
-# # save plot
-# ggsave("data/subjects/plots/spr_all.png", width=6.25, height=2.5, dpi=600)
-
-# facet by environment
-plot <- plot %>%
+                           group == 'mandarin' ~ 'MLE')) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-ggplot(data=plot, aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency)) +
-  annotate("rect", xmin = 3.5, xmax = 5.5, ymin = 0, ymax = 1000, alpha = .2) +
-  geom_line(lwd=1) +
-  geom_point(size=2) +
-  geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.2, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_y_continuous(name="mean reading time (ms)", limits=c(0, 2000)) +
-  scale_x_discrete(name="region", limits=c("9", "10", "11", "12", "13", "14"), labels=c('9\nofficers', '10\narrested', '11\n(him)', '12\nat', '13\nthe', '14\nend')) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'RP')) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'RP')) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
-  facet_grid(group~environment)
 
-# save plot
-ggsave("data/subjects/plots/spr_faceted.png", width=12, height=2.75, dpi=600)
+# generate plot
 
-# remove words from region labels
-plot <- plot %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-ggplot(data=plot, aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency)) +
-  annotate("rect", xmin = 3.5, xmax = 5.5, ymin = 300, ymax = 850, alpha = .15) +
-  geom_line(lwd=1) +
-  geom_point(size=2) +
-  geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.5, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_y_continuous(name="mean reading time (ms)", limits=c(300, 850)) +
-  scale_x_discrete(name="region", limits=c("9", "10", "11", "12", "13", "14"), labels=c('9', '10', '11', '12', '13', '14')) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right", 
-        legend.margin = margin(0, 0, 0, 0),
-        legend.box.margin = margin(0, 0, 0, 0)) +
-  facet_grid(panel~environment)
+p1a <- ggplot(data=filter(plot, study == '210510_do', environment == 'short'), aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency))
+p1b <- ggplot(data=filter(plot, study == '210510_do', environment == 'long'), aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency))
+p1c <- ggplot(data=filter(plot, study == '210510_do', environment == 'island'), aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency))
 
-# save plot
-ggsave("data/objects/plots/spr_rt.png", width=6.5, height=4.5, dpi=600)
+p2a <- ggplot(data=filter(plot, study == '210510_su', environment == 'short'), aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency))
+p2b <- ggplot(data=filter(plot, study == '210510_su', environment == 'long'), aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency))
+p2c <- ggplot(data=filter(plot, study == '210510_su', environment == 'island'), aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency))
+
+s <- list(
+  geom_line(lwd=1),
+  geom_point(size=2),
+  geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.5, lwd=1, linetype=1),
+  theme_classic(),
+  scale_y_continuous(name="mean reading time (ms)", limits=c(300, 850)),
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')#,
+  #geom_rect(aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), data = f_labels, alpha = .15)
+)
+
+p1a + s + 
+  theme(legend.position = 'none', 
+        strip.background.y = element_blank(), 
+        strip.text.y = element_blank(),
+        axis.title.x = element_blank()) +
+  annotate('rect', xmin = 4.5, xmax = 7.5, ymin = 300, ymax = 850, alpha = .15) +
+  scale_x_discrete(name="region", limits=c('8', '9', '10', '11', '12', '13', '14', '15')) +
+p1b + s +
+  theme(legend.position = 'none',
+        axis.title.y = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text.y = element_blank()) +
+  annotate('rect', xmin = 4.5, xmax = 7.5, ymin = 300, ymax = 850, alpha = .15) +
+  scale_x_discrete(name="region", limits=c('8', '9', '10', '11', '12', '13', '14', '15')) +
+p1c + s +
+  theme(legend.position = c(-.8, -.15),
+        legend.direction = 'horizontal',
+        legend.margin = margin(t = 0, unit='cm'),
+        plot.margin = margin(b = 12),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank()) +
+  annotate('rect', xmin = 4.5, xmax = 7.5, ymin = 300, ymax = 850, alpha = .15) +
+  scale_x_discrete(name="region", limits=c('8', '9', '10', '11', '12', '13', '14', '15'))
+
+ggsave('plots/orc/spr_rt.png', width=6.5, height=4.5, dpi=600)
+
+p2a + s + 
+  theme(legend.position = 'none', 
+        strip.background.y = element_blank(), 
+        strip.text.y = element_blank(),
+        axis.title.x = element_blank()) +
+  annotate('rect', xmin = 2.5, xmax = 5.5, ymin = 300, ymax = 850, alpha = .15) +
+  scale_x_discrete(name="region", limits=c('7', '8', '9', '10', '11', '12', '13', '14')) +
+p2b + s +
+  theme(legend.position = 'none',
+        axis.title.y = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text.y = element_blank()) +
+  annotate('rect', xmin = 2.5, xmax = 5.5, ymin = 300, ymax = 850, alpha = .15) +
+  scale_x_discrete(name="region", limits=c('7', '8', '9', '10', '11', '12', '13', '14')) +
+p2c + s +
+  theme(legend.position = c(-.8, -.15),
+        legend.direction = 'horizontal',
+        legend.margin = margin(t = 0, unit='cm'),
+        plot.margin = margin(b = 12),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank()) +
+  annotate('rect', xmin = 4.5, xmax = 7.5, ymin = 300, ymax = 850, alpha = .15) +
+  scale_x_discrete(name="region", limits=c('7', '8', '9', '10', '11', '12', '13', '14'))
+
+ggsave('plots/src/spr_rt.png', width=6.5, height=4.5, dpi=600)
 
 # summarise data for plotting by participant
 plot2 <- trim %>%
