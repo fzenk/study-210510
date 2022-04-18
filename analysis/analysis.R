@@ -714,7 +714,7 @@ spr <- df %>%
   select_if(function(x){!all(is.na(x))})
 
 #------------------------------------------------------------------------------------------#
-#### spr plots for rt data ####
+#### spr: plots for rt data ####
 #------------------------------------------------------------------------------------------#
 
 # filter to critical trials
@@ -873,120 +873,24 @@ p2c + s +
 
 ggsave('plots/src/spr_rt.png', width=6.5, height=4.5, dpi=600)
 
-# summarise data for plotting by participant
-plot2 <- trim %>%
-  mutate(environment = as.factor(environment)) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
-  group_by(run_id, participant, region, dependency, environment, cond) %>%
-  summarise(mean_rt = mean(rt, na.rm=T),
-            sd = sd(rt, na.rm=T),
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() %>%
-  add_row(region = "11", cond = "cond1", dependency = 'gap', environment = 'short') %>%
-  add_row(region = "11", cond = "cond2", dependency = 'gap', environment = 'long') %>%
-  add_row(region = "11", cond = "cond3", dependency = 'gap', environment = 'island') %>%
-  filter(region %in% c(9, 10, 11, 12, 13, 14))
-
-# plot by participant
-plot2 <- plot2 %>%
-  filter(region %in% c(10, 11, 12, 13)) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-ggplot(data=plot2, aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency)) +
-  annotate("rect", xmin = 3.5, xmax = 5.5, ymin = 200, ymax = 700, alpha = .2) +
-  geom_hline(yintercept = 0) +
-  geom_line(lwd=1) +
-  geom_point(size=2) +
-  geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.5, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_y_continuous(name="mean reading time (ms)", limits=c(-1000, 2000)) +
-  scale_x_discrete(name="region", limits=c("9", "10", "11", "12", "13", "14"), labels=c('9', '10', '11', '12', '13', '14')) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'RP')) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'RP')) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
-  facet_grid(participant~environment)
-
-# save plot
-#ggsave("plots/plot_spr_ppt.png", width=5.5, height=30, dpi=600)
-ggsave("data/english/plots/spr_ppt.png", width=5.5, height=30, dpi=600)
-
-# summarise data for scatterplot by item
-plot <- trim %>%
-  filter(region %in% c('12', '13')) %>%
-  mutate(item = as.character(item)) %>%
-  mutate(item = str_remove_all(item, 'item')) %>%
-  mutate(cond = as.factor(cond)) %>%
-  group_by(run_id, item, environment, dependency, cond) %>%
-  summarise(sum = sum(rt, na.rm=T)) %>%
-  ungroup() %>%
-  group_by(item, environment, dependency, cond) %>%
-  summarise(mean = mean(sum, na.rm=T)) %>%
-  ungroup() 
-
-# generate scatterplot by item
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=item)) + 
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
-  scale_y_continuous(name="mean reading time (ms)") +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_spr_item.png", width=5.5, height=2.75, dpi=600)
-ggsave("plots/plots_su/plot_spr_item.png", width=5.5, height=2.75, dpi=600)
-
-# summarise data for scatterplot by participant
-plot <- trim %>%
-  filter(region %in% c('12', '13')) %>%
-  mutate(cond = as.factor(cond)) %>%
-  group_by(run_id, item, environment, dependency, cond) %>%
-  summarise(sum = sum(rt, na.rm=T)) %>%
-  ungroup() %>%
-  group_by(run_id, environment, dependency, cond) %>%
-  summarise(mean = mean(sum, na.rm=T)) %>%
-  ungroup() 
-
-# generate plot by participant
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  geom_jitter(shape=1, alpha = .15, position = position_jitter(seed=2, width = .2)) +
-  #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
-  scale_y_continuous(name="mean reading time (ms)") +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_spr_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
-ggsave("plots/plots_su/plot_spr_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
-
 #------------------------------------------------------------------------------------------#
 #### spr: plots for accuracy data ####
 #------------------------------------------------------------------------------------------#
 
-
-
 # trim based on accuracy
 trim <- ds %>%
-  filter(acc_rate > .5)
+  group_by(study, group, participant) %>%
+  mutate(acc_rate = mean(as.logical(accuracy))) %>%
+  ungroup() %>%
+  filter(acc_rate >.5)
   
 #summarize data for plotting by group
 plot <- trim %>%
-  group_by(group, participant, item, dependency, environment, accuracy) %>%
+  mutate(accuracy = as.logical(accuracy)) %>%
+  group_by(study, group, participant, item, dependency, environment, accuracy) %>%
   summarise() %>%
   ungroup() %>%
-  group_by(group, dependency, environment) %>%
+  group_by(study, group, dependency, environment) %>%
   summarise(mean = mean(accuracy, na.rm=T) * 100,
             sd = sd(accuracy, na.rm=T) * 100,
             n = n()) %>%
@@ -997,150 +901,56 @@ plot <- trim %>%
                            group == 'korean' ~ 'KLE',
                            group == 'mandarin' ~ 'MLE'))
 
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+
 # create plot
-ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
-  #geom_hline(yintercept=50) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
-  scale_y_continuous(name="% accuracy", limits=c(68, 100)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+s <- list(
+  geom_line(lwd = 1),
+  geom_point(size = 2),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
+  theme_classic(),
+  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")),
+  scale_y_continuous(name="% accuracy", limits=c(68, 100)),
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")),
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")),
   theme(text = element_text(size = 12), 
         plot.title = element_text(size = 12, hjust = .5), 
         legend.position = "right", 
         legend.margin=margin(0, 0, 0, 0),
-        legend.box.margin = margin(0, 0, 0, 0)) +
+        legend.box.margin = margin(0, 0, 0, 0)),
   facet_wrap(~panel)
+)
 
-# save plot
-ggsave("data/objects/plots/spr_accuracy.png", width=6.5, height=2.5, dpi=600)
+p1 + s
+ggsave("plots/orc/spr_accuracy.png", width=6.5, height=2.5, dpi=600)
 
-#summarize data for plotting by participant
-plot <- ds %>%
-  group_by(run_id, participant, dependency, environment) %>%
-  filter(region == "1") %>%
-  summarise(mean = mean(accuracy, na.rm=T) * 100,
-            sd = sd(accuracy, na.rm=T) * 100,
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup()
-
-# create plot by participant
-ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
-  #geom_hline(yintercept=50) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
-  scale_y_continuous(name="% accuracy", limits=c(0, 100), breaks = c(25, 50, 75, 100)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "RP")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "RP")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
-  facet_wrap(~participant)
-
-# save plot by participant
-#ggsave("plots/spr_accuracy_ppt.png", width=3.5, height=2.5, dpi=600)
-ggsave("data/objects/snulife/plots/spr_accuracy_ppt.png", width=3.5, height=2.5, dpi=600)
-
-#summarize data for plotting by item
-plot <- ds %>%
-  group_by(item, dependency, environment) %>%
-  filter(region == "1") %>%
-  summarise(mean = mean(accuracy, na.rm=T) * 100,
-            sd = sd(accuracy, na.rm=T) * 100,
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup()
-
-# create interaction plot by item
-ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
-  #geom_hline(yintercept=50) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
-  scale_y_continuous(name="% accuracy", limits=c(25, 100), breaks = c(25, 50, 75, 100)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "RP")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "RP")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
-  facet_wrap(~item)
-
-# save plot by participant
-ggsave("plots/spr_accuracy_item.png", width=3.5, height=2.5, dpi=600)
-
-# summarise data for scatterplot by item
-plot <- ds %>%
-  mutate(item = as.character(item)) %>%
-  mutate(item = str_remove_all(item, 'item')) %>%
-  mutate(cond = as.factor(cond)) %>%
-  group_by(item, environment, dependency, cond) %>%
-  summarise(mean = mean(accuracy, na.rm=T)) %>%
-  ungroup() 
-
-# generate scatterplot by item
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=item)) + 
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
-  scale_y_continuous(name="% accuracy") +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_spr_accuracy_scatter_item.png", width=5.5, height=2.75, dpi=600)
-
-# summarise data for scatterplot by participant
-plot <- ds %>%
-  mutate(cond = as.factor(cond)) %>%
-  group_by(run_id, environment, dependency, cond) %>%
-  summarise(mean = mean(accuracy, na.rm=T)) %>%
-  ungroup()
-
-# generate plot by participant
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
-  scale_y_continuous(name="mean reading time (ms)") +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_spr_accuracy_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
-
-# clean workspace
-rm(check, ds, plot, spr, spr_accuracy, spr_question, spr_stimulus)
+p2 + s
+ggsave("plots/src/spr_accuracy.png", width=6.5, height=2.5, dpi=600)
 
 #------------------------------------------------------------------------------------------#
-#### spr: modeling for reading times ####
+#### spr: modeling for reading times at critical region ####
 #------------------------------------------------------------------------------------------#
+
+trim <- trim %>%
+  mutate(region = as.numeric(region)) %>%
+  mutate(region2 = case_when(study == '210510_do' ~ region - 11,
+                             study == '210510_su' & environment %in% c('short', 'long') ~ region - 8,
+                             study == '210510_su' & environment == 'island' ~ region - 10))
+
+# md <- trim %>%
+#   filter(region2 %in% c('1', '2', '3')) %>%
+#   mutate(logrt = log(rt))
 
 md <- trim %>%
-  filter(region %in% c('12', '13')) %>%
-  group_by(group, participant, item, condition, environment, dependency, accuracy) %>%
-  summarise(rt = sum(rt, na.rm=T)) %>%
+  filter(region2 %in% c('1', '2', '3')) %>%
   mutate(logrt = log(rt)) %>%
+  group_by(study, group, participant, item, environment, dependency) %>%
+  summarise(logrt = mean(logrt)) %>%
   ungroup()
 
-summary(md$participant)
-str(md$participant)
+md <- md %>%
+  filter(study == '210510_su')
 
 # summarise for plotting with logrts
 plot <- md %>%
@@ -1152,24 +962,27 @@ plot <- md %>%
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup()
 
+# facet labels
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
 # generate plot
 ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
   geom_line(lwd=1) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1) +
   theme_classic() +
-  scale_y_continuous(name="logRT", limits=c(6, 7)) +
+  scale_y_continuous(name="logRT", limits=c(5.8, 6.5)) +
   scale_x_discrete(name="environment", limits=c("short", "long", "island")) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'RP')) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'RP')) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), limits=c('gap', 'pronoun'), labels=c('gap', 'resumption')) +
+  scale_shape_manual(name="dependency", values=c(16, 15), limits=c('gap', 'pronoun'), labels=c('gap', 'resumption')) +
   theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
-  facet_wrap(~group)
+  facet_wrap(~group, labeller = as_labeller(groups))
 
 # save plot
-ggsave("plots/plot_spr_logrt_group.png", width=5.5, height=2.75, dpi=600)
+ggsave("plots/src/spr_logrt.png", width=6.5, height=2.5, dpi=600)
 
 md2 <- md %>%
-  filter(group == 'english')
+  filter(group == 'mandarin')
 
 check <- md2 %>%
   group_by(participant) %>%
@@ -1180,9 +993,9 @@ check <- md2 %>%
 hist(md2$logrt)
 qqnorm(md2$logrt)
 
-# view contrasts
-contrasts(md2$dependency)
-contrasts(md2$environment)
+md2 <- md2 %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment))
 
 # relevel 'environment'
 md2 <- md2 %>%
@@ -1199,62 +1012,353 @@ contrasts(md2$environment)
 model1 <- lmer(logrt ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), data = md2)
 summary(model1)
 beepr::beep(1)
-# ENS
-# Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                          6.54678    0.04635 62.42159 141.243  < 2e-16 ***
-#   environmentlong                    0.01114    0.03179 39.57730   0.350   0.7279    
-# environmentisland                    0.15269    0.03122 44.81306   4.890 1.33e-05 ***
-#   dependencypronoun                  0.04663    0.02755 45.83980   1.692   0.0974 .  
-# environmentlong:dependencypronoun   -0.04179    0.04965 34.86690  -0.842   0.4057    
-# environmentisland:dependencypronoun -0.24362    0.04141 37.96104  -5.884 8.25e-07 ***
 
-
-is <- md %>%
-  filter(environment == 'island')
-
-model2 <- lmer(logrt ~ dependency + (dependency|participant) + (dependency|item), data = is)
-summary(model2)
-# singular fit
+# doen
+#
+# without averaging...
+# boundary (singular) fit: see ?isSingular
+# Model failed to converge with 2 negative eigenvalues: -1.8e-01 -2.1e+02 
 # Fixed effects:
-# Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)        6.59198    0.03434 61.32396 191.971  < 2e-16 ***
-# dependencypronoun -0.12685    0.02843 33.68893  -4.462 8.59e-05 ***
-
-lo <- md %>%
-  filter(environment == 'long')
-
-model3 <- lmer(rt ~ dependency + (dependency|participant) + (dependency|item), data = lo)
-summary(model3)
-# singular fit
+#                                       Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                          5.851203   0.022422 93.520637 260.962  < 2e-16 ***
+# environmentlong                      0.001173   0.017325 25.809871   0.068  0.94656    
+# environmentisland                    0.051808   0.015862 55.688740   3.266  0.00187 ** 
+# dependencypronoun                    0.031849   0.016839 50.373166   1.891  0.06433 .  
+# environmentlong:dependencypronoun   -0.021834   0.026851 32.208411  -0.813  0.42210    
+# environmentisland:dependencypronoun -0.096617   0.026958 50.634057  -3.584  0.00076 ***
+#
+# with averaging...
+# boundary (singular) fit: see ?isSingular (no nonconvergence issue!)
 # Fixed effects:
-# Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)        734.542     22.358  56.567   32.85   <2e-16 ***
-# dependencypronoun   -3.967     20.861  28.565   -0.19    0.851  
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                          5.850046   0.022933 92.341638 255.096  < 2e-16 ***
+#   environmentlong                      0.002268   0.018068 35.901916   0.126  0.90082    
+# environmentisland                    0.046766   0.016368 63.415208   2.857  0.00578 ** 
+#   dependencypronoun                    0.029873   0.016747 46.307951   1.784  0.08102 .  
+# environmentlong:dependencypronoun   -0.022133   0.026378 31.151029  -0.839  0.40784    
+# environmentisland:dependencypronoun -0.094453   0.026906 39.106631  -3.510  0.00114 ** 
 
-sh <- md %>%
-  filter(environment == 'short')
-
-model4 <- lmer(logrt ~ dependency + (dependency|participant) + (dependency|item), data = sh)
-summary(model4)
-# singular fit
+# doko
+#
+# without averaging...
+# boundary (singular) fit: see ?isSingular
 # Fixed effects:
-# Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)        6.51850    0.03095 59.64902 210.591   <2e-16 ***
-# dependencypronoun  0.02730    0.02960 43.18048   0.922    0.362  
+#                                      Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                          5.934595   0.026826 62.710435 221.229   <2e-16 ***
+# environmentlong                      0.019087   0.021199 44.580646   0.900   0.3728    
+# environmentisland                    0.015728   0.021860 36.997765   0.719   0.4764    
+# dependencypronoun                   -0.052107   0.025114 38.996818  -2.075   0.0446 *  
+# environmentlong:dependencypronoun   -0.034343   0.033133 35.650116  -1.037   0.3069    
+# environmentisland:dependencypronoun  0.007855   0.032453 36.360479   0.242   0.8101  
+#
+# with averaging...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                          5.931231   0.026867 61.290832 220.766   <2e-16 ***
+#   environmentlong                      0.017635   0.021429 38.444778   0.823   0.4156    
+# environmentisland                    0.014878   0.023069 36.228101   0.645   0.5230    
+# dependencypronoun                   -0.052715   0.025207 53.744282  -2.091   0.0412 *  
+#   environmentlong:dependencypronoun   -0.037004   0.033533 35.008117  -1.104   0.2773    
+# environmentisland:dependencypronoun  0.008101   0.032819 36.788360   0.247   0.8064  
 
-# filter to rp region
-rp <- trim %>%
-  filter(region == '11',
-         dependency == 'pronoun') %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
-  group_by(participant, item, condition, environment, dependency, accuracy) %>%
-  summarise(rt = sum(rt, na.rm=T)) %>%
+# dozh
+# 
+# without averaging...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#                                     Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                          6.04310    0.02902 71.85333 208.216   <2e-16 ***
+# environmentlong                      0.01385    0.02538 29.86785   0.545    0.589    
+# environmentisland                    0.01920    0.02505 30.28848   0.767    0.449    
+# dependencypronoun                   -0.05321    0.02263 31.95354  -2.352    0.025 *  
+# environmentlong:dependencypronoun   -0.01920    0.02852 46.29351  -0.673    0.504    
+# environmentisland:dependencypronoun  0.01515    0.03179 34.61964   0.476    0.637  
+# 
+# with averaging...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                          6.042285   0.029077 69.899753 207.803   <2e-16 ***
+#   environmentlong                      0.009459   0.025225 29.886558   0.375    0.710    
+# environmentisland                    0.016977   0.024402 26.450115   0.696    0.493    
+# dependencypronoun                   -0.057216   0.022710 31.827845  -2.519    0.017 *  
+#   environmentlong:dependencypronoun   -0.016692   0.030010 71.320673  -0.556    0.580    
+# environmentisland:dependencypronoun  0.020514   0.032382 34.959917   0.633    0.531   
+
+# suen
+# 
+# without averaging...
+# boundary (singular) fit: see ?isSingular
+# Model failed to converge with max|grad| = 0.00434682 (tol = 0.002, component 1)
+# Fixed effects:
+#                                       Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                          5.977e+00  4.155e-02  6.131e+01 143.830  < 2e-16 ***
+# environmentlong                     -5.446e-06  2.342e-02  4.028e+01   0.000  0.99982    
+# environmentisland                    6.638e-02  2.287e-02  4.498e+01   2.903  0.00571 ** 
+# dependencypronoun                    4.723e-02  2.029e-02  4.097e+01   2.328  0.02495 *  
+# environmentlong:dependencypronoun   -1.384e-02  3.634e-02  4.333e+01  -0.381  0.70517    
+# environmentisland:dependencypronoun -1.787e-01  2.902e-02  4.038e+01  -6.157 2.74e-07 ***
+#
+# with averaging...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                          5.977221   0.042378 60.989130 141.045  < 2e-16 ***
+#   environmentlong                      0.001879   0.022681 34.112852   0.083  0.93446    
+# environmentisland                    0.059808   0.020932 55.346670   2.857  0.00601 ** 
+#   dependencypronoun                    0.044526   0.019783 44.847104   2.251  0.02935 *  
+#   environmentlong:dependencypronoun   -0.007345   0.034787 38.583846  -0.211  0.83389    
+# environmentisland:dependencypronoun -0.171831   0.028749 63.337184  -5.977 1.14e-07 ***
+
+# suko
+#
+# without averaging...
+# boundary (singular) fit: see ?isSingular
+# Model failed to converge with 2 negative eigenvalues: -1.5e-02 -5.7e+01 
+# Fixed effects:
+#                                     Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                          6.16793    0.03943 60.84806 156.444  < 2e-16 ***
+# environmentlong                      0.05860    0.03062 41.39200   1.914  0.06257 .  
+# environmentisland                   -0.06033    0.03099 37.26530  -1.947  0.05913 .  
+# dependencypronoun                    0.02906    0.03045 55.30056   0.954  0.34403    
+# environmentlong:dependencypronoun   -0.12063    0.04500 53.47754  -2.681  0.00974 ** 
+# environmentisland:dependencypronoun -0.08803    0.05120 46.32925  -1.719  0.09224 .  
+#
+# with averaging...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                          6.16656    0.04064 63.37313 151.723   <2e-16 ***
+#   environmentlong                      0.06103    0.03484 37.89302   1.752   0.0879 .  
+# environmentisland                   -0.06185    0.03279 29.00591  -1.886   0.0693 .  
+# dependencypronoun                    0.03172    0.03120 39.61232   1.017   0.3155    
+# environmentlong:dependencypronoun   -0.12690    0.04788 48.77736  -2.651   0.0108 *  
+#   environmentisland:dependencypronoun -0.09374    0.05205 33.56103  -1.801   0.0807 .  
+
+
+# suzh
+#
+# without averaging...
+# boundary (singular) fit: see ?isSingular
+# Model failed to converge with 2 negative eigenvalues: -3.3e-02 -1.4e+02
+# Fixed effects:
+#                                     Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                          6.33656    0.03737 70.78606 169.553  < 2e-16 ***
+# environmentlong                      0.09084    0.02311 34.22378   3.931 0.000392 ***
+# environmentisland                   -0.05647    0.02819 50.45756  -2.003 0.050535 .  
+# dependencypronoun                   -0.01636    0.02554 33.48949  -0.641 0.526159    
+# environmentlong:dependencypronoun   -0.12255    0.03729 32.82149  -3.286 0.002421 ** 
+# environmentisland:dependencypronoun -0.08562    0.03437 29.11434  -2.491 0.018694 *  
+# 
+# with averaging...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                          6.33265    0.03677 68.54185 172.231  < 2e-16 ***
+#   environmentlong                      0.09841    0.02852 45.77619   3.451  0.00121 ** 
+#   environmentisland                   -0.05380    0.02776 46.83593  -1.938  0.05861 .  
+# dependencypronoun                   -0.01445    0.02532 32.47188  -0.571  0.57214    
+# environmentlong:dependencypronoun   -0.13491    0.04346 40.84855  -3.104  0.00346 ** 
+#   environmentisland:dependencypronoun -0.09084    0.03548 36.40588  -2.560  0.01475 *  
+
+# post-hoc tests: pairwise comparisons of estimated marginal means
+
+library(emmeans) # see https://marissabarlaz.github.io/portfolio/contrastcoding/
+pairs(emmeans(model1, "dependency", by = "environment"))
+beep(1)
+
+# doen
+#
+# without averaging...
+# environment = short:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun  -0.0318 0.0168 Inf  -1.891  0.0586   # gap marginally faster
+#
+# environment = long:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun  -0.0100 0.0193 Inf  -0.518  0.6043   # n.s.
+# 
+# environment = island:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0648 0.0200 Inf   3.238  0.0012   # gap significantly slower
+#
+# with averaging...
+# environment = short:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun -0.02987 0.0168 25.1  -1.775  0.0880
+# 
+# environment = long:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun -0.00774 0.0189 26.5  -0.409  0.6858
+# 
+# environment = island:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun  0.06458 0.0196 31.6   3.291  0.0025
+
+# doko
+# 
+# without averaging...
+# environment = short:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0521 0.0251 Inf   2.075  0.0380
+# 
+# environment = long:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0865 0.0245 Inf   3.531  0.0004
+# 
+# environment = island:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0443 0.0231 Inf   1.913  0.0557
+#
+# with averaging...
+# environment = short:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0527 0.0254 32.2   2.074  0.0461
+# 
+# environment = long:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0897 0.0241 27.1   3.720  0.0009
+# 
+# environment = island:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0446 0.0232 23.8   1.920  0.0669
+
+# dozh
+# 
+# without averaging...
+# environment = short:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0532 0.0226 Inf   2.352  0.0187
+# 
+# environment = long:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0724 0.0246 Inf   2.941  0.0033
+# 
+# environment = island:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0381 0.0248 Inf   1.537  0.1242
+#
+# with averaging...
+# environment = short:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0572 0.0229 23.5   2.497  0.0199
+# 
+# environment = long:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0739 0.0250 33.1   2.951  0.0058
+# 
+# environment = island:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0367 0.0244 30.7   1.503  0.1429
+
+# suen
+# 
+# without averaging...
+# environment = short:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun  -0.0472 0.0203 Inf  -2.328  0.0199
+# 
+# environment = long:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun  -0.0334 0.0272 Inf  -1.226  0.2202
+# 
+# environment = island:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.1315 0.0236 Inf   5.561  <.0001
+#
+# with averaging...
+# environment = short:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun  -0.0445 0.0198 21.0  -2.244  0.0357
+# 
+# environment = long:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun  -0.0372 0.0267 38.5  -1.391  0.1722
+# 
+# environment = island:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.1273 0.0239 29.4   5.322  <.0001
+
+# suko
+#
+# without averaging...
+# environment = short:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun  -0.0291 0.0304 Inf  -0.954  0.3399
+# 
+# environment = long:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0916 0.0323 Inf   2.832  0.0046
+# 
+# environment = island:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0590 0.0325 Inf   1.815  0.0695
+# 
+# with averaging...
+# environment = short:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun  -0.0317 0.0315 28.9  -1.008  0.3220
+# 
+# environment = long:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0952 0.0331 35.4   2.879  0.0067
+# 
+# environment = island:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0620 0.0322 27.6   1.928  0.0643
+
+# suzh
+#
+# without averaging...
+# environment = short:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.0164 0.0255 Inf   0.641  0.5218
+# 
+# environment = long:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.1389 0.0268 Inf   5.188  <.0001
+# 
+# environment = island:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   0.1020 0.0221 Inf   4.621  <.0001
+# 
+# with averaging...
+# environment = short:
+# contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.0144 0.0254 23.8   0.570  0.5743
+# 
+# environment = long:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.1494 0.0318 38.9   4.698  <.0001
+# 
+# environment = island:
+#   contrast      estimate     SE   df t.ratio p.value
+# gap - pronoun   0.1053 0.0235 20.9   4.477  0.0002
+
+#------------------------------------------------------------------------------------------#
+#### spr: modeling for reading times at RP region ####
+#------------------------------------------------------------------------------------------#
+
+temp <- trim %>%
+  mutate(region = as.numeric(region)) %>%
+  mutate(region2 = case_when(study == '210510_do' ~ region - 11,
+                             study == '210510_su' & environment %in% c('short', 'long') ~ region - 8,
+                             study == '210510_su' & environment == 'island' ~ region - 10))
+
+md <- temp %>%
+  filter(dependency == 'pronoun', region2 == '0') %>%
   mutate(logrt = log(rt)) %>%
+  group_by(study, group, participant, item, environment, dependency) %>%
+  summarise(logrt = mean(logrt)) %>%
   ungroup()
 
+md <- md %>%
+  filter(study == '210510_su')
+
 # summarise for plotting with logrts
-plot <- rp %>%
-  group_by(environment, dependency) %>%
+plot <- md %>%
+  group_by(group, environment, dependency) %>%
   summarise(mean = mean(logrt, na.rm=T),
             sd = sd(logrt, na.rm=T),
             n = n()) %>%
@@ -1262,52 +1366,201 @@ plot <- rp %>%
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup()
 
+# facet labels
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
 # generate plot
 ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
   geom_line(lwd=1) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1) +
   theme_classic() +
-  scale_y_continuous(name="logRT", limits=c(5.5, 6.5)) +
+  scale_y_continuous(name="logRT", limits=c(5.8, 6.5)) +
   scale_x_discrete(name="environment", limits=c("short", "long", "island")) +
-  scale_colour_manual(name="dependency", values=c('#008673'), labels=c('RP')) +
-  scale_shape_manual(name="dependency", values=c(15), labels=c('RP')) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5))
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), limits=c('gap', 'pronoun'), labels=c('gap', 'resumption')) +
+  scale_shape_manual(name="dependency", values=c(16, 15), limits=c('gap', 'pronoun'), labels=c('gap', 'resumption')) +
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
+  facet_wrap(~group, labeller = as_labeller(groups))
 
 # save plot
-ggsave("plots/plot_spr_logrt_pronoun_group.png", width=5.5, height=2.75, dpi=600)
+ggsave("plots/orc/spr_logrt_rp_region.png", width=6.5, height=2.5, dpi=600)
 
-model5 <- lmer(logrt ~ environment + (environment|participant) + (environment|item), data = rp)
-summary(model5)
+md2 <- md %>%
+  filter(group == 'korean')
+
+check <- md2 %>%
+  group_by(participant) %>%
+  summarise(rt = mean(rt, na.rm = T)) %>%
+  ungroup()
+
+# check distribution
+hist(md2$logrt)
+qqnorm(md2$logrt)
+
+md2 <- md2 %>%
+  mutate(environment = as.factor(environment))
+
+# relevel 'environment'
+md2 <- md2 %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# view contrasts
+contrasts(md2$environment)
+
+# source on different coding schemes
+# https://marissabarlaz.github.io/portfolio/contrastcoding/
+
+# full model
+model1 <- lmer(logrt ~ environment + (environment|participant) + (environment|item), data = md2)
+summary(model1)
+beepr::beep(1)
+
+# doen
+# boundary (singular) fit: see ?isSingular
 # Fixed effects:
 # Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)        6.10156    0.04289 61.72264 142.275  < 2e-16 ***
-# environmentlong   -0.08267    0.03057 56.31499  -2.704  0.00904 ** 
-# environmentisland -0.07930    0.03410 34.83517  -2.325  0.02600 *  
+# (Intercept)        6.10923    0.03572 83.42812 171.013  < 2e-16 ***
+#   environmentlong   -0.07456    0.02650 76.48794  -2.813  0.00623 ** 
+#   environmentisland -0.07803    0.02874 31.03139  -2.715  0.01074 *  
+
+# doko
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)         6.218143   0.040100  62.006752 155.068   <2e-16 ***
+#   environmentlong     0.005061   0.039165  31.211881   0.129    0.898    
+# environmentisland  -0.030397   0.037478 267.743902  -0.811    0.418  
+
+# dozh
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)        6.30768    0.04016 62.87836 157.064   <2e-16 ***
+#   environmentlong    0.03785    0.03924 47.22513   0.965    0.340    
+# environmentisland  0.05520    0.03884 40.57832   1.421    0.163 
+
+# suen
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)        5.975911   0.045757 57.689233 130.601   <2e-16 ***
+#   environmentlong   -0.001635   0.026567 48.897678  -0.062    0.951    
+# environmentisland  0.053619   0.027180 43.077641   1.973    0.055 .  
+
+# suko
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+# Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)         6.07648    0.04653  56.31235 130.603  < 2e-16 ***
+#   environmentlong    -0.01132    0.04698  33.88362  -0.241  0.81105    
+# environmentisland   0.12001    0.03765 114.28651   3.188  0.00185 ** 
+
+# suzh
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)        6.17680    0.03322 67.84903  185.94   <2e-16 ***
+#   environmentlong   -0.01445    0.03283 67.27076   -0.44   0.6614    
+# environmentisland  0.05609    0.03032 68.08138    1.85   0.0687 .  
 
 #------------------------------------------------------------------------------------------#
 #### spr: modeling for accuracy data ####
 #------------------------------------------------------------------------------------------#
 
-md <- ds %>%
-  group_by(participant, item, dependency, environment, accuracy) %>%
-  summarise() %>%
-  ungroup()
+trim <- ds %>%
+  group_by(study, group, participant) %>%
+  mutate(acc_rate = mean(as.logical(accuracy))) %>%
+  ungroup() %>%
+  filter(acc_rate >.5)
 
-md <- md %>%
+# md <- ds %>%
+#   group_by(participant, item, dependency, environment, accuracy) %>%
+#   summarise() %>%
+#   ungroup()
+
+md <- trim %>%
   mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
+         environment = fct_drop(environment),
+         accuracy = as.logical(accuracy),
+         participant = as.factor(participant),
+         item = as.factor(item)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
+md2 <- md %>% 
+  filter(study == '210510_do', group == 'english')
+
 # view contrasts
-contrasts(md$dependency)
-contrasts(md$environment)
+contrasts(md2$dependency)
+contrasts(md2$environment)
 
 # full model
-model1 <- glmer(accuracy ~ environment*dependency + (1|participant) + (1|item), 
-                 data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
+model1 <- glmer(accuracy ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), 
+                 data = md2, family = binomial)
 summary(model1)
-# nothing significant
+beep(1)
+
+# 7:04 - 
+
+# doen
+# no warnings
+# Fixed effects:
+#                                     Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          5.05076    0.35522  14.219  < 2e-16 ***
+# environmentlong                     -0.18374    0.07866  -2.336   0.0195 *  
+# environmentisland                   -0.17138    0.08023  -2.136   0.0327 *  
+# dependencypronoun                    0.77154    0.09539   8.088 6.07e-16 ***
+# environmentlong:dependencypronoun    0.16069    0.13212   1.216   0.2239    
+# environmentisland:dependencypronoun  0.09424    0.13374   0.705   0.4810 
+
+# doko
+# no warnings
+# Fixed effects:
+#                                       Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          1.8843458  0.2471247   7.625 2.44e-14 ***
+# environmentlong                     -0.2003168  0.0523595  -3.826  0.00013 ***
+# environmentisland                   -0.0003188  0.0530505  -0.006  0.99520    
+# dependencypronoun                    1.5061945  0.0666927  22.584  < 2e-16 ***
+# environmentlong:dependencypronoun   -0.0045187  0.0914093  -0.049  0.96057    
+# environmentisland:dependencypronoun -0.0680905  0.0923683  -0.737  0.46102 
+
+# dozh
+#
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          4.148672   0.384553  10.788  < 2e-16 ***
+#   environmentlong                     -0.348150   0.075783  -4.594 4.35e-06 ***
+#   environmentisland                   -0.550492   0.073527  -7.487 7.05e-14 ***
+#   dependencypronoun                    0.829927   0.084691   9.799  < 2e-16 ***
+#   environmentlong:dependencypronoun    0.008688   0.117227   0.074    0.941    
+# environmentisland:dependencypronoun  0.573543   0.119410   4.803 1.56e-06 ***
+
+# suen
+#
+
+# suko
+#
+
+# suzh
+#
+
+library(emmeans) # see https://marissabarlaz.github.io/portfolio/contrastcoding/
+pairs(emmeans(model1, "dependency", by = "environment"))
+beep(1)
+
+# dozh
+# environment = short:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   -0.830 0.0847 Inf  -9.799  <.0001
+# 
+# environment = long:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   -0.839 0.0806 Inf -10.404  <.0001
+# 
+# environment = island:
+#   contrast      estimate     SE  df z.ratio p.value
+# gap - pronoun   -1.403 0.0858 Inf -16.354  <.0001
+# 
+# Results are given on the log odds ratio (not the response) scale. 
 
 #------------------------------------------------------------------------------------------#
 #### ajt: preprocessing ####
@@ -2849,7 +3102,7 @@ ggplot(data=plot3, aes(x=cond, y=prop, group=category, col=category, shape=categ
 ggsave("data/plots/ept_interaction_plot_resumer_comparison.png", width=5.5, height=4.5, dpi=600)
 
 #------------------------------------------------------------------------------------------#
-#### ept: scatter plot of resumption rate against proficiency scores (by environment) ####
+#### ept: scatter plot of resumption rate against proficiency scores (by environment)
 #------------------------------------------------------------------------------------------#
 
 # summarise data for plotting
@@ -2914,3 +3167,219 @@ ggsave("plots/orc/ept_proficiency.png", width=6.5, height=3, dpi=600)
 
 p2 + s
 ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------------------#
+#### spr: plots for rt data by participant and by item
+#------------------------------------------------------------------------------------------#
+
+# summarise data for plotting by participant
+plot2 <- trim %>%
+  mutate(environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  group_by(run_id, participant, region, dependency, environment, cond) %>%
+  summarise(mean_rt = mean(rt, na.rm=T),
+            sd = sd(rt, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  add_row(region = "11", cond = "cond1", dependency = 'gap', environment = 'short') %>%
+  add_row(region = "11", cond = "cond2", dependency = 'gap', environment = 'long') %>%
+  add_row(region = "11", cond = "cond3", dependency = 'gap', environment = 'island') %>%
+  filter(region %in% c(9, 10, 11, 12, 13, 14))
+
+# plot by participant
+plot2 <- plot2 %>%
+  filter(region %in% c(10, 11, 12, 13)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+ggplot(data=plot2, aes(x=region, y=mean_rt, group=dependency, col=dependency, shape=dependency)) +
+  annotate("rect", xmin = 3.5, xmax = 5.5, ymin = 200, ymax = 700, alpha = .2) +
+  geom_hline(yintercept = 0) +
+  geom_line(lwd=1) +
+  geom_point(size=2) +
+  geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.5, lwd=1, linetype=1) +
+  theme_classic() +
+  scale_y_continuous(name="mean reading time (ms)", limits=c(-1000, 2000)) +
+  scale_x_discrete(name="region", limits=c("9", "10", "11", "12", "13", "14"), labels=c('9', '10', '11', '12', '13', '14')) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'RP')) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'RP')) +
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
+  facet_grid(participant~environment)
+
+# save plot
+#ggsave("plots/plot_spr_ppt.png", width=5.5, height=30, dpi=600)
+ggsave("data/english/plots/spr_ppt.png", width=5.5, height=30, dpi=600)
+
+# summarise data for scatterplot by item
+plot <- trim %>%
+  filter(region %in% c('12', '13')) %>%
+  mutate(item = as.character(item)) %>%
+  mutate(item = str_remove_all(item, 'item')) %>%
+  mutate(cond = as.factor(cond)) %>%
+  group_by(run_id, item, environment, dependency, cond) %>%
+  summarise(sum = sum(rt, na.rm=T)) %>%
+  ungroup() %>%
+  group_by(item, environment, dependency, cond) %>%
+  summarise(mean = mean(sum, na.rm=T)) %>%
+  ungroup() 
+
+# generate scatterplot by item
+ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=item)) + 
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
+  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
+  theme_classic() +
+  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
+  scale_y_continuous(name="mean reading time (ms)") +
+  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right")
+
+# save plot
+ggsave("plots/plot_spr_item.png", width=5.5, height=2.75, dpi=600)
+ggsave("plots/plots_su/plot_spr_item.png", width=5.5, height=2.75, dpi=600)
+
+# summarise data for scatterplot by participant
+plot <- trim %>%
+  filter(region %in% c('12', '13')) %>%
+  mutate(cond = as.factor(cond)) %>%
+  group_by(run_id, item, environment, dependency, cond) %>%
+  summarise(sum = sum(rt, na.rm=T)) %>%
+  ungroup() %>%
+  group_by(run_id, environment, dependency, cond) %>%
+  summarise(mean = mean(sum, na.rm=T)) %>%
+  ungroup() 
+
+# generate plot by participant
+ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  geom_jitter(shape=1, alpha = .15, position = position_jitter(seed=2, width = .2)) +
+  #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
+  theme_classic() +
+  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
+  scale_y_continuous(name="mean reading time (ms)") +
+  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right")
+
+# save plot
+ggsave("plots/plot_spr_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
+ggsave("plots/plots_su/plot_spr_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
+
+#------------------------------------------------------------------------------------------#
+#### spr: plots for accuracy data by participant and by item
+#------------------------------------------------------------------------------------------#
+
+#summarize data for plotting by participant
+plot <- ds %>%
+  group_by(run_id, participant, dependency, environment) %>%
+  filter(region == "1") %>%
+  summarise(mean = mean(accuracy, na.rm=T) * 100,
+            sd = sd(accuracy, na.rm=T) * 100,
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup()
+
+# create plot by participant
+ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
+  #geom_hline(yintercept=50) +
+  geom_line(lwd = 1) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
+  theme_classic() +
+  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
+  scale_y_continuous(name="% accuracy", limits=c(0, 100), breaks = c(25, 50, 75, 100)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "RP")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "RP")) +
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
+  facet_wrap(~participant)
+
+# save plot by participant
+#ggsave("plots/spr_accuracy_ppt.png", width=3.5, height=2.5, dpi=600)
+ggsave("data/objects/snulife/plots/spr_accuracy_ppt.png", width=3.5, height=2.5, dpi=600)
+
+#summarize data for plotting by item
+plot <- ds %>%
+  group_by(item, dependency, environment) %>%
+  filter(region == "1") %>%
+  summarise(mean = mean(accuracy, na.rm=T) * 100,
+            sd = sd(accuracy, na.rm=T) * 100,
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup()
+
+# create interaction plot by item
+ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
+  #geom_hline(yintercept=50) +
+  geom_line(lwd = 1) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
+  theme_classic() +
+  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
+  scale_y_continuous(name="% accuracy", limits=c(25, 100), breaks = c(25, 50, 75, 100)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "RP")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "RP")) +
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
+  facet_wrap(~item)
+
+# save plot by participant
+ggsave("plots/spr_accuracy_item.png", width=3.5, height=2.5, dpi=600)
+
+# summarise data for scatterplot by item
+plot <- ds %>%
+  mutate(item = as.character(item)) %>%
+  mutate(item = str_remove_all(item, 'item')) %>%
+  mutate(cond = as.factor(cond)) %>%
+  group_by(item, environment, dependency, cond) %>%
+  summarise(mean = mean(accuracy, na.rm=T)) %>%
+  ungroup() 
+
+# generate scatterplot by item
+ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=item)) + 
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
+  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
+  theme_classic() +
+  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
+  scale_y_continuous(name="% accuracy") +
+  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right")
+
+# save plot
+ggsave("plots/plot_spr_accuracy_scatter_item.png", width=5.5, height=2.75, dpi=600)
+
+# summarise data for scatterplot by participant
+plot <- ds %>%
+  mutate(cond = as.factor(cond)) %>%
+  group_by(run_id, environment, dependency, cond) %>%
+  summarise(mean = mean(accuracy, na.rm=T)) %>%
+  ungroup()
+
+# generate plot by participant
+ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
+  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
+  theme_classic() +
+  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island')) +
+  scale_y_continuous(name="mean reading time (ms)") +
+  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f")) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right")
+
+# save plot
+ggsave("plots/plot_spr_accuracy_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
+
+# clean workspace
+rm(check, ds, plot, spr, spr_accuracy, spr_question, spr_stimulus)
