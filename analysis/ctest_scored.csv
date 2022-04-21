@@ -4145,7 +4145,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,english,doen85,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,english,doen85,noise_45,raise,raise,ra,ise,raise,\braise\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,english,doen85,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,english,doen85,noise_47,anx,anxiety,anx,iety,anxiety,\banx\b,FALSE,FALSE,"c(""an"", ""ax"", ""Manx"", ""ans"", ""ant"", ""and"", ""aux"", ""any"", ""an x"")",\ban\b|\bax\b|\bManx\b|\bans\b|\bant\b|\band\b|\baux\b|\bany\b|\ban x\b,FALSE,FALSE
+210510_do,english,doen85,noise_47,NA,anxiety,anx,iety,anxiety,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,english,doen85,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,english,doen85,noise_49,intelligence,interfere,inte,rfere,interfere,\bintelligence\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,english,doen85,noise_50,slow,sleep,sl,eep,sleep,\bslow\b,FALSE,TRUE,NA,NA,NA,FALSE
@@ -4863,9 +4863,9 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,korean,doko09,algae_12,instead,instead,ins,tead,instead,\binstead\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko09,algae_13,bellong,belong,bel,ong,belong,\bbellong\b,FALSE,FALSE,"c(""belling"", ""belong"", ""bellow"")",\bbelling\b|\bbelong\b|\bbellow\b,TRUE,TRUE
 210510_do,korean,doko09,algae_14,gratefullness,group,gr,oup,group,\bgratefullness\b,FALSE,FALSE,"c(""gratefulness"", ""grate fullness"", ""grate-fullness"", ""gracefulness"", ""fatefulness"", ""hatefulness"", ""tastefulness"")",\bgratefulness\b|\bgrate fullness\b|\bgrate-fullness\b|\bgracefulness\b|\bfatefulness\b|\bhatefulness\b|\btastefulness\b,FALSE,FALSE
-210510_do,korean,doko09,algae_15,cal,called,cal,led,called,\bcal\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko09,algae_15,NA,called,cal,led,called,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko09,algae_16,they,there,th,ere,there,\bthey\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,korean,doko09,algae_17,ma,many,ma,ny,many,\bma\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko09,algae_17,NA,many,ma,ny,many,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko09,algae_18,species,species,spe,cies,species,\bspecies\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko09,algae_19,types,types,ty,pes,types,\btypes\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko09,algae_20,most,most,mo,st,most,\bmost\b,TRUE,NA,NA,NA,NA,TRUE
@@ -4882,14 +4882,14 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,korean,doko09,noise_31,airplane,airplane,airp,lane,airplane,\bairplane\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko09,noise_32,constructive,construction,constr,uction,construction,\bconstructive\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko09,noise_33,more,more,mo,re,more,\bmore\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,korean,doko09,noise_34,me,mere,me,re,mere,\bme\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko09,noise_34,NA,mere,me,re,mere,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko09,noise_35,certain,certain,cer,tain,certain,\bcertain\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko09,noise_36,duration,durations,dura,tions,durations,\bduration\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko09,noise_37,physical,physical,phys,ical,physical,\bphysical\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko09,noise_38,earth,eardrum,ear,drum,eardrum,\bearth\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko09,noise_39,sensivite,sensitive,sens,itive,sensitive,\bsensivite\b,FALSE,FALSE,"c(""sensitive"", ""sensitivity"", ""sensitivities"", ""intensive"")",\bsensitive\b|\bsensitivity\b|\bsensitivities\b|\bintensive\b,TRUE,TRUE
 210510_do,korean,doko09,noise_40,inner,inner,in,ner,inner,\binner\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,korean,doko09,noise_41,res,result,res,ult,result,\bres\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko09,noise_41,NA,result,res,ult,result,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko09,noise_42,temporal,temporary,temp,orary,temporary,\btemporal\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko09,noise_43,permanent,permanent,perm,anent,permanent,\bpermanent\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko09,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
@@ -5012,7 +5012,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,korean,doko12,algae_11,nor,nor,n,or,nor,\bnor\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko12,algae_12,instead,instead,ins,tead,instead,\binstead\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko12,algae_13,belong,belong,bel,ong,belong,\bbelong\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,korean,doko12,algae_14,gr,group,gr,oup,group,\bgr\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko12,algae_14,NA,group,gr,oup,group,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko12,algae_15,called,called,cal,led,called,\bcalled\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko12,algae_16,these,there,th,ere,there,\bthese\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko12,algae_17,many,many,ma,ny,many,\bmany\b,TRUE,NA,NA,NA,NA,TRUE
@@ -5441,14 +5441,14 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,korean,doko20,noise_40,inside,inner,in,ner,inner,\binside\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko20,noise_41,rest,result,res,ult,result,\brest\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko20,noise_42,tempature,temporary,temp,orary,temporary,\btempature\b,FALSE,FALSE,"c(""temperature"", ""premature"", ""tempura"")",\btemperature\b|\bpremature\b|\btempura\b,FALSE,FALSE
-210510_do,korean,doko20,noise_43,perm,permanent,perm,anent,permanent,\bperm\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko20,noise_43,NA,permanent,perm,anent,permanent,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko20,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko20,noise_45,raise,raise,ra,ise,raise,\braise\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko20,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko20,noise_47,anxiety,anxiety,anx,iety,anxiety,\banxiety\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko20,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko20,noise_49,integration,interfere,inte,rfere,interfere,\bintegration\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,korean,doko20,noise_50,sl,sleep,sl,eep,sleep,\bsl\b,FALSE,FALSE,"c(""til"", ""ls"", ""s"", ""l"", ""isl"", ""sol"", ""sly"", ""st"", ""so"", ""ll"", ""cl"", ""ml"", ""pl"", ""sh"", ""bl"")",\btil\b|\bls\b|\bs\b|\bl\b|\bisl\b|\bsol\b|\bsly\b|\bst\b|\bso\b|\bll\b|\bcl\b|\bml\b|\bpl\b|\bsh\b|\bbl\b,FALSE,FALSE
+210510_do,korean,doko20,noise_50,NA,sleep,sl,eep,sleep,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko21,algae_01,veget,very,ve,ry,very,\bveget\b,FALSE,FALSE,"c(""beget"", ""veges"", ""vegetate"", ""vet"")",\bbeget\b|\bveges\b|\bvegetate\b|\bvet\b,FALSE,FALSE
 210510_do,korean,doko21,algae_02,beccome,because,bec,ause,because,\bbeccome\b,FALSE,FALSE,"c(""become"", ""becoming"")",\bbecome\b|\bbecoming\b,FALSE,FALSE
 210510_do,korean,doko21,algae_03,mama,make,ma,ke,make,\bmama\b,FALSE,TRUE,NA,NA,NA,FALSE
@@ -6204,7 +6204,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,korean,doko36,algae_03,many,make,ma,ke,make,\bmany\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko36,algae_04,which,which,wh,ich,which,\bwhich\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko36,algae_05,next,need,ne,ed,need,\bnext\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,korean,doko36,algae_06,bre,breathe,bre,athe,breathe,\bbre\b,FALSE,FALSE,"c(""bee"", ""brr"", ""be"", ""re"", ""brie"", ""brae"", ""bare"", ""bore"", ""bred"", ""byre"", ""brew"", ""ere"", ""ire"", ""bra"", ""are"")",\bbee\b|\bbrr\b|\bbe\b|\bre\b|\bbrie\b|\bbrae\b|\bbare\b|\bbore\b|\bbred\b|\bbyre\b|\bbrew\b|\bere\b|\bire\b|\bbra\b|\bare\b,FALSE,FALSE
+210510_do,korean,doko36,algae_06,NA,breathe,bre,athe,breathe,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko36,algae_07,season,seaweed,sea,weed,seaweed,\bseason\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko36,algae_08,like,like,li,ke,like,\blike\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko36,algae_09,however,however,how,ever,however,\bhowever\b,TRUE,NA,NA,NA,NA,TRUE
@@ -6532,16 +6532,16 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,korean,doko42,noise_31,airport,airplane,airp,lane,airplane,\bairport\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_32,constructive,construction,constr,uction,construction,\bconstructive\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_33,more,more,mo,re,more,\bmore\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,korean,doko42,noise_34,me,mere,me,re,mere,\bme\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko42,noise_34,NA,mere,me,re,mere,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_35,certain,certain,cer,tain,certain,\bcertain\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko42,noise_36,duration,durations,dura,tions,durations,\bduration\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_37,physical,physical,phys,ical,physical,\bphysical\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko42,noise_38,earth,eardrum,ear,drum,eardrum,\bearth\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_39,sense,sensitive,sens,itive,sensitive,\bsense\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,korean,doko42,noise_40,in,inner,in,ner,inner,\bin\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko42,noise_40,NA,inner,in,ner,inner,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_41,resistance,result,res,ult,result,\bresistance\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_42,temperature,temporary,temp,orary,temporary,\btemperature\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,korean,doko42,noise_43,perm,permanent,perm,anent,permanent,\bperm\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko42,noise_43,NA,permanent,perm,anent,permanent,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,korean,doko42,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko42,noise_45,raise,raise,ra,ise,raise,\braise\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko42,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
@@ -7849,6 +7849,56 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,korean,doko68,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,korean,doko68,noise_49,interrupt,interfere,inte,rfere,interfere,\binterrupt\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,korean,doko68,noise_50,sleep,sleep,sl,eep,sleep,\bsleep\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_02,because,because,bec,ause,because,\bbecause\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_03,make,make,ma,ke,make,\bmake\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_04,which,which,wh,ich,which,\bwhich\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_05,necessary,need,ne,ed,need,\bnecessary\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_06,breathe,breathe,bre,athe,breathe,\bbreathe\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_07,seams,seaweed,sea,weed,seaweed,\bseams\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_08,like,like,li,ke,like,\blike\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_09,however,however,how,ever,however,\bhowever\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_10,actually,actually,actu,ally,actually,\bactually\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_11,npt,nor,n,or,nor,\bnpt\b,FALSE,FALSE,"c(""not"", ""pt"", ""net"", ""nit"", ""apt"", ""opt"", ""dpt"", ""nut"", ""n pt"", ""NP"")",\bnot\b|\bpt\b|\bnet\b|\bnit\b|\bapt\b|\bopt\b|\bdpt\b|\bnut\b|\bn pt\b|\bNP\b,FALSE,FALSE
+210510_do,korean,doko69,algae_12,instead,instead,ins,tead,instead,\binstead\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_13,belong,belong,bel,ong,belong,\bbelong\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_14,grow,group,gr,oup,group,\bgrow\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_15,called,called,cal,led,called,\bcalled\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_16,they,there,th,ere,there,\bthey\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_17,made,many,ma,ny,many,\bmade\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_18,specices,species,spe,cies,species,\bspecices\b,FALSE,FALSE,"c(""species"", ""spec ices"", ""spec-ices"", ""specifics"", ""specific"", ""specie"", ""precipices"")",\bspecies\b|\bspec ices\b|\bspec-ices\b|\bspecifics\b|\bspecific\b|\bspecie\b|\bprecipices\b,TRUE,TRUE
+210510_do,korean,doko69,algae_19,type,types,ty,pes,types,\btype\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_20,more,most,mo,st,most,\bmore\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_21,body,bodies,bod,ies,bodies,\bbody\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_22,water,water,wa,ter,water,\bwater\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,algae_23,ocean,oceans,oce,ans,oceans,\bocean\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_24,lake,lakes,la,kes,lakes,\blake\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,algae_25,ponds,ponds,po,nds,ponds,\bponds\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_26,general,generated,gene,rated,generated,\bgeneral\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_27,industry,industrial,indus,trial,industrial,\bindustry\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_28,workplace,workplaces,workp,laces,workplaces,\bworkplace\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_29,common,comes,co,mes,comes,\bcommon\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_30,highway,highway,hig,hway,highway,\bhighway\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_31,airport,airplane,airp,lane,airplane,\bairport\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_32,construct,construction,constr,uction,construction,\bconstruct\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_33,more,more,mo,re,more,\bmore\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_34,mess,mere,me,re,mere,\bmess\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_35,certain,certain,cer,tain,certain,\bcertain\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_36,duration,durations,dura,tions,durations,\bduration\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_37,physycal,physical,phys,ical,physical,\bphysycal\b,FALSE,FALSE,physical,physical,TRUE,TRUE
+210510_do,korean,doko69,noise_38,earing,eardrum,ear,drum,eardrum,\bearing\b,FALSE,FALSE,"c(""airing"", ""raring"", ""eating"", ""searing"", ""earning"", ""nearing"", ""earring"", ""rearing"", ""tearing"", ""gearing"", ""hearing"", ""bearing"", ""fearing"", ""wearing"", ""easing"")",\bairing\b|\braring\b|\beating\b|\bsearing\b|\bearning\b|\bnearing\b|\bearring\b|\brearing\b|\btearing\b|\bgearing\b|\bhearing\b|\bbearing\b|\bfearing\b|\bwearing\b|\beasing\b,FALSE,FALSE
+210510_do,korean,doko69,noise_39,sense,sensitive,sens,itive,sensitive,\bsense\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_40,inner,inner,in,ner,inner,\binner\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_41,rest,result,res,ult,result,\brest\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_42,temporally,temporary,temp,orary,temporary,\btemporally\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_43,permemant,permanent,perm,anent,permanent,\bpermemant\b,FALSE,FALSE,"c(""permanent"", ""temperament"")",\bpermanent\b|\btemperament\b,TRUE,TRUE
+210510_do,korean,doko69,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_45,rapid,raise,ra,ise,raise,\brapid\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_47,anxiety,anxiety,anx,iety,anxiety,\banxiety\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
+210510_do,korean,doko69,noise_49,integrate,interfere,inte,rfere,interfere,\bintegrate\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,korean,doko69,noise_50,sleping,sleep,sl,eep,sleep,\bsleping\b,FALSE,FALSE,"c(""sleeping"", ""seeping"", ""sloping"", ""slewing"", ""slipping"")",\bsleeping\b|\bseeping\b|\bsloping\b|\bslewing\b|\bslipping\b,FALSE,FALSE
 210510_do,mandarin,dozh01,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh01,algae_02,because,because,bec,ause,because,\bbecause\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh01,algae_03,make,make,ma,ke,make,\bmake\b,TRUE,NA,NA,NA,NA,TRUE
@@ -11557,19 +11607,19 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,mandarin,dozh75,algae_06,breath,breathe,bre,athe,breathe,\bbreath\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,algae_07,seaweed,seaweed,sea,weed,seaweed,\bseaweed\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh75,algae_08,likes,like,li,ke,like,\blikes\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,algae_09,how,however,how,ever,however,\bhow\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,algae_10,actu,actually,actu,ally,actually,\bactu\b,FALSE,FALSE,"c(""act"", ""acts"", ""act u"")",\bact\b|\bacts\b|\bact u\b,FALSE,FALSE
+210510_do,mandarin,dozh75,algae_09,NA,however,how,ever,however,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_10,NA,actually,actu,ally,actually,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,algae_11,nor,nor,n,or,nor,\bnor\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,mandarin,dozh75,algae_12,ins,instead,ins,tead,instead,\bins\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,algae_13,bel,belong,bel,ong,belong,\bbel\b,FALSE,FALSE,"c(""be"", ""bl"", ""belt"", ""bell"", ""Abel"", ""bee"", ""eel"", ""rel"", ""bet"", ""tel"", ""bed"", ""beg"", ""gel"", ""bbl"", ""bey"")",\bbe\b|\bbl\b|\bbelt\b|\bbell\b|\bAbel\b|\bbee\b|\beel\b|\brel\b|\bbet\b|\btel\b|\bbed\b|\bbeg\b|\bgel\b|\bbbl\b|\bbey\b,FALSE,FALSE
-210510_do,mandarin,dozh75,algae_14,gr,group,gr,oup,group,\bgr\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,algae_15,cal,called,cal,led,called,\bcal\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_12,NA,instead,ins,tead,instead,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_13,NA,belong,bel,ong,belong,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_14,NA,group,gr,oup,group,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_15,NA,called,cal,led,called,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,algae_16,they,there,th,ere,there,\bthey\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,algae_17,make,many,ma,ny,many,\bmake\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,algae_18,spe,species,spe,cies,species,\bspe\b,FALSE,FALSE,"c(""ape"", ""spec"", ""sped"", ""spew"", ""esp"", ""see"", ""spa"", ""ope"", ""sue"", ""she"", ""spy"")",\bape\b|\bspec\b|\bsped\b|\bspew\b|\besp\b|\bsee\b|\bspa\b|\bope\b|\bsue\b|\bshe\b|\bspy\b,FALSE,FALSE
-210510_do,mandarin,dozh75,algae_19,ty,types,ty,pes,types,\bty\b,FALSE,FALSE,"c(""Ty"", ""t"", ""y"", ""sty"", ""try"", ""toy"", ""thy"", ""ts"", ""ti"", ""ta"", ""tn"", ""tr"", ""to"", ""my"", ""tb"")",\bTy\b|\bt\b|\by\b|\bsty\b|\btry\b|\btoy\b|\bthy\b|\bts\b|\bti\b|\bta\b|\btn\b|\btr\b|\bto\b|\bmy\b|\btb\b,FALSE,FALSE
-210510_do,mandarin,dozh75,algae_20,mo,most,mo,st,most,\bmo\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,algae_21,bod,bodies,bod,ies,bodies,\bbod\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_18,NA,species,spe,cies,species,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_19,NA,types,ty,pes,types,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_20,NA,most,mo,st,most,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,algae_21,NA,bodies,bod,ies,bodies,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,algae_22,water,water,wa,ter,water,\bwater\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh75,algae_23,ocean,oceans,oce,ans,oceans,\bocean\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,algae_24,lakes,lakes,la,kes,lakes,\blakes\b,TRUE,NA,NA,NA,NA,TRUE
@@ -11582,23 +11632,23 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_do,mandarin,dozh75,noise_31,airport,airplane,airp,lane,airplane,\bairport\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,noise_32,construction,construction,constr,uction,construction,\bconstruction\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh75,noise_33,more,more,mo,re,more,\bmore\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,mandarin,dozh75,noise_34,me,mere,me,re,mere,\bme\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_35,cer,certain,cer,tain,certain,\bcer\b,FALSE,FALSE,"c(""rec"", ""er"", ""cert"", ""cir"", ""car"", ""ctr"", ""cor"", ""cur"", ""per"", ""her"", ""yer"", ""fer"", ""Ger"", ""c er"")",\brec\b|\ber\b|\bcert\b|\bcir\b|\bcar\b|\bctr\b|\bcor\b|\bcur\b|\bper\b|\bher\b|\byer\b|\bfer\b|\bGer\b|\bc er\b,FALSE,FALSE
-210510_do,mandarin,dozh75,noise_36,dura,durations,dura,tions,durations,\bdura\b,FALSE,FALSE,"c(""aura"", ""durance"")",\baura\b|\bdurance\b,FALSE,FALSE
+210510_do,mandarin,dozh75,noise_34,NA,mere,me,re,mere,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_35,NA,certain,cer,tain,certain,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_36,NA,durations,dura,tions,durations,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,noise_37,physics,physical,phys,ical,physical,\bphysics\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_38,ear,eardrum,ear,drum,eardrum,\bear\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_39,sens,sensitive,sens,itive,sensitive,\bsens\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_40,in,inner,in,ner,inner,\bin\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_41,res,result,res,ult,result,\bres\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_42,temp,temporary,temp,orary,temporary,\btemp\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_43,perm,permanent,perm,anent,permanent,\bperm\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_38,NA,eardrum,ear,drum,eardrum,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_39,NA,sensitive,sens,itive,sensitive,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_40,NA,inner,in,ner,inner,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_41,NA,result,res,ult,result,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_42,NA,temporary,temp,orary,temporary,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_43,NA,permanent,perm,anent,permanent,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh75,noise_45,race,raise,ra,ise,raise,\brace\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_do,mandarin,dozh75,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
-210510_do,mandarin,dozh75,noise_47,anx,anxiety,anx,iety,anxiety,\banx\b,FALSE,FALSE,"c(""an"", ""ax"", ""Manx"", ""ans"", ""ant"", ""and"", ""aux"", ""any"", ""an x"")",\ban\b|\bax\b|\bManx\b|\bans\b|\bant\b|\band\b|\baux\b|\bany\b|\ban x\b,FALSE,FALSE
-210510_do,mandarin,dozh75,noise_48,men,mental,men,tal,mental,\bmen\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_do,mandarin,dozh75,noise_49,inte,interfere,inte,rfere,interfere,\binte\b,FALSE,FALSE,"c(""inch"", ""int"", ""inter"", ""tine"", ""ante"", ""into"")",\binch\b|\bint\b|\binter\b|\btine\b|\bante\b|\binto\b,FALSE,FALSE
-210510_do,mandarin,dozh75,noise_50,sl,sleep,sl,eep,sleep,\bsl\b,FALSE,FALSE,"c(""til"", ""ls"", ""s"", ""l"", ""isl"", ""sol"", ""sly"", ""st"", ""so"", ""ll"", ""cl"", ""ml"", ""pl"", ""sh"", ""bl"")",\btil\b|\bls\b|\bs\b|\bl\b|\bisl\b|\bsol\b|\bsly\b|\bst\b|\bso\b|\bll\b|\bcl\b|\bml\b|\bpl\b|\bsh\b|\bbl\b,FALSE,FALSE
+210510_do,mandarin,dozh75,noise_47,NA,anxiety,anx,iety,anxiety,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_48,NA,mental,men,tal,mental,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_49,NA,interfere,inte,rfere,interfere,NA,NA,NA,NA,NA,NA,FALSE
+210510_do,mandarin,dozh75,noise_50,NA,sleep,sl,eep,sleep,NA,NA,NA,NA,NA,NA,FALSE
 210510_do,mandarin,dozh76,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh76,algae_02,because,because,bec,ause,because,\bbecause\b,TRUE,NA,NA,NA,NA,TRUE
 210510_do,mandarin,dozh76,algae_03,make,make,ma,ke,make,\bmake\b,TRUE,NA,NA,NA,NA,TRUE
@@ -12496,7 +12546,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,english,suen17,noise_45,raise,raise,ra,ise,raise,\braise\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,english,suen17,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,english,suen17,noise_47,anxiety,anxiety,anx,iety,anxiety,\banxiety\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,english,suen17,noise_48,men,mental,men,tal,mental,\bmen\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,english,suen17,noise_48,NA,mental,men,tal,mental,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,english,suen17,noise_49,interfere,interfere,inte,rfere,interfere,\binterfere\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,english,suen17,noise_50,sleep,sleep,sl,eep,sleep,\bsleep\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,english,suen18,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
@@ -13497,7 +13547,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,english,suen37,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,english,suen37,noise_47,anxierty,anxiety,anx,iety,anxiety,\banxierty\b,FALSE,FALSE,"c(""anxiety"", ""antipoverty"")",\banxiety\b|\bantipoverty\b,TRUE,TRUE
 210510_su,english,suen37,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,english,suen37,noise_49,inte,interfere,inte,rfere,interfere,\binte\b,FALSE,FALSE,"c(""inch"", ""int"", ""inter"", ""tine"", ""ante"", ""into"")",\binch\b|\bint\b|\binter\b|\btine\b|\bante\b|\binto\b,FALSE,FALSE
+210510_su,english,suen37,noise_49,NA,interfere,inte,rfere,interfere,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,english,suen37,noise_50,slep,sleep,sl,eep,sleep,\bslep\b,FALSE,FALSE,"c(""sleep"", ""slept"", ""seep"", ""slip"", ""slap"", ""step"", ""slop"", ""sled"", ""slew"")",\bsleep\b|\bslept\b|\bseep\b|\bslip\b|\bslap\b|\bstep\b|\bslop\b|\bsled\b|\bslew\b,TRUE,TRUE
 210510_su,english,suen38,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,english,suen38,algae_02,because,because,bec,ause,because,\bbecause\b,TRUE,NA,NA,NA,NA,TRUE
@@ -16063,13 +16113,13 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko28,algae_12,instead,instead,ins,tead,instead,\binstead\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko28,algae_13,belong,belong,bel,ong,belong,\bbelong\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko28,algae_14,grdaul,group,gr,oup,group,\bgrdaul\b,FALSE,FALSE,gradual,gradual,FALSE,FALSE
-210510_su,korean,suko28,algae_15,cal,called,cal,led,called,\bcal\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko28,algae_15,NA,called,cal,led,called,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko28,algae_16,they,there,th,ere,there,\bthey\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko28,algae_17,make,many,ma,ny,many,\bmake\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko28,algae_18,species,species,spe,cies,species,\bspecies\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko28,algae_19,ty,types,ty,pes,types,\bty\b,FALSE,FALSE,"c(""Ty"", ""t"", ""y"", ""sty"", ""try"", ""toy"", ""thy"", ""ts"", ""ti"", ""ta"", ""tn"", ""tr"", ""to"", ""my"", ""tb"")",\bTy\b|\bt\b|\by\b|\bsty\b|\btry\b|\btoy\b|\bthy\b|\bts\b|\bti\b|\bta\b|\btn\b|\btr\b|\bto\b|\bmy\b|\btb\b,FALSE,FALSE
+210510_su,korean,suko28,algae_19,NA,types,ty,pes,types,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko28,algae_20,more,most,mo,st,most,\bmore\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_su,korean,suko28,algae_21,bod,bodies,bod,ies,bodies,\bbod\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko28,algae_21,NA,bodies,bod,ies,bodies,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko28,algae_22,way,water,wa,ter,water,\bway\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko28,algae_23,ocean,oceans,oce,ans,oceans,\bocean\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko28,algae_24,land,lakes,la,kes,lakes,\bland\b,FALSE,TRUE,NA,NA,NA,FALSE
@@ -16088,10 +16138,10 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko28,noise_37,physical,physical,phys,ical,physical,\bphysical\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko28,noise_38,ears,eardrum,ear,drum,eardrum,\bears\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko28,noise_39,sensitive,sensitive,sens,itive,sensitive,\bsensitive\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko28,noise_40,in,inner,in,ner,inner,\bin\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko28,noise_40,NA,inner,in,ner,inner,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko28,noise_41,resistanc,result,res,ult,result,\bresistanc\b,FALSE,FALSE,"c(""resistance"", ""resistant"", ""assistance"", ""ancestress"")",\bresistance\b|\bresistant\b|\bassistance\b|\bancestress\b,FALSE,FALSE
 210510_su,korean,suko28,noise_42,tempo,temporary,temp,orary,temporary,\btempo\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_su,korean,suko28,noise_43,perm,permanent,perm,anent,permanent,\bperm\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko28,noise_43,NA,permanent,perm,anent,permanent,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko28,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko28,noise_45,raral,raise,ra,ise,raise,\braral\b,FALSE,FALSE,rural,rural,FALSE,FALSE
 210510_su,korean,suko28,noise_46,presss,pressure,pres,sure,pressure,\bpresss\b,FALSE,FALSE,"c(""press"", ""presses"", ""press's"", ""press s"", ""prioress"", ""progress"", ""prepossess"", ""peeress"")",\bpress\b|\bpresses\b|\bpress's\b|\bpress s\b|\bprioress\b|\bprogress\b|\bprepossess\b|\bpeeress\b,FALSE,FALSE
@@ -16300,7 +16350,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko32,noise_49,interfere,interfere,inte,rfere,interfere,\binterfere\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko32,noise_50,sleeping,sleep,sl,eep,sleep,\bsleeping\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,algae_01,veey,very,ve,ry,very,\bveey\b,FALSE,FALSE,"c(""very"", ""veer"", ""veep"", ""veejay"")",\bvery\b|\bveer\b|\bveep\b|\bveejay\b,TRUE,TRUE
-210510_su,korean,suko33,algae_02,bec,because,bec,ause,because,\bbec\b,FALSE,FALSE,"c(""be"", ""beck"", ""bee"", ""sec"", ""rec"", ""bet"", ""bed"", ""beg"", ""bey"", ""Sec"", ""Dec"", ""be c"")",\bbe\b|\bbeck\b|\bbee\b|\bsec\b|\brec\b|\bbet\b|\bbed\b|\bbeg\b|\bbey\b|\bSec\b|\bDec\b|\bbe c\b,FALSE,FALSE
+210510_su,korean,suko33,algae_02,NA,because,bec,ause,because,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko33,algae_03,make,make,ma,ke,make,\bmake\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,algae_04,which,which,wh,ich,which,\bwhich\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,algae_05,need,need,ne,ed,need,\bneed\b,TRUE,NA,NA,NA,NA,TRUE
@@ -16311,7 +16361,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko33,algae_10,actualy,actually,actu,ally,actually,\bactualy\b,FALSE,FALSE,"c(""actual"", ""actually"", ""actuary"", ""actual y"", ""actuarial"")",\bactual\b|\bactually\b|\bactuary\b|\bactual y\b|\bactuarial\b,TRUE,TRUE
 210510_su,korean,suko33,algae_11,nor,nor,n,or,nor,\bnor\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,algae_12,instead,instead,ins,tead,instead,\binstead\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko33,algae_13,bel,belong,bel,ong,belong,\bbel\b,FALSE,FALSE,"c(""be"", ""bl"", ""belt"", ""bell"", ""Abel"", ""bee"", ""eel"", ""rel"", ""bet"", ""tel"", ""bed"", ""beg"", ""gel"", ""bbl"", ""bey"")",\bbe\b|\bbl\b|\bbelt\b|\bbell\b|\bAbel\b|\bbee\b|\beel\b|\brel\b|\bbet\b|\btel\b|\bbed\b|\bbeg\b|\bgel\b|\bbbl\b|\bbey\b,FALSE,FALSE
+210510_su,korean,suko33,algae_13,NA,belong,bel,ong,belong,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko33,algae_14,green,group,gr,oup,group,\bgreen\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,algae_15,called,called,cal,led,called,\bcalled\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,algae_16,there,there,th,ere,there,\bthere\b,TRUE,NA,NA,NA,NA,TRUE
@@ -16323,7 +16373,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko33,algae_22,water,water,wa,ter,water,\bwater\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,algae_23,ocean,oceans,oce,ans,oceans,\bocean\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,algae_24,lake,lakes,la,kes,lakes,\blake\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_su,korean,suko33,algae_25,po,ponds,po,nds,ponds,\bpo\b,FALSE,FALSE,"c(""PO"", ""pew"", ""op"", ""Po"", ""pi"", ""pp"", ""p"", ""o"", ""poi"", ""pro"", ""pot"", ""poo"", ""pol"", ""pod"", ""pom"")",\bPO\b|\bpew\b|\bop\b|\bPo\b|\bpi\b|\bpp\b|\bp\b|\bo\b|\bpoi\b|\bpro\b|\bpot\b|\bpoo\b|\bpol\b|\bpod\b|\bpom\b,FALSE,FALSE
+210510_su,korean,suko33,algae_25,NA,ponds,po,nds,ponds,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_26,genesis,generated,gene,rated,generated,\bgenesis\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_27,industy,industrial,indus,trial,industrial,\bindusty\b,FALSE,FALSE,"c(""industry"", ""in dusty"", ""in-dusty"", ""dusty"")",\bindustry\b|\bin dusty\b|\bin-dusty\b|\bdusty\b,FALSE,FALSE
 210510_su,korean,suko33,noise_28,workplace,workplaces,workp,laces,workplaces,\bworkplace\b,FALSE,TRUE,NA,NA,NA,FALSE
@@ -16332,22 +16382,22 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko33,noise_31,airport,airplane,airp,lane,airplane,\bairport\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_32,construct,construction,constr,uction,construction,\bconstruct\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_33,more,more,mo,re,more,\bmore\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko33,noise_34,me,mere,me,re,mere,\bme\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko33,noise_34,NA,mere,me,re,mere,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_35,certain,certain,cer,tain,certain,\bcertain\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,noise_36,durable,durations,dura,tions,durations,\bdurable\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_37,physical,physical,phys,ical,physical,\bphysical\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,noise_38,earth,eardrum,ear,drum,eardrum,\bearth\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_39,sensitive,sensitive,sens,itive,sensitive,\bsensitive\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,noise_40,inside,inner,in,ner,inner,\binside\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_su,korean,suko33,noise_41,res,result,res,ult,result,\bres\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko33,noise_41,NA,result,res,ult,result,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_42,temperation,temporary,temp,orary,temporary,\btemperation\b,FALSE,FALSE,"c(""temptation"", ""temperate"", ""perpetration"", ""impersonation"")",\btemptation\b|\btemperate\b|\bperpetration\b|\bimpersonation\b,FALSE,FALSE
-210510_su,korean,suko33,noise_43,perm,permanent,perm,anent,permanent,\bperm\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko33,noise_43,NA,permanent,perm,anent,permanent,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_44,addition,addition,addi,tion,addition,\baddition\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,noise_45,raise,raise,ra,ise,raise,\braise\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko33,noise_47,anxious,anxiety,anx,iety,anxiety,\banxious\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko33,noise_49,inte,interfere,inte,rfere,interfere,\binte\b,FALSE,FALSE,"c(""inch"", ""int"", ""inter"", ""tine"", ""ante"", ""into"")",\binch\b|\bint\b|\binter\b|\btine\b|\bante\b|\binto\b,FALSE,FALSE
+210510_su,korean,suko33,noise_49,NA,interfere,inte,rfere,interfere,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko33,noise_50,sleep,sleep,sl,eep,sleep,\bsleep\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko34,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko34,algae_02,because,because,bec,ause,because,\bbecause\b,TRUE,NA,NA,NA,NA,TRUE
@@ -16603,7 +16653,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko39,algae_02,bector,because,bec,ause,because,\bbector\b,FALSE,FALSE,"c(""vector"", ""sector"", ""rector"", ""bettor"", ""hector"", ""Hector"", ""objector"")",\bvector\b|\bsector\b|\brector\b|\bbettor\b|\bhector\b|\bHector\b|\bobjector\b,FALSE,FALSE
 210510_su,korean,suko39,algae_03,maintain,make,ma,ke,make,\bmaintain\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko39,algae_04,which,which,wh,ich,which,\bwhich\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko39,algae_05,ne,need,ne,ed,need,\bne\b,FALSE,FALSE,"c(""NE"", ""en"", ""Ne"", ""be"", ""me"", ""n"", ""e"", ""nee"", ""nae"", ""net"", ""one"", ""neg"", ""new"", ""re"", ""no"")",\bNE\b|\ben\b|\bNe\b|\bbe\b|\bme\b|\bn\b|\be\b|\bnee\b|\bnae\b|\bnet\b|\bone\b|\bneg\b|\bnew\b|\bre\b|\bno\b,FALSE,FALSE
+210510_su,korean,suko39,algae_05,NA,need,ne,ed,need,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko39,algae_06,breath,breathe,bre,athe,breathe,\bbreath\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko39,algae_07,seaanimal,seaweed,sea,weed,seaweed,\bseaanimal\b,FALSE,FALSE,"c(""sea animal"", ""sea-animal"", ""animalcule"")",\bsea animal\b|\bsea-animal\b|\banimalcule\b,FALSE,FALSE
 210510_su,korean,suko39,algae_08,like,like,li,ke,like,\blike\b,TRUE,NA,NA,NA,NA,TRUE
@@ -16646,9 +16696,9 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko39,noise_45,rapid,raise,ra,ise,raise,\brapid\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko39,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko39,noise_47,anxiety,anxiety,anx,iety,anxiety,\banxiety\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko39,noise_48,men,mental,men,tal,mental,\bmen\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko39,noise_48,NA,mental,men,tal,mental,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko39,noise_49,intenal,interfere,inte,rfere,interfere,\bintenal\b,FALSE,FALSE,"c(""internal"", ""intentional"", ""intestinal"", ""antenatal"", ""intent"")",\binternal\b|\bintentional\b|\bintestinal\b|\bantenatal\b|\bintent\b,FALSE,FALSE
-210510_su,korean,suko39,noise_50,sl,sleep,sl,eep,sleep,\bsl\b,FALSE,FALSE,"c(""til"", ""ls"", ""s"", ""l"", ""isl"", ""sol"", ""sly"", ""st"", ""so"", ""ll"", ""cl"", ""ml"", ""pl"", ""sh"", ""bl"")",\btil\b|\bls\b|\bs\b|\bl\b|\bisl\b|\bsol\b|\bsly\b|\bst\b|\bso\b|\bll\b|\bcl\b|\bml\b|\bpl\b|\bsh\b|\bbl\b,FALSE,FALSE
+210510_su,korean,suko39,noise_50,NA,sleep,sl,eep,sleep,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko40,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko40,algae_02,because,because,bec,ause,because,\bbecause\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko40,algae_03,make,make,ma,ke,make,\bmake\b,TRUE,NA,NA,NA,NA,TRUE
@@ -16797,7 +16847,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko42,noise_46,pressure,pressure,pres,sure,pressure,\bpressure\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko42,noise_47,anxiety,anxiety,anx,iety,anxiety,\banxiety\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko42,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko42,noise_49,inte,interfere,inte,rfere,interfere,\binte\b,FALSE,FALSE,"c(""inch"", ""int"", ""inter"", ""tine"", ""ante"", ""into"")",\binch\b|\bint\b|\binter\b|\btine\b|\bante\b|\binto\b,FALSE,FALSE
+210510_su,korean,suko42,noise_49,NA,interfere,inte,rfere,interfere,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko42,noise_50,sleep,sleep,sl,eep,sleep,\bsleep\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko43,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko43,algae_02,because,because,bec,ause,because,\bbecause\b,TRUE,NA,NA,NA,NA,TRUE
@@ -17755,14 +17805,14 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko62,algae_04,which,which,wh,ich,which,\bwhich\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_05,need,need,ne,ed,need,\bneed\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_06,breath,breathe,bre,athe,breathe,\bbreath\b,FALSE,TRUE,NA,NA,NA,FALSE
-210510_su,korean,suko62,algae_07,sea,seaweed,sea,weed,seaweed,\bsea\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko62,algae_07,NA,seaweed,sea,weed,seaweed,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko62,algae_08,like,like,li,ke,like,\blike\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_09,however,however,how,ever,however,\bhowever\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_10,actually,actually,actu,ally,actually,\bactually\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_11,nor,nor,n,or,nor,\bnor\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_12,insistently,instead,ins,tead,instead,\binsistently\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko62,algae_13,belong,belong,bel,ong,belong,\bbelong\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko62,algae_14,gr,group,gr,oup,group,\bgr\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko62,algae_14,NA,group,gr,oup,group,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko62,algae_15,called,called,cal,led,called,\bcalled\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_16,there,there,th,ere,there,\bthere\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,algae_17,many,many,ma,ny,many,\bmany\b,TRUE,NA,NA,NA,NA,TRUE
@@ -17782,7 +17832,7 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko62,noise_31,airplane,airplane,airp,lane,airplane,\bairplane\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,noise_32,construction,construction,constr,uction,construction,\bconstruction\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,noise_33,more,more,mo,re,more,\bmore\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko62,noise_34,me,mere,me,re,mere,\bme\b,FALSE,TRUE,NA,NA,NA,FALSE
+210510_su,korean,suko62,noise_34,NA,mere,me,re,mere,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko62,noise_35,certain,certain,cer,tain,certain,\bcertain\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,noise_36,duration,durations,dura,tions,durations,\bduration\b,FALSE,TRUE,NA,NA,NA,FALSE
 210510_su,korean,suko62,noise_37,physical,physical,phys,ical,physical,\bphysical\b,TRUE,NA,NA,NA,NA,TRUE
@@ -17797,8 +17847,8 @@ study,group,participant,item,response,word,onset,exact,acceptable,response_regex
 210510_su,korean,suko62,noise_46,presssure,pressure,pres,sure,pressure,\bpresssure\b,FALSE,FALSE,"c(""pressure"", ""pressures"", ""press sure"", ""press-sure"", ""pressurize"", ""suppress"", ""presser"", ""pressie"")",\bpressure\b|\bpressures\b|\bpress sure\b|\bpress-sure\b|\bpressurize\b|\bsuppress\b|\bpresser\b|\bpressie\b,TRUE,TRUE
 210510_su,korean,suko62,noise_47,anxiety,anxiety,anx,iety,anxiety,\banxiety\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko62,noise_48,mental,mental,men,tal,mental,\bmental\b,TRUE,NA,NA,NA,NA,TRUE
-210510_su,korean,suko62,noise_49,inte,interfere,inte,rfere,interfere,\binte\b,FALSE,FALSE,"c(""inch"", ""int"", ""inter"", ""tine"", ""ante"", ""into"")",\binch\b|\bint\b|\binter\b|\btine\b|\bante\b|\binto\b,FALSE,FALSE
-210510_su,korean,suko62,noise_50,sl,sleep,sl,eep,sleep,\bsl\b,FALSE,FALSE,"c(""til"", ""ls"", ""s"", ""l"", ""isl"", ""sol"", ""sly"", ""st"", ""so"", ""ll"", ""cl"", ""ml"", ""pl"", ""sh"", ""bl"")",\btil\b|\bls\b|\bs\b|\bl\b|\bisl\b|\bsol\b|\bsly\b|\bst\b|\bso\b|\bll\b|\bcl\b|\bml\b|\bpl\b|\bsh\b|\bbl\b,FALSE,FALSE
+210510_su,korean,suko62,noise_49,NA,interfere,inte,rfere,interfere,NA,NA,NA,NA,NA,NA,FALSE
+210510_su,korean,suko62,noise_50,NA,sleep,sl,eep,sleep,NA,NA,NA,NA,NA,NA,FALSE
 210510_su,korean,suko63,algae_01,very,very,ve,ry,very,\bvery\b,TRUE,NA,NA,NA,NA,TRUE
 210510_su,korean,suko63,algae_02,beccause,because,bec,ause,because,\bbeccause\b,FALSE,FALSE,"c(""because"", ""causeless"")",\bbecause\b|\bcauseless\b,TRUE,TRUE
 210510_su,korean,suko63,algae_03,made,make,ma,ke,make,\bmade\b,FALSE,TRUE,NA,NA,NA,FALSE

@@ -161,7 +161,7 @@ ct <- ct %>%
                               match2 == TRUE ~ TRUE,
                               TRUE ~ FALSE))
 
-beepr::beep(1)
+beep(1)
 
 # make list of proficiency scores
 
@@ -1467,18 +1467,16 @@ beepr::beep(1)
 #### spr: modeling for accuracy data ####
 #------------------------------------------------------------------------------------------#
 
-trim <- ds %>%
+temp <- ds %>%
   group_by(study, group, participant) %>%
   mutate(acc_rate = mean(as.logical(accuracy))) %>%
   ungroup() %>%
   filter(acc_rate >.5)
 
-# md <- ds %>%
-#   group_by(participant, item, dependency, environment, accuracy) %>%
-#   summarise() %>%
-#   ungroup()
-
-md <- trim %>%
+temp <- temp %>%
+  group_by(study, group, participant, dependency, environment, item, acc_rate, accuracy) %>%
+  summarise() %>%
+  ungroup() %>%
   mutate(dependency = fct_drop(dependency),
          environment = fct_drop(environment),
          accuracy = as.logical(accuracy),
@@ -1486,81 +1484,92 @@ md <- trim %>%
          item = as.factor(item)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
-md2 <- md %>% 
-  filter(study == '210510_do', group == 'english')
+md <- temp %>% 
+  filter(study == '210510_su', group == 'korean')
 
 # view contrasts
-contrasts(md2$dependency)
-contrasts(md2$environment)
+contrasts(md$dependency)
+contrasts(md$environment)
 
 # full model
-model1 <- glmer(accuracy ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), 
-                 data = md2, family = binomial)
+model1 <- glmer(accuracy ~ environment*dependency + (environment+dependency|participant) + (environment+dependency|item), 
+                 data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
 summary(model1)
 beep(1)
 
-# 7:04 - 
-
 # doen
-# no warnings
-# Fixed effects:
-#                                     Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          5.05076    0.35522  14.219  < 2e-16 ***
-# environmentlong                     -0.18374    0.07866  -2.336   0.0195 *  
-# environmentisland                   -0.17138    0.08023  -2.136   0.0327 *  
-# dependencypronoun                    0.77154    0.09539   8.088 6.07e-16 ***
-# environmentlong:dependencypronoun    0.16069    0.13212   1.216   0.2239    
-# environmentisland:dependencypronoun  0.09424    0.13374   0.705   0.4810 
-
-# doko
-# no warnings
-# Fixed effects:
-#                                       Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          1.8843458  0.2471247   7.625 2.44e-14 ***
-# environmentlong                     -0.2003168  0.0523595  -3.826  0.00013 ***
-# environmentisland                   -0.0003188  0.0530505  -0.006  0.99520    
-# dependencypronoun                    1.5061945  0.0666927  22.584  < 2e-16 ***
-# environmentlong:dependencypronoun   -0.0045187  0.0914093  -0.049  0.96057    
-# environmentisland:dependencypronoun -0.0680905  0.0923683  -0.737  0.46102 
-
-# dozh
-#
+# boundary (singular) fit: see ?isSingular
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          4.148672   0.384553  10.788  < 2e-16 ***
-#   environmentlong                     -0.348150   0.075783  -4.594 4.35e-06 ***
-#   environmentisland                   -0.550492   0.073527  -7.487 7.05e-14 ***
-#   dependencypronoun                    0.829927   0.084691   9.799  < 2e-16 ***
-#   environmentlong:dependencypronoun    0.008688   0.117227   0.074    0.941    
-# environmentisland:dependencypronoun  0.573543   0.119410   4.803 1.56e-06 ***
+# (Intercept)                          3.78253    0.44716   8.459   <2e-16 ***
+#   environmentlong                     -0.18145    0.54974  -0.330    0.741    
+# environmentisland                    0.18619    0.60532   0.308    0.758    
+# dependencypronoun                    0.24023    0.51945   0.462    0.644    
+# environmentlong:dependencypronoun    0.06771    0.64061   0.106    0.916    
+# environmentisland:dependencypronoun -0.15552    0.71197  -0.218    0.827  
+
+# doko
+# with interactions...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          1.60068    0.25562   6.262  3.8e-10 ***
+#   environmentlong                     -0.11524    0.31754  -0.363 0.716674    
+# environmentisland                    0.06218    0.36848   0.169 0.865986    
+# dependencypronoun                    1.89813    0.57678   3.291 0.000999 ***
+#   environmentlong:dependencypronoun   -0.40660    0.70788  -0.574 0.565706    
+# environmentisland:dependencypronoun -0.76337    0.72921  -1.047 0.295167 
+# without interactions...
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          1.50656    0.20993   7.176 7.16e-13 ***
+#   environmentlong                     -0.04827    0.25467  -0.190    0.850    
+# environmentisland                   -0.00946    0.23610  -0.040    0.968    
+# dependencypronoun                    1.60522    0.34388   4.668 3.04e-06 ***
+#   environmentlong:dependencypronoun   -0.21591    0.40248  -0.536    0.592    
+# environmentisland:dependencypronoun -0.08850    0.40263  -0.220    0.826 
+
+# dozh
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.7050     0.5493   6.745 1.53e-11 ***
+#   environmentlong                      -0.4083     0.5946  -0.687   0.4922    
+# environmentisland                    -1.2437     0.5980  -2.080   0.0375 *  
+#   dependencypronoun                     0.5180     0.5123   1.011   0.3120    
+# environmentlong:dependencypronoun     0.1261     0.5756   0.219   0.8265    
+# environmentisland:dependencypronoun   0.7946     0.6428   1.236   0.2164 
 
 # suen
-#
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          2.73582    0.32084   8.527   <2e-16 ***
+#   environmentlong                     -0.06544    0.42041  -0.156   0.8763    
+# environmentisland                   -0.95245    0.37220  -2.559   0.0105 *  
+#   dependencypronoun                    0.92021    0.50185   1.834   0.0667 .  
+# environmentlong:dependencypronoun    0.07872    0.56548   0.139   0.8893    
+# environmentisland:dependencypronoun  0.99479    0.56413   1.763   0.0778 . 
 
 # suko
-#
+# boundary (singular) fit: see ?isSingular
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.1201     0.3884   8.034 9.43e-16 ***
+#   environmentlong                      -0.9997     0.4338  -2.304  0.02121 *  
+#   environmentisland                    -1.4318     0.3997  -3.582  0.00034 ***
+#   dependencypronoun                     1.0071     0.5272   1.910  0.05612 .  
+# environmentlong:dependencypronoun     0.1397     0.5711   0.245  0.80677    
+# environmentisland:dependencypronoun   0.3615     0.5373   0.673  0.50105  
 
 # suzh
 #
 
+
 library(emmeans) # see https://marissabarlaz.github.io/portfolio/contrastcoding/
 pairs(emmeans(model1, "dependency", by = "environment"))
 beep(1)
-
-# dozh
-# environment = short:
-#   contrast      estimate     SE  df z.ratio p.value
-# gap - pronoun   -0.830 0.0847 Inf  -9.799  <.0001
-# 
-# environment = long:
-#   contrast      estimate     SE  df z.ratio p.value
-# gap - pronoun   -0.839 0.0806 Inf -10.404  <.0001
-# 
-# environment = island:
-#   contrast      estimate     SE  df z.ratio p.value
-# gap - pronoun   -1.403 0.0858 Inf -16.354  <.0001
-# 
-# Results are given on the log odds ratio (not the response) scale. 
 
 #------------------------------------------------------------------------------------------#
 #### ajt: preprocessing ####
