@@ -36,7 +36,7 @@ library(lmerTest) # for mixed-effects modeling
 library(readxl) # for reading .xlsx files
 library(base64enc) # for converting recordings from base64 to audio files
 library(stringdist) # for calculating edit distance on c-test responses
-library(hunspell) # for spellchecking of c-test responses
+library(hunspell) # for spell checking of c-test responses
 library(patchwork) # for plotting
 library(jsonlite) # for unpacking json
 library(beepr) # for notifications
@@ -1474,7 +1474,7 @@ temp <- ds %>%
   filter(acc_rate >.5)
 
 temp <- temp %>%
-  group_by(study, group, participant, dependency, environment, item, acc_rate, accuracy) %>%
+  group_by(study, group, participant, item, dependency, environment, acc_rate, accuracy) %>%
   summarise() %>%
   ungroup() %>%
   mutate(dependency = fct_drop(dependency),
@@ -1485,17 +1485,211 @@ temp <- temp %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
 md <- temp %>% 
-  filter(study == '210510_su', group == 'korean')
+  filter(study == '210510_do', group == 'mandarin')
+
+plot <- md %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(accuracy = mean(accuracy)) %>%
+  ungroup()
+
+plot <- md %>%
+  mutate(accuracy = as.logical(accuracy)) %>%
+  group_by(study, group, participant, item, dependency, environment, accuracy) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group, dependency, environment) %>%
+  summarise(mean = mean(accuracy, na.rm=T) * 100,
+            sd = sd(accuracy, na.rm=T) * 100,
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup()
+
+ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
+  geom_line(lwd = 1) +
+  geom_point(size = 2) +
+  theme_classic() +
+  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
+  scale_y_continuous(name="% accuracy", limits=c(50, 100)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12)) +
+  facet_wrap(~group)
 
 # view contrasts
 contrasts(md$dependency)
 contrasts(md$environment)
 
-# full model
-model1 <- glmer(accuracy ~ environment*dependency + (environment+dependency|participant) + (environment+dependency|item), 
-                 data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
+model1 <- glmer(accuracy ~ environment*dependency + (1|participant) + (1|item), 
+                data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
 summary(model1)
 beep(1)
+
+# doen
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          3.46214    0.28318  12.226   <2e-16 ***
+# environmentlong                     -0.20781    0.30020  -0.692   0.4888    
+# environmentisland                   -0.14000    0.30434  -0.460   0.6455    
+# dependencypronoun                    0.77305    0.37414   2.066   0.0388 *  
+# environmentlong:dependencypronoun    0.19967    0.52196   0.383   0.7021    
+# environmentisland:dependencypronoun  0.05358    0.51838   0.103   0.9177 
+
+# doko
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          1.50940    0.19893   7.587 3.26e-14 ***
+#   environmentlong                     -0.17875    0.19643  -0.910    0.363    
+# environmentisland                   -0.01253    0.19907  -0.063    0.950    
+# dependencypronoun                    1.44112    0.25887   5.567 2.59e-08 ***
+#   environmentlong:dependencypronoun   -0.03271    0.35364  -0.092    0.926    
+# environmentisland:dependencypronoun -0.06833    0.35920  -0.190    0.849 
+
+# dozh
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          2.98831    0.30673   9.743   <2e-16 ***
+#   environmentlong                     -0.21689    0.28529  -0.760   0.4471    
+# environmentisland                   -0.42952    0.27638  -1.554   0.1202    
+# dependencypronoun                    0.79967    0.33360   2.397   0.0165 *  
+#   environmentlong:dependencypronoun   -0.03142    0.45960  -0.068   0.9455    
+# environmentisland:dependencypronoun  0.57751    0.47465   1.217   0.2237 
+
+model2 <- glmer(accuracy ~ environment*dependency + (environment+dependency|participant) + (environment+dependency|item), 
+                 data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
+summary(model2)
+beep(1)
+
+# doen
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+# Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          3.75637    0.42457   8.847   <2e-16 ***
+#   environmentlong                     -0.15519    0.53299  -0.291    0.771    
+# environmentisland                    0.20504    0.59951   0.342    0.732    
+# dependencypronoun                    0.26287    0.50284   0.523    0.601    
+# environmentlong:dependencypronoun    0.03442    0.61201   0.056    0.955    
+# environmentisland:dependencypronoun -0.17084    0.70430  -0.243    0.808 
+
+# doko
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          1.506560   0.209931   7.176 7.15e-13 ***
+#   environmentlong                     -0.048274   0.254663  -0.190    0.850    
+# environmentisland                   -0.009459   0.236098  -0.040    0.968    
+# dependencypronoun                    1.605217   0.343882   4.668 3.04e-06 ***
+#   environmentlong:dependencypronoun   -0.215912   0.402479  -0.536    0.592    
+# environmentisland:dependencypronoun -0.088500   0.402628  -0.220    0.826
+
+# dozh
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.7050     0.5492   6.746 1.52e-11 ***
+#   environmentlong                      -0.4084     0.5945  -0.687   0.4922    
+# environmentisland                    -1.2438     0.5980  -2.080   0.0375 *  
+#   dependencypronoun                     0.5180     0.5123   1.011   0.3120    
+# environmentlong:dependencypronoun     0.1261     0.5756   0.219   0.8265    
+# environmentisland:dependencypronoun   0.7946     0.6427   1.236   0.2164  
+
+model3 <- glmer(accuracy ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), 
+                data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
+summary(model3)
+beep(1)
+
+# doen
+# boundary (singular) fit: see help('isSingular')
+# maxfun < 10 * length(par)^2 is not recommended.
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          3.96845    0.58768   6.753 1.45e-11 ***
+#   environmentlong                     -0.50071    0.70818  -0.707    0.480    
+# environmentisland                    0.58987    1.13255   0.521    0.602    
+# dependencypronoun                    0.05405    0.81267   0.067    0.947    
+# environmentlong:dependencypronoun    1.63585    1.45330   1.126    0.260    
+# environmentisland:dependencypronoun  0.16351    1.54086   0.106    0.915
+
+# doko
+# boundary (singular) fit: see help('isSingular')
+# maxfun < 10 * length(par)^2 is not recommended.
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           1.5996     0.2552   6.267 3.69e-10 ***
+#   environmentlong                      -0.1140     0.3174  -0.359 0.719498    
+# environmentisland                     0.0617     0.3634   0.170 0.865192    
+# dependencypronoun                     1.8992     0.5766   3.294 0.000989 ***
+#   environmentlong:dependencypronoun    -0.4151     0.7032  -0.590 0.554963    
+# environmentisland:dependencypronoun  -0.7602     0.7267  -1.046 0.295531 
+
+# dozh
+# boundary (singular) fit: see help('isSingular')
+# maxfun < 10 * length(par)^2 is not recommended.
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          4.002192   0.707125   5.660 1.52e-08 ***
+#   environmentlong                     -0.836077   0.761871  -1.097   0.2725    
+# environmentisland                   -1.474838   0.771649  -1.911   0.0560 .  
+# dependencypronoun                   -0.003471   0.857323  -0.004   0.9968    
+# environmentlong:dependencypronoun    1.453131   1.210031   1.201   0.2298    
+# environmentisland:dependencypronoun  2.194013   1.311622   1.673   0.0944 .
+
+anova(model1, model2)
+
+# doen
+#         npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 897.79  945.08 -440.89   881.79                     
+# model2   26 921.01 1074.72 -434.50   869.01 12.781 18     0.8044
+
+# doko
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1537.2 1582.0 -760.63   1521.2                     
+# model2   26 1564.9 1710.3 -756.47   1512.9 8.3159 18     0.9736
+
+# dozh
+#        npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model1    8 1000.0 1044.9 -492.00   984.01                    
+# model2   26 1014.5 1160.2 -481.23   962.46 21.55 18     0.2526
+
+anova(model2, model3)
+
+# doen
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   26 921.01 1074.7 -434.50   869.01                     
+# model3   48 958.14 1241.9 -431.07   862.14 6.8703 22     0.9991
+
+# doko
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   26 1564.9 1710.3 -756.47   1512.9                     
+# model3   48 1592.1 1860.4 -748.03   1496.1 16.879 22       0.77
+
+# dozh
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   26 1014.5 1160.2 -481.23   962.46                     
+# model3   48 1047.8 1316.9 -475.92   951.84 10.616 22     0.9798
+
+anova(model1, model3)
+
+# doen
+#        npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 897.79  945.08 -440.89   881.79                     
+# model3   48 958.14 1241.92 -431.07   862.14 19.651 40     0.9971
+
+# doko
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1537.2 1582.0 -760.63   1521.2                     
+# model3   48 1592.1 1860.4 -748.03   1496.1 25.195 40     0.9673
+
+# dozh
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1000.0 1044.9 -492.00   984.01                     
+# model3   48 1047.8 1316.9 -475.92   951.84 32.166 40     0.8064
+
+# https://bookdown.org/ndphillips/YaRrr/comparing-regression-models-with-anova.html
 
 # doen
 # boundary (singular) fit: see ?isSingular
@@ -1553,6 +1747,8 @@ beep(1)
 # environmentisland:dependencypronoun  0.99479    0.56413   1.763   0.0778 . 
 
 # suko
+#
+# accuracy ~ environment * dependency + (environment + dependency |  participant) + (environment + dependency | item)
 # boundary (singular) fit: see ?isSingular
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -1562,6 +1758,18 @@ beep(1)
 #   dependencypronoun                     1.0071     0.5272   1.910  0.05612 .  
 # environmentlong:dependencypronoun     0.1397     0.5711   0.245  0.80677    
 # environmentisland:dependencypronoun   0.3615     0.5373   0.673  0.50105  
+#
+# accuracy ~ environment * dependency + (environment * dependency |  participant) + (environment * dependency | item)
+# boundary (singular) fit: see help('isSingular')
+# maxfun < 10 * length(par)^2 is not recommended.
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          3.41994    0.52119   6.562 5.32e-11 ***
+#   environmentlong                     -1.04254    0.61450  -1.697 0.089776 .  
+# environmentisland                   -1.79078    0.53598  -3.341 0.000834 ***
+#   dependencypronoun                    1.90072    1.45289   1.308 0.190796    
+# environmentlong:dependencypronoun   -0.66581    1.66763  -0.399 0.689704    
+# environmentisland:dependencypronoun -0.07708    1.54558  -0.050 0.960223  
 
 # suzh
 #
