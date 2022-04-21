@@ -46,7 +46,7 @@ library(ggh4x) # for plotting
 #### read in data ####
 #------------------------------------------------------------------------------------------#
 
-df <- read_csv('data/lfs/data.csv', col_types = cols(.default = 'c')) %>%
+df <- read_csv('data/data.csv', col_types = cols(.default = 'c')) %>%
   select(-audio_data)
 
 #------------------------------------------------------------------------------------------#
