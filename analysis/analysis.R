@@ -1,34 +1,16 @@
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### script info ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # title: analysis for study 210510
 # contributors: fred zenker
 # created: 2020-05-11
 # updated: 2022-04-11
+# see key at end of script for list of abbreviations
 
-#------------------------------------------------------------------------------------------#
-#### key ####
-#------------------------------------------------------------------------------------------#
-
-# tasks...
-# language_survey: language background survey
-# ept: english oral elicited production task
-# sprt: english self-paced reading task
-# english_ajt: english acceptability judgment task
-# korean_ajt: korean acceptability judgment task
-# mandarin_ajt: mandarin acceptability judgment task
-# ctest: english c-test
-# exit_survey: exit survey
-
-# groups...
-# ens: english native speakers
-# kle: l1-korean l2 learners of english
-# mle: l1-mandarin l2 learners of english
-
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### packages ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # load packages
 library(tidyverse) # for data processing
@@ -40,18 +22,22 @@ library(hunspell) # for spell checking of c-test responses
 library(patchwork) # for plotting
 library(jsonlite) # for unpacking json
 library(beepr) # for notifications
+library(tictoc) # for timing operations
 library(ggh4x) # for plotting
+library(emmeans) #  for post-hoc tests; see https://marissabarlaz.github.io/portfolio/contrastcoding/
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### read in data ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 df <- read_csv('data/data.csv', col_types = cols(.default = 'c')) %>%
   select(-audio_data)
 
-#------------------------------------------------------------------------------------------#
+ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'f', accuracy = 'l'))
+
+#------------------------------------------------------------------------------#
 #### plot number of participants per task ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # summarise
 
@@ -84,27 +70,68 @@ ggplot(data = plot, aes(x = task, y = n, group = group, col = group, shape = gro
 
 ggsave("plots/participant_counts.png", width=6.5, height=4.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### exit survey ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 exit <- df %>%
   filter(task == 'exit_survey') %>%
   arrange(study, group, participant) %>%
   select_if(function(x){!all(is.na(x))})
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### language survey ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 survey <- df %>%
   filter(task == 'language_survey') %>%
   arrange(study, group, participant) %>%
   select_if(function(x){!all(is.na(x))})
 
-#------------------------------------------------------------------------------------------#
+age <- survey %>%
+  filter(item == 'age') %>%
+  mutate(response = as.numeric(response)) %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(response, na.rm = TRUE),
+            sd = sd(response, na.rm = TRUE),
+            min = min(response, na.rm = TRUE),
+            max = max(response, na.rm = TRUE)) %>%
+  ungroup()
+rm(age)
+
+aoa <- survey %>%
+  filter(item == 'english_aoa') %>%
+  mutate(response = as.numeric(response)) %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(response, na.rm = TRUE),
+            sd = sd(response, na.rm = TRUE),
+            min = min(response, na.rm = TRUE),
+            max = max(response, na.rm = TRUE)) %>%
+  ungroup()
+rm(aoa)
+
+lor <- read_csv('data/length_of_residence.csv', col_types = cols(.default = 'f', accuracy = 'l'))
+
+lor <- lor %>%
+  mutate(study = case_when(str_detect(participant, 'do') == TRUE ~ '210510_do',
+                           str_detect(participant, 'su') == TRUE ~ '210510_su'),
+         group = case_when(str_detect(participant, 'en') == TRUE ~ 'english',
+                           str_detect(participant, 'ko') == TRUE ~ 'korean',
+                           str_detect(participant, 'zh') == TRUE ~ 'mandarin')) %>%
+  select(study, group, participant, lor) %>%
+  mutate(lor = as.numeric(as.character(lor)))
+
+lor <- lor %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(lor, na.rm = TRUE),
+            sd = sd(lor, na.rm = TRUE),
+            min = min(lor, na.rm = TRUE),
+            max = max(lor, na.rm = TRUE)) %>%
+  ungroup()
+
+#------------------------------------------------------------------------------#
 #### ctest: prep dataframe ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 ct <- df %>% filter(task == 'ctest') %>%
   arrange(study, group, participant) %>%
@@ -113,9 +140,9 @@ ct <- df %>% filter(task == 'ctest') %>%
 ct <- ct %>%
   mutate(response = str_remove_all(response, '[^[:alnum:]]'))
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ctest: score responses ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # check number of participants per group
 
@@ -170,6 +197,20 @@ proficiency <- ct %>%
   summarise(proficiency = mean(accuracy, na.rm=T)) %>%
   ungroup()
 
+check <- proficiency %>%
+  mutate(proficiency = proficiency * 100) %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(proficiency, na.rm = TRUE),
+            sd = sd(proficiency, na.rm = TRUE),
+            min = min(proficiency, na.rm = TRUE),
+            max = max(proficiency, na.rm = TRUE)) %>%
+  ungroup()
+
+check <- proficiency %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
 # check incorrect responses
 
 check <- ct %>%
@@ -180,25 +221,41 @@ check <- ct %>%
 
 write_csv(ct, 'data/ctest_scored.csv')
 
-# read from file
-
-ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'f', accuracy = 'l'))
-
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ctest: plot ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+
+check <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
 
 # summarise for plotting 
 
 plot <- ct %>%
   group_by(study, group, participant) %>%
+  summarise(accuracy = mean(accuracy)) %>%
+  ungroup()
+
+check <- plot %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(accuracy),
+            min = min(accuracy),
+            max = max(accuracy)) %>%
+  ungroup()
+
+check <- ct %>%
+  group_by(study, group) %>%
   summarise(mean = mean(accuracy)) %>%
   ungroup()
 
 # define plot data
 
-p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=group, y=mean*100, fill=group, label=participant))
-p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=group, y=mean*100, fill=group, label=participant))
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=group, y=accuracy*100, fill=group, label=participant))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=group, y=accuracy*100, fill=group, label=participant))
 
 # plot styling
 
@@ -226,18 +283,51 @@ ggsave("plots/orc/ctest.png", width=6, height=2, dpi=600)
 p2 + s
 ggsave("plots/src/ctest.png", width=6, height=2, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+#### ctest: modeling ####
+#------------------------------------------------------------------------------#
+
+#fred
+
+md <- ct %>%
+  filter(study == '210510_do')
+
+contrasts(md$group)
+
+md <- md %>%
+  mutate(group = fct_relevel(group, 'korean', 'mandarin', 'english'))
+
+model1 <- glmer(accuracy ~ group + (1 | participant) + (1 + group | item), 
+                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+summary(model1)
+beepr::beep(1)
+
+# reference level = english
+# Fixed effects:
+#               Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)     3.0152     0.3248   9.282   <2e-16 ***
+# groupkorean    -2.4521     0.2881  -8.511   <2e-16 ***
+# groupmandarin  -2.5050     0.2942  -8.514   <2e-16 ***
+
+# reference level = korean
+# Fixed effects:
+#               Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)    0.56316    0.27606   2.040   0.0413 *  
+# groupmandarin -0.05295    0.18682  -0.283   0.7768    
+# groupenglish   2.45207    0.28810   8.511   <2e-16 ***
+
+#------------------------------------------------------------------------------#
 #### ept: prep dataframe ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 ep <- df %>%
   filter(task == 'ept') %>%
   arrange(study, group, participant) %>%
   select_if(function(x){!all(is.na(x))})
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: bar plot critical ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # remove nontarget responses
 
@@ -291,9 +381,9 @@ ggsave("plots/orc/ept_barplot.png", width=6.5, height=2.5, dpi=600)
 p2 + s
 ggsave("plots/src/ept_barplot.png", width=6.5, height=2.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: bar plot filler ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # remove nontarget responses
 
@@ -345,9 +435,9 @@ ggsave("plots/orc/ept_barplot_filler.png", width=6.5, height=2.5, dpi=600)
 p2 + s
 ggsave("plots/src/ept_barplot_filler.png", width=6.5, height=2.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: bar plot critical nontarget ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # make list of participants that excludes those who only gave nontarget responses
 
@@ -405,9 +495,9 @@ ggsave("plots/orc/ept_barplot_with_nontarget.png", width=6.5, height=2.75, dpi=6
 p2 + s
 ggsave("plots/src/ept_barplot_with_nontarget.png", width=6.5, height=2.75, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: scatter plot of proficiency effects ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # summarise data for plotting
 
@@ -470,9 +560,9 @@ ggsave("plots/orc/ept_proficiency.png", width=6.5, height=3, dpi=600)
 p2 + s
 ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: simple linear regression analysis ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # simple regression analysis
 
@@ -491,9 +581,9 @@ summary(model)
 # suko: ' ' (r-squared = 0.03603, F = 2.392, p = 0.1269)
 # suzh: ' ' (r-squared = 0.00, F = 0.00, p = 0.997)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: bar plot critical by-item ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # summarise for plotting
 
@@ -533,9 +623,9 @@ ggplot(data=plot, aes(x=condition, y=prop, group=category, fill=category, label=
 
 ggsave("plots/ept_plot_item.png", width=10, height=5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: modeling ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # remove participants who only gave nontarget responses
 
@@ -568,7 +658,7 @@ md2 <- md2 %>%
 contrasts(md2$environment)
 
 model1 <- glmer(resumption ~ environment + (environment|participant) + (environment|item), 
-                data = md2, family = binomial, glmerControl(optimizer = "bobyqa"))
+                data = md2, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 summary(model1)
 beepr::beep(1)
 
@@ -703,19 +793,20 @@ summary(model1)
 # condcond2   1.587e-01  1.533e-01 1.238e+02   1.036    0.302    
 # condcond3   9.543e-01  1.547e-01 1.249e+02   6.170 8.76e-09 ***
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: prep dataframe ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # create dataframe for reading time data
+
 spr <- df %>%
   filter(task == 'sprt') %>%
   arrange(study, group, participant) %>%
   select_if(function(x){!all(is.na(x))})
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: plots for rt data ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # filter to critical trials
 ds <- spr %>%
@@ -873,9 +964,9 @@ p2c + s +
 
 ggsave('plots/src/spr_rt.png', width=6.5, height=4.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: plots for accuracy data ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # trim based on accuracy
 trim <- ds %>%
@@ -916,21 +1007,26 @@ s <- list(
   scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")),
   theme(text = element_text(size = 12), 
         plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right", 
+        legend.position = "none", 
+        axis.title.y = element_text(margin=margin(r=-3)),
         legend.margin=margin(0, 0, 0, 0),
         legend.box.margin = margin(0, 0, 0, 0)),
   facet_wrap(~panel)
 )
 
 p1 + s
+bucld2 <- p1 + s + 
+  labs(caption = 'glmer: accuracy ~ dependency * environment +\n(1 + dependency * environment | person) +\n(1 + dependency * environment | item)', hjust = .5) +
+  theme(plot.caption = element_text(hjust = .5))
+bucld2
 ggsave("plots/orc/spr_accuracy.png", width=6.5, height=2.5, dpi=600)
 
 p2 + s
 ggsave("plots/src/spr_accuracy.png", width=6.5, height=2.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: modeling for reading times at critical region ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 trim <- trim %>%
   mutate(region = as.numeric(region)) %>%
@@ -950,7 +1046,7 @@ md <- trim %>%
   ungroup()
 
 md <- md %>%
-  filter(study == '210510_su')
+  filter(study == '210510_do')
 
 # summarise for plotting with logrts
 plot <- md %>%
@@ -966,20 +1062,34 @@ plot <- md %>%
 groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
 
 # generate plot
-ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
+p <- ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
   geom_line(lwd=1) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1) +
   theme_classic() +
-  scale_y_continuous(name="logRT", limits=c(5.8, 6.5)) +
+  scale_y_continuous(name="logRT", limits=c(5.75, 6.15)) +
   scale_x_discrete(name="environment", limits=c("short", "long", "island")) +
   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), limits=c('gap', 'pronoun'), labels=c('gap', 'resumption')) +
   scale_shape_manual(name="dependency", values=c(16, 15), limits=c('gap', 'pronoun'), labels=c('gap', 'resumption')) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin = margin(1, 1, 1, -5)) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = 'right',
+        legend.margin = margin(0, .1, 0, -.1, 'cm'),
+        legend.box.margin = margin(0, .1, 0, -.1, 'cm'),
+        plot.margin = margin(0, 0, 0, 0, 'cm')) +
   facet_wrap(~group, labeller = as_labeller(groups))
+
+p
+
+bucld1 <- p + 
+  labs(caption = 'lmer: logRT ~ dependency * environment +\n(1 + dependency * environment | person) +\n(1 + dependency * environment | item)', hjust = .5) +
+  theme(plot.caption = element_text(hjust = .5))
+
+bucld1
 
 # save plot
 ggsave("plots/src/spr_logrt.png", width=6.5, height=2.5, dpi=600)
+ggsave("plots/src/spr_bucld.png", width=6.5, height=2.5, dpi=600)
 
 md2 <- md %>%
   filter(group == 'mandarin')
@@ -1336,9 +1446,9 @@ beep(1)
 #   contrast      estimate     SE   df t.ratio p.value
 # gap - pronoun   0.1053 0.0235 20.9   4.477  0.0002
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: modeling for reading times at RP region ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 temp <- trim %>%
   mutate(region = as.numeric(region)) %>%
@@ -1461,17 +1571,28 @@ beepr::beep(1)
 #   Estimate Std. Error       df t value Pr(>|t|)    
 # (Intercept)        6.17680    0.03322 67.84903  185.94   <2e-16 ***
 #   environmentlong   -0.01445    0.03283 67.27076   -0.44   0.6614    
-# environmentisland  0.05609    0.03032 68.08138    1.85   0.0687 .  
+# environmentisland  0.05609    0.03032 68.08138    1.85   0.0687 . 
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: modeling for accuracy data ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 temp <- ds %>%
   group_by(study, group, participant) %>%
   mutate(acc_rate = mean(as.logical(accuracy))) %>%
   ungroup() %>%
-  filter(acc_rate >.5)
+  filter(acc_rate > .5)
+
+check <- temp %>%
+  group_by(study, group, participant, acc_rate) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# temp <- temp %>%
+#   filter(acc_rate < .95)
 
 temp <- temp %>%
   group_by(study, group, participant, item, dependency, environment, acc_rate, accuracy) %>%
@@ -1485,12 +1606,7 @@ temp <- temp %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
 md <- temp %>% 
-  filter(study == '210510_do', group == 'mandarin')
-
-plot <- md %>%
-  group_by(study, group, environment, dependency) %>%
-  summarise(accuracy = mean(accuracy)) %>%
-  ungroup()
+  filter(study == '210510_su', group == 'english')
 
 plot <- md %>%
   mutate(accuracy = as.logical(accuracy)) %>%
@@ -1521,12 +1637,15 @@ ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, s
 contrasts(md$dependency)
 contrasts(md$environment)
 
+# contrasts(md$dependency) <- contr.sdif(2)
+# contrasts(md$environment) <- contr.treatment(3, base = 1)
+
 model1 <- glmer(accuracy ~ environment*dependency + (1|participant) + (1|item), 
-                data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
+                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 summary(model1)
 beep(1)
 
-# doen
+# doen (everyone)
 # no warnings
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -1536,8 +1655,18 @@ beep(1)
 # dependencypronoun                    0.77305    0.37414   2.066   0.0388 *  
 # environmentlong:dependencypronoun    0.19967    0.52196   0.383   0.7021    
 # environmentisland:dependencypronoun  0.05358    0.51838   0.103   0.9177 
+# doen (acc_rate < 1)
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          2.51807    0.25247   9.974   <2e-16 ***
+#   environmentlong                     -0.21181    0.30015  -0.706   0.4804    
+# environmentisland                   -0.13535    0.30463  -0.444   0.6568    
+# dependencypronoun                    0.77184    0.37329   2.068   0.0387 *  
+#   environmentlong:dependencypronoun    0.20276    0.52067   0.389   0.6970    
+# environmentisland:dependencypronoun  0.03881    0.51805   0.075   0.9403 
 
-# doko
+# doko (everyone)
 # no warnings
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -1547,8 +1676,18 @@ beep(1)
 # dependencypronoun                    1.44112    0.25887   5.567 2.59e-08 ***
 #   environmentlong:dependencypronoun   -0.03271    0.35364  -0.092    0.926    
 # environmentisland:dependencypronoun -0.06833    0.35920  -0.190    0.849 
+# doko (acc_rate < 1)
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          1.22304    0.18372   6.657 2.79e-11 ***
+#   environmentlong                     -0.17436    0.19817  -0.880    0.379    
+# environmentisland                   -0.01094    0.20046  -0.055    0.956    
+# dependencypronoun                    1.43280    0.25967   5.518 3.43e-08 ***
+#   environmentlong:dependencypronoun   -0.03210    0.35520  -0.090    0.928    
+# environmentisland:dependencypronoun -0.06782    0.36026  -0.188    0.851 
 
-# dozh
+# dozh (everyone)
 # no warnings
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -1558,13 +1697,56 @@ beep(1)
 # dependencypronoun                    0.79967    0.33360   2.397   0.0165 *  
 #   environmentlong:dependencypronoun   -0.03142    0.45960  -0.068   0.9455    
 # environmentisland:dependencypronoun  0.57751    0.47465   1.217   0.2237 
+# dozh (acc_rate < 1)
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           2.2013     0.2622   8.396   <2e-16 ***
+#   environmentlong                      -0.2060     0.2756  -0.748   0.4547    
+# environmentisland                    -0.4135     0.2675  -1.546   0.1222    
+# dependencypronoun                     0.7930     0.3219   2.464   0.0138 *  
+#   environmentlong:dependencypronoun    -0.0326     0.4436  -0.073   0.9414    
+# environmentisland:dependencypronoun   0.5557     0.4584   1.212   0.2254  
+
+# suen
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           2.8663     0.2852  10.050  < 2e-16 ***
+#   environmentlong                      -0.3428     0.2942  -1.165  0.24397    
+# environmentisland                    -1.0521     0.2735  -3.846  0.00012 ***
+#   dependencypronoun                     0.5596     0.3500   1.599  0.10989    
+# environmentlong:dependencypronoun     0.1055     0.4708   0.224  0.82267    
+# environmentisland:dependencypronoun   0.9465     0.4658   2.032  0.04216 * 
+
+# suko
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.0116     0.2838  10.612  < 2e-16 ***
+#   environmentlong                      -1.1114     0.2642  -4.207 2.59e-05 ***
+#   environmentisland                    -1.3356     0.2628  -5.082 3.73e-07 ***
+#   dependencypronoun                     0.7606     0.3624   2.099   0.0358 *  
+#   environmentlong:dependencypronoun     0.5178     0.4566   1.134   0.2568    
+# environmentisland:dependencypronoun   0.5981     0.4507   1.327   0.1844
+
+# suzh
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           2.9099     0.2600  11.192  < 2e-16 ***
+#   environmentlong                      -1.1145     0.2500  -4.459 8.24e-06 ***
+#   environmentisland                    -0.9474     0.2533  -3.741 0.000183 ***
+#   dependencypronoun                     0.3864     0.3075   1.257 0.208876    
+# environmentlong:dependencypronoun     1.2225     0.4172   2.930 0.003389 ** 
+#   environmentisland:dependencypronoun   0.5130     0.3961   1.295 0.195309  
 
 model2 <- glmer(accuracy ~ environment*dependency + (environment+dependency|participant) + (environment+dependency|item), 
-                 data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
+                 data = md, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 summary(model2)
 beep(1)
 
-# doen
+# doen (everyone)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 # Estimate Std. Error z value Pr(>|z|)    
@@ -1574,8 +1756,18 @@ beep(1)
 # dependencypronoun                    0.26287    0.50284   0.523    0.601    
 # environmentlong:dependencypronoun    0.03442    0.61201   0.056    0.955    
 # environmentisland:dependencypronoun -0.17084    0.70430  -0.243    0.808 
+# doen (acc_rate < 1)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          2.67421    0.35534   7.526 5.24e-14 ***
+#   environmentlong                     -0.10618    0.47168  -0.225    0.822    
+# environmentisland                    0.15677    0.52545   0.298    0.765    
+# dependencypronoun                    0.67129    0.48530   1.383    0.167    
+# environmentlong:dependencypronoun   -0.02378    0.63366  -0.038    0.970    
+# environmentisland:dependencypronoun -0.33612    0.68063  -0.494    0.621 
 
-# doko
+# doko (everyone)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -1585,8 +1777,18 @@ beep(1)
 # dependencypronoun                    1.605217   0.343882   4.668 3.04e-06 ***
 #   environmentlong:dependencypronoun   -0.215912   0.402479  -0.536    0.592    
 # environmentisland:dependencypronoun -0.088500   0.402628  -0.220    0.826
+# doko (acc_rate < 1)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          1.218329   0.187289   6.505 7.77e-11 ***
+#   environmentlong                     -0.083037   0.241180  -0.344    0.731    
+# environmentisland                   -0.007022   0.222817  -0.032    0.975    
+# dependencypronoun                    1.630619   0.335038   4.867 1.13e-06 ***
+#   environmentlong:dependencypronoun   -0.217186   0.401518  -0.541    0.589    
+# environmentisland:dependencypronoun -0.088992   0.401828  -0.221    0.825    
 
-# dozh
+# dozh (everyone)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -1595,10 +1797,63 @@ beep(1)
 # environmentisland                    -1.2438     0.5980  -2.080   0.0375 *  
 #   dependencypronoun                     0.5180     0.5123   1.011   0.3120    
 # environmentlong:dependencypronoun     0.1261     0.5756   0.219   0.8265    
-# environmentisland:dependencypronoun   0.7946     0.6427   1.236   0.2164  
+# environmentisland:dependencypronoun   0.7946     0.6427   1.236   0.2164 
+# dozh (acc_rate < 1)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           2.6971     0.4400   6.129 8.84e-10 ***
+#   environmentlong                      -0.3820     0.4783  -0.799   0.4245    
+# environmentisland                    -0.9541     0.5078  -1.879   0.0602 .  
+# dependencypronoun                     0.7009     0.4602   1.523   0.1277    
+# environmentlong:dependencypronoun     0.0685     0.5591   0.123   0.9025    
+# environmentisland:dependencypronoun   0.7187     0.6277   1.145   0.2522
+# dozh (acc_rate < .95)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           1.6545     0.3897   4.246 2.18e-05 ***
+#   environmentlong                      -0.1186     0.4757  -0.249    0.803    
+# environmentisland                    -0.4621     0.5060  -0.913    0.361    
+# dependencypronoun                     1.0653     0.4614   2.309    0.021 *  
+#   environmentlong:dependencypronoun    -0.1642     0.5920  -0.277    0.782    
+# environmentisland:dependencypronoun   0.6359     0.6754   0.942    0.346 
+
+# suen
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          2.73582    0.32084   8.527   <2e-16 ***
+#   environmentlong                     -0.06544    0.42040  -0.156   0.8763    
+# environmentisland                   -0.95245    0.37220  -2.559   0.0105 *  
+#   dependencypronoun                    0.92021    0.50184   1.834   0.0667 .  
+# environmentlong:dependencypronoun    0.07872    0.56548   0.139   0.8893    
+# environmentisland:dependencypronoun  0.99479    0.56413   1.763   0.0778 .
+
+# suko
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.1201     0.3884   8.034 9.45e-16 ***
+#   environmentlong                      -0.9997     0.4338  -2.304 0.021213 *  
+#   environmentisland                    -1.4318     0.3997  -3.582 0.000341 ***
+#   dependencypronoun                     1.0071     0.5273   1.910 0.056124 .  
+# environmentlong:dependencypronoun     0.1397     0.5711   0.245 0.806775    
+# environmentisland:dependencypronoun   0.3615     0.5373   0.673 0.501063 
+
+# suzh
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.3426     0.4341   7.700 1.36e-14 ***
+#   environmentlong                      -1.4830     0.4627  -3.205  0.00135 ** 
+#   environmentisland                    -1.2545     0.4447  -2.821  0.00479 ** 
+#   dependencypronoun                     0.5528     0.4418   1.251  0.21082    
+# environmentlong:dependencypronoun     0.8905     0.5113   1.742  0.08158 .  
+# environmentisland:dependencypronoun   0.3846     0.4852   0.793  0.42797  
 
 model3 <- glmer(accuracy ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), 
-                data = md, family = binomial, glmerControl(optimizer = "bobyqa"))
+                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6)))
 summary(model3)
 beep(1)
 
@@ -1626,7 +1881,7 @@ beep(1)
 #   environmentlong:dependencypronoun    -0.4151     0.7032  -0.590 0.554963    
 # environmentisland:dependencypronoun  -0.7602     0.7267  -1.046 0.295531 
 
-# dozh
+# dozh (everyone)
 # boundary (singular) fit: see help('isSingular')
 # maxfun < 10 * length(par)^2 is not recommended.
 # Fixed effects:
@@ -1637,6 +1892,61 @@ beep(1)
 # dependencypronoun                   -0.003471   0.857323  -0.004   0.9968    
 # environmentlong:dependencypronoun    1.453131   1.210031   1.201   0.2298    
 # environmentisland:dependencypronoun  2.194013   1.311622   1.673   0.0944 .
+# dozh (acc_rate < 1, maxfun = 1e6)
+# boundary (singular) fit: see help('isSingular')
+# Number of obs: 1410, groups:  participant, 47; item, 30
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           2.8684     0.5287   5.425 5.79e-08 ***
+#   environmentlong                      -0.6137     0.5661  -1.084   0.2783    
+# environmentisland                    -1.1182     0.5889  -1.899   0.0576 .  
+# dependencypronoun                     0.4032     0.6746   0.598   0.5501    
+# environmentlong:dependencypronoun     0.9940     0.9821   1.012   0.3115    
+# environmentisland:dependencypronoun   1.9849     1.1120   1.785   0.0743 . 
+# dozh (acc_rate < .95, maxfun = 1e6)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           1.7229     0.4281   4.025 5.71e-05 ***
+#   environmentlong                      -0.1540     0.5106  -0.302    0.763    
+# environmentisland                    -0.5575     0.5381  -1.036    0.300    
+# dependencypronoun                     0.9105     0.5699   1.598    0.110    
+# environmentlong:dependencypronoun     0.3500     0.9061   0.386    0.699    
+# environmentisland:dependencypronoun   2.2973     1.6549   1.388    0.165 
+
+# suen
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           2.8235     0.3614   7.813 5.59e-15 ***
+#   environmentlong                      -0.2804     0.4742  -0.591    0.554    
+# environmentisland                    -0.9157     0.4414  -2.074    0.038 *  
+#   dependencypronoun                     0.8108     0.6343   1.278    0.201    
+# environmentlong:dependencypronoun     0.5541     0.9406   0.589    0.556    
+# environmentisland:dependencypronoun   1.0232     0.9361   1.093    0.274  
+
+# suko
+# boundary (singular) fit: see help('isSingular')
+# maxfun < 10 * length(par)^2 is not recommended.
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.4143     0.5180   6.591 4.37e-11 ***
+#   environmentlong                      -1.0371     0.6121  -1.694  0.09024 .  
+# environmentisland                    -1.7849     0.5329  -3.349  0.00081 ***
+#   dependencypronoun                     1.8994     1.4512   1.309  0.19060    
+# environmentlong:dependencypronoun    -0.6714     1.6663  -0.403  0.68700    
+# environmentisland:dependencypronoun  -0.0762     1.5447  -0.049  0.96065 
+
+# suzh
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.1621     0.4346   7.276 3.44e-13 ***
+#   environmentlong                      -1.2895     0.4762  -2.708  0.00677 ** 
+#   environmentisland                    -0.9121     0.5069  -1.799  0.07198 .  
+# dependencypronoun                     1.1386     0.8190   1.390  0.16443    
+# environmentlong:dependencypronoun     0.7630     1.0768   0.709  0.47856    
+# environmentisland:dependencypronoun  -0.1817     1.0033  -0.181  0.85633 
 
 anova(model1, model2)
 
@@ -1655,6 +1965,21 @@ anova(model1, model2)
 # model1    8 1000.0 1044.9 -492.00   984.01                    
 # model2   26 1014.5 1160.2 -481.23   962.46 21.55 18     0.2526
 
+# suen
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1025.6 1069.7 -504.79   1009.6                     
+# model2   26 1055.5 1198.8 -501.75   1003.5 6.0827 18     0.9959
+
+# suko
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1153.7 1198.0 -568.83   1137.7                     
+# model2   26 1181.9 1326.1 -564.97   1129.9 7.7169 18     0.9826
+
+# suzh
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1260.2 1305.2 -622.08   1244.2                     
+# model2   26 1280.3 1426.8 -614.15   1228.3 15.844 18     0.6034
+
 anova(model2, model3)
 
 # doen
@@ -1671,6 +1996,21 @@ anova(model2, model3)
 #        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
 # model2   26 1014.5 1160.2 -481.23   962.46                     
 # model3   48 1047.8 1316.9 -475.92   951.84 10.616 22     0.9798
+
+# suen
+#        npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model2   26 1055.5 1198.8 -501.75  1003.50                    
+# model3   48 1093.6 1358.2 -498.79   997.57 5.925 22     0.9997
+
+# suko
+#        npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model2   26 1181.9 1326.1 -564.97   1129.9                    
+# model3   48 1205.2 1471.4 -554.62   1109.2  20.7 22     0.5394
+
+# suzh
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   26 1280.3 1426.8 -614.15   1228.3                     
+# model3   48 1311.2 1581.7 -607.62   1215.2 13.062 22     0.9314
 
 anova(model1, model3)
 
@@ -1689,154 +2029,209 @@ anova(model1, model3)
 # model1    8 1000.0 1044.9 -492.00   984.01                     
 # model3   48 1047.8 1316.9 -475.92   951.84 32.166 40     0.8064
 
-# https://bookdown.org/ndphillips/YaRrr/comparing-regression-models-with-anova.html
-
-# doen
-# boundary (singular) fit: see ?isSingular
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          3.78253    0.44716   8.459   <2e-16 ***
-#   environmentlong                     -0.18145    0.54974  -0.330    0.741    
-# environmentisland                    0.18619    0.60532   0.308    0.758    
-# dependencypronoun                    0.24023    0.51945   0.462    0.644    
-# environmentlong:dependencypronoun    0.06771    0.64061   0.106    0.916    
-# environmentisland:dependencypronoun -0.15552    0.71197  -0.218    0.827  
-
-# doko
-# with interactions...
-# boundary (singular) fit: see ?isSingular
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          1.60068    0.25562   6.262  3.8e-10 ***
-#   environmentlong                     -0.11524    0.31754  -0.363 0.716674    
-# environmentisland                    0.06218    0.36848   0.169 0.865986    
-# dependencypronoun                    1.89813    0.57678   3.291 0.000999 ***
-#   environmentlong:dependencypronoun   -0.40660    0.70788  -0.574 0.565706    
-# environmentisland:dependencypronoun -0.76337    0.72921  -1.047 0.295167 
-# without interactions...
-# boundary (singular) fit: see ?isSingular
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          1.50656    0.20993   7.176 7.16e-13 ***
-#   environmentlong                     -0.04827    0.25467  -0.190    0.850    
-# environmentisland                   -0.00946    0.23610  -0.040    0.968    
-# dependencypronoun                    1.60522    0.34388   4.668 3.04e-06 ***
-#   environmentlong:dependencypronoun   -0.21591    0.40248  -0.536    0.592    
-# environmentisland:dependencypronoun -0.08850    0.40263  -0.220    0.826 
-
-# dozh
-# boundary (singular) fit: see ?isSingular
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           3.7050     0.5493   6.745 1.53e-11 ***
-#   environmentlong                      -0.4083     0.5946  -0.687   0.4922    
-# environmentisland                    -1.2437     0.5980  -2.080   0.0375 *  
-#   dependencypronoun                     0.5180     0.5123   1.011   0.3120    
-# environmentlong:dependencypronoun     0.1261     0.5756   0.219   0.8265    
-# environmentisland:dependencypronoun   0.7946     0.6428   1.236   0.2164 
-
 # suen
-# boundary (singular) fit: see ?isSingular
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          2.73582    0.32084   8.527   <2e-16 ***
-#   environmentlong                     -0.06544    0.42041  -0.156   0.8763    
-# environmentisland                   -0.95245    0.37220  -2.559   0.0105 *  
-#   dependencypronoun                    0.92021    0.50185   1.834   0.0667 .  
-# environmentlong:dependencypronoun    0.07872    0.56548   0.139   0.8893    
-# environmentisland:dependencypronoun  0.99479    0.56413   1.763   0.0778 . 
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1025.6 1069.7 -504.79  1009.58                     
+# model3   48 1093.6 1358.2 -498.79   997.57 12.008 40          1
 
 # suko
-#
-# accuracy ~ environment * dependency + (environment + dependency |  participant) + (environment + dependency | item)
-# boundary (singular) fit: see ?isSingular
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           3.1201     0.3884   8.034 9.43e-16 ***
-#   environmentlong                      -0.9997     0.4338  -2.304  0.02121 *  
-#   environmentisland                    -1.4318     0.3997  -3.582  0.00034 ***
-#   dependencypronoun                     1.0071     0.5272   1.910  0.05612 .  
-# environmentlong:dependencypronoun     0.1397     0.5711   0.245  0.80677    
-# environmentisland:dependencypronoun   0.3615     0.5373   0.673  0.50105  
-#
-# accuracy ~ environment * dependency + (environment * dependency |  participant) + (environment * dependency | item)
-# boundary (singular) fit: see help('isSingular')
-# maxfun < 10 * length(par)^2 is not recommended.
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          3.41994    0.52119   6.562 5.32e-11 ***
-#   environmentlong                     -1.04254    0.61450  -1.697 0.089776 .  
-# environmentisland                   -1.79078    0.53598  -3.341 0.000834 ***
-#   dependencypronoun                    1.90072    1.45289   1.308 0.190796    
-# environmentlong:dependencypronoun   -0.66581    1.66763  -0.399 0.689704    
-# environmentisland:dependencypronoun -0.07708    1.54558  -0.050 0.960223  
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1153.7 1198.0 -568.83   1137.7                     
+# model3   48 1205.2 1471.4 -554.62   1109.2 28.416 40     0.9147
 
 # suzh
-#
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1    8 1260.2 1305.2 -622.08   1244.2                     
+# model3   48 1311.2 1581.7 -607.62   1215.2 28.906 40     0.9035
 
+# https://bookdown.org/ndphillips/YaRrr/comparing-regression-models-with-anova.html
 
-library(emmeans) # see https://marissabarlaz.github.io/portfolio/contrastcoding/
 pairs(emmeans(model1, "dependency", by = "environment"))
 beep(1)
 
-#------------------------------------------------------------------------------------------#
-#### ajt: preprocessing ####
-#------------------------------------------------------------------------------------------#
+# dozh
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.793 0.322 Inf  -2.464  0.0138
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.760 0.305 Inf  -2.492  0.0127
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -1.349 0.329 Inf  -4.100  <.0001
 
-# check participants on the ajt
-check <- df %>%
-  filter(task %in% c('english-acceptability-judgment-task', 'korean-acceptability-judgment-task', 'mandarin-acceptability-judgment-task')) %>%
-  group_by(group, participant) %>%
-  summarise() %>%
+# suzh
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.386 0.307 Inf  -1.257  0.2089
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -1.609 0.285 Inf  -5.646  <.0001
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.899 0.250 Inf  -3.593  0.0003
+
+pairs(emmeans(model2, "dependency", by = "environment"))
+beep(1)
+
+# dozh
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.701 0.460 Inf  -1.523  0.1277
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.769 0.415 Inf  -1.853  0.0638
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -1.420 0.405 Inf  -3.506  0.0005
+
+pairs(emmeans(model3, "dependency", by = "environment"))
+beep(1)
+
+# dozh
+# environment = short:
+# contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.403 0.675 Inf  -0.598  0.5501
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -1.397 0.714 Inf  -1.956  0.0505
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -2.388 0.877 Inf  -2.722  0.0065
+
+allFit(model3) # compare optimizers
+
+#------------------------------------------------------------------------------#
+#### spr: scatter plot of proficiency effects for accuracy data ####
+#------------------------------------------------------------------------------#
+
+# trim based on accuracy
+trim <- ds %>%
+  group_by(study, group, participant) %>%
+  mutate(acc_rate = mean(as.logical(accuracy))) %>%
   ungroup() %>%
-  group_by(group) %>%
-  summarise(n = n()) %>%
+  filter(acc_rate >.5)
+
+plot <- trim %>%
+  group_by(study, group, participant, acc_rate) %>%
+  summarise() %>%
   ungroup()
+
+plot <- plot %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  filter(proficiency != 'NA')
+
+# facet labels
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
+# define data for plots
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency*100, y=acc_rate*100))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency*100, y=acc_rate*100))
+
+# generate plot
+
+s <- list(
+  geom_smooth(method=lm, col="#785ef0"), 
+  geom_point(shape = 1),
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name="% accuracy", limits = c(-5, 100)),
+  scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right"),
+  facet_wrap(~group, labeller = as_labeller(groups))
+)
+
+# write plots
+
+p1 + s
+ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
+
+md <- plot %>% 
+  filter(study == '210510_do', group == 'mandarin')
+cor(md$proficiency, md$acc_rate) 
+model <- lm(proficiency ~ acc_rate, data = md)
+summary(model)
+
+# doen
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   0.2326     0.1280   1.817   0.0727 .  
+# acc_rate      0.6504     0.1335   4.872 4.98e-06 ***
+
+# doko
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   0.1328     0.1201   1.105 0.273121    
+# acc_rate      0.5456     0.1405   3.884 0.000246 ***
+
+# dozh
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)   
+# (Intercept)  0.04817    0.16075   0.300  0.76538   
+# acc_rate     0.59116    0.17370   3.403  0.00114 **
+
+# ENS -> b = 0.65, t = 4.87, p < .001
+# KLE -> b = 0.55, t = 3.88, p < .001
+# MLE -> b = 0.59, t = 3.40, p = .001
+
+#------------------------------------------------------------------------------#
+#### ajt: preprocessing ####
+#------------------------------------------------------------------------------#
 
 # create dataframe for ajt data
+
 ajt <- df %>%
-  filter(task %in% c('english-acceptability-judgment-task', 'korean-acceptability-judgment-task', 'mandarin-acceptability-judgment-task')) %>%
-  select(group, run_id, participant, task, condition, trial_index, item, cond, button_pressed, accuracy, rt, stimulus, type) %>%
-  arrange(participant, item) %>%
-  mutate(task = case_when(str_detect(task, 'english') ~ 'English AJT',
-                          str_detect(task, 'korean') ~ 'Korean AJT',
-                          str_detect(task, 'mandarin') ~ 'Mandarin AJT'))
+  filter(task %in% c('english_ajt', 'korean_ajt', 'mandarin_ajt')) %>%
+  arrange(study, group, participant) %>%
+  select_if(function(x){!all(is.na(x))})
 
-# check 'null' responses from skipped trials
+# check 'NA' responses from skipped trials
+
 check <- ajt %>%
-  filter(!button_pressed %in% c(0, 1, 2, 3, 4, 5))
+  filter(!response %in% c(1, 2, 3, 4, 5, 6))
 
-# remove 'null' responses
-ajt <- ajt %>%
-  filter(button_pressed != 'null')
+# remove 'NA' responses
 
-# create columns for factors and recode button responses
 ajt <- ajt %>%
-  mutate(dependency = factor(case_when(cond %in% c('cond1', 'cond2', 'cond3') ~ 'gap',
-                                       cond %in% c('cond4', 'cond5', 'cond6') ~ 'pronoun',
-                                       TRUE ~ 'filler')),
-         environment = factor(case_when(cond %in% c('cond1', 'cond4') ~ 'short',
-                                        cond %in% c('cond2', 'cond5') ~ 'long',
-                                        cond %in% c('cond3', 'cond6') ~ 'island',
-                                        TRUE ~ 'filler'))) %>%
-  mutate(button_pressed = as.numeric(button_pressed) + 1)
+  filter(is.na(response) == FALSE)
+
+# add binary accept/reject column
+
+ajt <- ajt %>%
+  mutate(acceptance = case_when(response > 3.5 ~ TRUE,
+                                response < 3.5 ~ FALSE))
 
 # calculate z-scores for each task by participant on ratings for all trials
+
 ajt <- ajt %>%
-  group_by(group, task, participant) %>%
-  mutate(zscore = (button_pressed - mean(button_pressed, na.rm=T)) / sd(button_pressed, na.rm=T)) %>%
+  mutate(response = as.numeric(response)) %>%
+  group_by(study, group, task, participant) %>%
+  mutate(zscore = (response - mean(response, na.rm=T)) / sd(response, na.rm = T)) %>%
   ungroup()
 
+check <- ajt %>%
+  mutate(condition = as.factor(condition))
+
+summary(check$condition)
+
 # calculate filler accuracy by participant
+
 temp <- ajt %>%
-  filter(cond %in% c('grammatical', 'ungrammatical', 'gram', 'ungr')) %>%
-  mutate(accuracy = case_when(accuracy == 'true' ~ TRUE,
-                              accuracy == 'false' ~ FALSE)) %>%
-  group_by(group, task, participant) %>%
-  summarise(acc_rate = mean(accuracy, na.rm=T)) %>%
+  filter(condition %in% c('grammatical', 'ungrammatical')) %>%
+  mutate(accuracy = as.logical(accuracy)) %>%
+  group_by(study, group, task, participant) %>%
+  summarise(acc_rate = mean(accuracy, na.rm = T)) %>%
   ungroup()
 
 # inspect accuracy rates
+
 ggplot(temp, aes(x=group, y=acc_rate, fill=group, label=participant)) + 
   geom_hline(yintercept=.5) +
   geom_violin() +
@@ -1853,16 +2248,20 @@ ggplot(temp, aes(x=group, y=acc_rate, fill=group, label=participant)) +
   facet_wrap(~task)
 
 # trim based on accuracy rate
-ajt <- ajt %>%
-  left_join(temp, by = c('group', 'task', 'participant')) %>%
-  filter(acc_rate > .5) %>%
-  mutate(participant = fct_drop(participant))
 
-# inspect accuracy rates
+ajt <- ajt %>%
+  left_join(temp, by = c('study', 'group', 'task', 'participant')) %>%
+  filter(acc_rate > .5)
+
+# inspect accuracy rates by participant
+
 plot <- ajt %>%
   group_by(group, task, participant, acc_rate) %>%
   summarise() %>%
   ungroup()
+
+# inspect accuracy rates
+
 ggplot(plot, aes(x=group, y=acc_rate, fill=group, label=participant)) + 
   geom_hline(yintercept=.5) +
   geom_violin() +
@@ -1878,600 +2277,1110 @@ ggplot(plot, aes(x=group, y=acc_rate, fill=group, label=participant)) +
         legend.position = "hide") +
   facet_wrap(~task)
 
-# inspect trials with 'incorrect' ratings
-check <- ajt %>%
-  filter(accuracy == 'false') %>%
-  select(-rt) %>%
-  arrange(cond, button_pressed)
-
 # check number of participants
+
 check <- ajt %>%
-  group_by(group, participant) %>%
+  group_by(study, task, group, participant) %>%
   summarise() %>%
   ungroup() %>%
-  group_by(group) %>%
+  group_by(study, task, group) %>%
   summarise(n = n()) %>%
   ungroup()
 
-#------------------------------------------------------------------------------------------#
-#### ajt: interaction plots for critical trials ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+#### ajt: interaction plots - critical trials - z-scores ####
+#------------------------------------------------------------------------------#
 
 # filter to critical trials
-crit <- ajt %>% filter(!cond %in% c('grammatical', 'ungrammatical', 'gram', 'ungr'))
 
-# summarize data for plotting by z-score
+crit <- ajt %>% 
+  filter(!condition %in% c('grammatical', 'ungrammatical'))
+
+# summarize for plotting
+
 plot <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
-  group_by(group, task, dependency, environment) %>%
-  summarise(mean = mean(zscore, na.rm=T),
-            sd = sd(zscore, na.rm=T),
+  group_by(study, group, task, dependency, environment) %>%
+  summarise(mean = mean(zscore, na.rm = T),
+            sd = sd(zscore, na.rm = T),
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
   filter(dependency != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE on Mandarin AJT')) %>%
-  mutate(panel = factor(panel, levels = c('ENS on English AJT', 'KLE on English AJT', 'MLE on English AJT', 'KLE on Korean AJT', 'MLE on Mandarin AJT')))
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
+  mutate(panel = factor(panel, levels = c('ENS on English AJT', 
+                                          'KLE on English AJT', 
+                                          'MLE on English AJT', 
+                                          'KLE on Korean AJT', 
+                                          'MLE on Mandarin AJT')))
 
-# define data for panels
-p1 <- ggplot(data=filter(plot, group == 'english' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p2 <- ggplot(data=filter(plot, group == 'korean' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p3 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p4 <- ggplot(data=filter(plot, group == 'korean' & task == 'Korean AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p5 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'Korean AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+# define data
+
+p1 <- ggplot(data=filter(plot, study == '210510_do', group == 'english' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p3 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p4 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'korean_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p5 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'mandarin_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+
+p6 <- ggplot(data=filter(plot, study == '210510_su', group == 'english' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p7 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p8 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p9 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'korean_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p10 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'mandarin_ajt'), 
+              aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
 
 # add styling
+
 s <- list(
-  annotate("rect", xmin = 0, xmax = 4, ymin = -1.1+(2.2/3), ymax = -1.1+(2.2/3)+(2.2/3), alpha = .15),
+  annotate("rect", 
+           xmin = 0, xmax = 4, 
+           ymin = -1.1+(2.2/3), 
+           ymax = -1.1+(2.2/3)+(2.2/3), 
+           alpha = .15),
   geom_hline(yintercept=0),
   geom_line(lwd = 1),
   geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), 
+                width=.2, lwd=1, linetype=1),
   theme_classic(),
-  scale_x_discrete(name='environment', limits = c('short', 'long', 'island'), labels = c('short', 'long', 'island')),
-  scale_y_continuous(name='mean z-score', limits=c(-1.1, 1.1)),
-  scale_colour_manual(name='dependency', values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
-  scale_shape_manual(name='dependency', values=c(16, 15), labels=c('gap', 'resumption')),
+  scale_x_discrete(name='environment', 
+                   limits = c('short', 'long', 'island'), 
+                   labels = c('short', 'long', 'island')),
+  scale_y_continuous(name='mean z-score', 
+                     limits=c(-1.5, 1.5)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
   theme(text = element_text(size = 12),
         plot.title = element_text(size = 12, hjust = .5)),
   facet_wrap(~panel)
 )
 
-# arrange plots
-p1 + s + theme(legend.position="none", axis.title.x = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.85, .65), axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank())
+# print and save
 
-# save
-ggsave("data/objects/plots/ajt_crit_zscore.png", width=6.5, height=3.5, dpi=600)
+p1 + s + theme(legend.position = "none",
+               axis.title.x = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+p2 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               axis.title.y = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+p3 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               axis.title.y = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+patchwork::plot_spacer() + 
+p4 + s + theme(legend.position = c(-.85, .65), 
+               axis.title.y = element_blank()) + 
+p5 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               axis.title.y = element_blank())
 
-# add information about who used resumption to dataframe
-crit2 <- crit %>%
-  left_join(resumers, by = 'participant')
+ggsave("plots/orc/ajt_crit_zscore.png", width=6.5, height=3.5, dpi=600)
 
-# filter to participants who used resumption at least once
-crit2 <- crit2 %>%
-  filter(resumer == TRUE)
+p6 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+p7 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               axis.title.y = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+p8 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               axis.title.y = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+patchwork::plot_spacer() + 
+p9 + s + theme(legend.position = c(-.85, .65),
+               axis.title.y = element_blank()) + 
+p10 + s + theme(legend.position = "none", 
+                axis.title.x = element_blank(), 
+                axis.title.y = element_blank())
 
-check <- crit %>%
-  group_by(group, participant) %>%
-  summarise() %>%
-  ungroup()
+ggsave("plots/src/ajt_crit_zscore.png", width=6.5, height=3.5, dpi=600)
 
-check <- crit2 %>%
-  group_by(group, participant) %>%
-  summarise() %>%
-  ungroup()
+#------------------------------------------------------------------------------#
+#### ajt: interaction plots - critical trials - raw ratings ####
+#------------------------------------------------------------------------------#
 
-# summarize data for plotting
-plot2 <- crit2 %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
-  group_by(group, task, dependency, environment) %>%
-  summarise(mean = mean(zscore, na.rm=T),
-            sd = sd(zscore, na.rm=T),
+# filter to critical trials
+
+crit <- ajt %>% 
+  filter(!condition %in% c('grammatical', 'ungrammatical'))
+
+# summarize for plotting
+
+plot <- crit %>%
+  group_by(study, group, task, dependency, environment) %>%
+  summarise(mean = mean(response, na.rm = T),
+            sd = sd(response, na.rm = T),
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
   filter(dependency != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'L1-English Group\nEnglish AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'L1-Korean Group\nEnglish AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'L1-Korean Group\nKorean AJT'))
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
+  mutate(panel = factor(panel, levels = c('ENS on English AJT', 
+                                          'KLE on English AJT', 
+                                          'MLE on English AJT', 
+                                          'KLE on Korean AJT', 
+                                          'MLE on Mandarin AJT')))
 
-# create plot faceted by task
-ggplot(data=plot2, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
-  geom_hline(yintercept=0) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
-  scale_y_continuous(name="mean z-score", limits=c(-1.1,1.1)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
-  facet_wrap(~panel)
+# define data
 
-# save plot faceted by group
-ggsave("data/plots/ajt_zscore_resumers.png", width=5.5, height=2.5, dpi=600)
+p1 <- ggplot(data=filter(plot, study == '210510_do', group == 'english' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p3 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p4 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'korean_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p5 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'mandarin_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
 
-check <- crit %>%
-  group_by(group, run_id, participant) %>%
-  summarise() %>%
-  ungroup()
-
-crit3 <- crit %>%
-  filter(group == 'english' & task == 'English AJT') %>%
-  mutate(participant = as.character(participant)) %>%
-  mutate(participant = str_trunc(participant, 8, side = c("right"), ellipsis = "")) %>%
-  mutate(participant = as.factor(participant))
-
-# summarize data for plotting by participant
-plot <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
-  group_by(task, run_id, participant, dependency, environment) %>%
-  summarise(mean = mean(zscore, na.rm=T),
-            sd = sd(zscore, na.rm=T),
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() %>%
-  filter(dependency != 'NA')
-
-# create plot faceted by participant
-ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency)) +
-  geom_hline(yintercept=0) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")) +
-  scale_y_continuous(name="mean z-score", limits=c(-3, 3)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
-  facet_wrap(task~participant)
-
-# save plot faceted by participant
-#ggsave("plots/plot_ajt_zscore_ppt.png", width=5, height=2.75, dpi=600)
-ggsave("data/plots/ajt_zscore_ppt.png", width=10, height=7, dpi=600)
-
-# clear objects from workspace
-rm(plot, check)
-
-# summarize data for plotting by raw ratings
-plot <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
-  group_by(group, task, dependency, environment) %>%
-  summarise(mean = mean(button_pressed, na.rm=T),
-            sd = sd(button_pressed, na.rm=T),
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() %>%
-  filter(dependency != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE on Mandarin AJT')) %>%
-  mutate(panel = factor(panel, levels = c('ENS on English AJT', 'KLE on English AJT', 'MLE on English AJT', 'KLE on Korean AJT', 'MLE on Mandarin AJT')))
-
-# define data for panels
-p1 <- ggplot(data=filter(plot, group == 'english' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p2 <- ggplot(data=filter(plot, group == 'korean' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p3 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p4 <- ggplot(data=filter(plot, group == 'korean' & task == 'Korean AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p5 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'Korean AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p6 <- ggplot(data=filter(plot, study == '210510_su', group == 'english' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p7 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p8 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p9 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'korean_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p10 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'mandarin_ajt'), 
+              aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
 
 # add styling
+
 s <- list(
-  annotate("rect", xmin = 0, xmax = 4, ymin = 1+(5/3), ymax = 1+(5/3)+(5/3), alpha = .15),
-  geom_hline(yintercept=3.5),
+  annotate("rect", 
+           xmin = 0, xmax = 4, 
+           ymin = 1+(5/3), 
+           ymax = 1+(5/3)+(5/3), 
+           alpha = .15),
+  geom_hline(yintercept = 3.5),
   geom_line(lwd = 1),
   geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), 
+                width=.2, lwd=1, linetype=1),
   theme_classic(),
-  scale_x_discrete(name='environment', limits = c('short', 'long', 'island'), labels = c('short', 'long', 'island')),
-  scale_y_continuous(name='mean rating', limits=c(1, 6), breaks=c(1, 2, 3, 4, 5, 6)),
-  scale_colour_manual(name='dependency', values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
-  scale_shape_manual(name='dependency', values=c(16, 15), labels=c('gap', 'resumption')),
+  scale_x_discrete(name='environment', 
+                   limits = c('short', 'long', 'island'), 
+                   labels = c('short', 'long', 'island')),
+  scale_y_continuous(name='rating', 
+                     limits=c(1, 6), breaks = c(1, 2, 3, 4, 5, 6)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
   theme(text = element_text(size = 12),
         plot.title = element_text(size = 12, hjust = .5)),
   facet_wrap(~panel)
 )
 
-# arrange and print
-p1 + s + theme(legend.position="none", axis.title.x = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
+# print and save
+
+p1 + s + theme(legend.position = "none",
+               axis.title.x = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p2 + s + theme(legend.position="none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p3 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
   patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.7, .65), axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank())
+  p4 + s + theme(legend.position = c(-.7, .65), 
+                 axis.title.y = element_blank()) + 
+  p5 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank())
 
-# save plot
-ggsave("data/objects/plots/ajt_crit_raw.png", width=6.5, height=3.5, dpi=600)
+# bucld plot
 
-# summarize data for plotting by acceptance
+p <- ggplot(data=filter(plot, study == '210510_do'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+
+p + s + facet_wrap(~panel, ncol = 5) +
+  labs(caption = 'glmer: acceptance ~ dependency * environment + (1 + dependency * environment | person) + (1 + dependency * environment | item)', hjust = .5) +
+  theme(plot.caption = element_text(hjust = .5))
+
+ggsave("plots/orc/ajt_crit_rating.png", width=6.5, height=3.5, dpi=600)
+
+ggsave("plots/orc/bucld_ajt.png", width=9.3, height=2.25, dpi=600)
+
+bucld1 + bucld2 +  plot_layout(widths = c(1, 1)) +
+  theme(plot.margin = margin(0, 0, 0, 0, "cm"))
+
+ggsave("plots/orc/bucld.png", width=9.3, height=2.5, dpi=600)
+
+p6 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p7 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p8 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  patchwork::plot_spacer() + 
+  p9 + s + theme(legend.position = c(-.7, .65), 
+                 axis.title.y = element_blank()) + 
+  p10 + s + theme(legend.position = "none", 
+                  axis.title.x = element_blank(), 
+                  axis.title.y = element_blank())
+
+ggsave("plots/src/ajt_crit_rating.png", width=6.5, height=3.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+#### ajt: interaction plots - critical trials - acceptance rates ####
+#------------------------------------------------------------------------------#
+
+# filter to critical trials
+
+crit <- ajt %>% 
+  filter(!condition %in% c('grammatical', 'ungrammatical'))
+
+# summarize for plotting
+
 plot <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment),
-         acceptance = case_when(button_pressed > 3.5 ~ TRUE,
-                                button_pressed < 3.5 ~ FALSE)) %>%
-  group_by(group, task, dependency, environment) %>%
-  summarise(mean = mean(acceptance, na.rm=T) * 100,
-            sd = sd(acceptance, na.rm=T) * 100,
+  mutate(acceptance = case_when(response > 3.5 ~ TRUE,
+                                response < 3.5 ~ FALSE)) %>%
+  group_by(study, group, task, dependency, environment) %>%
+  summarise(mean = mean(acceptance, na.rm = T) * 100,
+            sd = sd(acceptance, na.rm = T) * 100,
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
   filter(dependency != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE on Mandarin AJT')) %>%
-  mutate(panel = factor(panel, levels = c('ENS on English AJT', 'KLE on English AJT', 'MLE on English AJT', 'KLE on Korean AJT', 'MLE on Mandarin AJT')))
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
+  mutate(panel = factor(panel, levels = c('ENS on English AJT', 
+                                          'KLE on English AJT', 
+                                          'MLE on English AJT', 
+                                          'KLE on Korean AJT', 
+                                          'MLE on Mandarin AJT')))
 
-# define data for panels
-p1 <- ggplot(data=filter(plot, group == 'english' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p2 <- ggplot(data=filter(plot, group == 'korean' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p3 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'English AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p4 <- ggplot(data=filter(plot, group == 'korean' & task == 'Korean AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p5 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'Korean AJT'), aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+# define data
+
+p1 <- ggplot(data=filter(plot, study == '210510_do', group == 'english' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p3 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p4 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'korean_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p5 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'mandarin_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+
+p6 <- ggplot(data=filter(plot, study == '210510_su', group == 'english' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p7 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p8 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'english_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p9 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'korean_ajt'), 
+             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
+p10 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'mandarin_ajt'), 
+              aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
 
 # add styling
+
 s <- list(
-  annotate("rect", xmin = 0, xmax = 4, ymin = (100/3), ymax = (100/3)+(100/3), alpha = .15),
-  geom_hline(yintercept=50),
+  annotate("rect", 
+           xmin = 0, xmax = 4, 
+           ymin = 0+(100/3), 
+           ymax = 0+(100/3)+(100/3), 
+           alpha = .15),
+  geom_hline(yintercept = 50),
   geom_line(lwd = 1),
   geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), 
+                width=.2, lwd=1, linetype=1),
   theme_classic(),
-  scale_x_discrete(name='environment', limits = c('short', 'long', 'island'), labels = c('short', 'long', 'island')),
-  scale_y_continuous(name='% acceptance', limits=c(0, 100)),
-  scale_colour_manual(name='dependency', values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
-  scale_shape_manual(name='dependency', values=c(16, 15), labels=c('gap', 'resumption')),
+  scale_x_discrete(name='environment', 
+                   limits = c('short', 'long', 'island'), 
+                   labels = c('short', 'long', 'island')),
+  scale_y_continuous(name='% acceptance', 
+                     limits=c(0, 100)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
   theme(text = element_text(size = 12),
         plot.title = element_text(size = 12, hjust = .5)),
   facet_wrap(~panel)
 )
 
-# arrange and print
-p1 + s + theme(legend.position="none", axis.title.x = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
+# print and save
+
+p1 + s + theme(legend.position = "none",
+               axis.title.x = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p2 + s + theme(legend.position="none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p3 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
   patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.8, .65), axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank())
+  p4 + s + theme(legend.position = c(-.8, .65), 
+                 axis.title.y = element_blank()) + 
+  p5 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank())
 
-# save plot
-ggsave("data/objects/plots/ajt_crit_acceptance.png", width=6.5, height=3.5, dpi=600)
+ggsave("plots/orc/ajt_crit_acceptance.png", width=6.5, height=3.5, dpi=600)
 
-# summarise data for scatterplot by item zscore
+p6 + s + theme(legend.position = "none", 
+               axis.title.x = element_blank(), 
+               plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p7 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  p8 + s + theme(legend.position = "none", 
+                 axis.title.x = element_blank(), 
+                 axis.title.y = element_blank(), 
+                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
+  patchwork::plot_spacer() + 
+  p9 + s + theme(legend.position = c(-.8, .65), 
+                 axis.title.y = element_blank()) + 
+  p10 + s + theme(legend.position = "none", 
+                  axis.title.x = element_blank(), 
+                  axis.title.y = element_blank())
+
+ggsave("plots/src/ajt_crit_acceptance.png", width=6.5, height=3.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+#### ajt: scatter plots by item and by participant ####
+#------------------------------------------------------------------------------#
+
+# summarise for plotting by item
+
 plot <- ajt %>%
   mutate(item = str_remove(item, 'item')) %>%
   mutate(dependency = as.character(dependency)) %>%
   mutate(dependency = fct_relevel(dependency, 'gap', 'pronoun', 'filler')) %>%
-  mutate(cond = as.factor(cond),
+  mutate(condition = as.factor(condition),
          dependency = as.factor(dependency)) %>%
-  group_by(task, item, environment, dependency, cond) %>%
-  summarise(mean = mean(zscore, na.rm=T)) %>%
+  group_by(study, item, environment, dependency, condition) %>%
+  summarise(mean = mean(response, na.rm = T)) %>%
   ungroup()
 
-# generate plot by item zscore
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=item)) +
-  geom_hline(yintercept=0) +
+# generate and save
+
+ggplot(plot, aes(x=condition, y=mean, fill=dependency, label=item)) +
+  geom_hline(yintercept=3.5) +
   geom_violin() +
   geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
+  #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
   theme_classic() +
   scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
-  scale_y_continuous(name="mean z-score", limits=c(-1.5, 1.5)) +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
+  scale_y_continuous(name="rating", limits=c(1, 6), breaks=c(1, 2, 3, 4, 5, 6)) +
+  scale_fill_manual(name='dependency', values=c('#648fff', '#ffb000', 'coral2'), labels=c('gap', 'RP', 'filler')) +
   theme(text = element_text(size = 12), 
         plot.title = element_text(size = 12, hjust = .5), 
         legend.position = "right") +
-  facet_wrap(~task)
+  facet_wrap(~study)
 
-# save plot
-ggsave("plots/plot_ajt_zscore_scatter_item.png", width=5.5, height=3, dpi=600)
-ggsave("plots/plots_su/plot_ajt_zscore_scatter_item.png", width=5.5, height=3, dpi=600)
+ggsave("plots/ajt_scatter_rating_item.png", width=8, height=4, dpi=600)
 
-# summarise data for scatterplot by item raw score
-plot <- ajt %>%
-  mutate(item = str_remove(item, 'item')) %>%
-  mutate(dependency = as.character(dependency)) %>%
-  mutate(dependency = fct_relevel(dependency, 'gap', 'pronoun', 'filler')) %>%
-  mutate(cond = as.factor(cond),
-         dependency = as.factor(dependency)) %>%
-  group_by(item, environment, dependency, cond) %>%
-  summarise(mean = mean(button_pressed, na.rm=T)) %>%
-  ungroup()
+# summarise data for plotting by participant (raw ratings)
 
-# generate plot by item raw score
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=item)) +
-  geom_hline(yintercept=3.5) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
-  scale_y_continuous(name="mean rating", limits=c(1, 6), breaks=c(1, 2, 3, 4, 5, 6)) +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_ajt_scatter_raw_item.png", width=5.5, height=2.75, dpi=600)
-ggsave("plots/plots_su/plot_ajt_scatter_raw_item.png", width=5.5, height=2.75, dpi=600)
-
-# summarise data for scatterplot by item acceptance
-plot <- ajt %>%
-  mutate(item = str_remove(item, 'item')) %>%
-  mutate(acceptance = case_when(button_pressed > 3.5 ~ TRUE,
-                         button_pressed < 3.5 ~ FALSE)) %>%
-  mutate(dependency = as.character(dependency)) %>%
-  mutate(dependency = fct_relevel(dependency, 'gap', 'pronoun', 'filler')) %>%
-  mutate(cond = as.factor(cond),
-         dependency = as.factor(dependency)) %>%
-  group_by(item, environment, dependency, cond) %>%
-  summarise(mean = mean(acceptance, na.rm=T) * 100) %>%
-  ungroup()
-
-# generate plot by item acceptance
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=item)) +
-  geom_hline(yintercept=50) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
-  scale_y_continuous(name="% acceptance", limits=c(0, 100)) +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_ajt_scatter_raw_item.png", width=5.5, height=2.75, dpi=600)
-
-# summarise data for scatterplot by participant zscore
 plot <- ajt %>%
   mutate(dependency = as.character(dependency)) %>%
   mutate(dependency = fct_relevel(dependency, 'gap', 'pronoun', 'filler')) %>%
-  mutate(cond = as.factor(cond),
+  mutate(condition = as.factor(condition),
          dependency = as.factor(dependency)) %>%
-  group_by(run_id, environment, dependency, cond) %>%
-  summarise(mean = mean(zscore, na.rm=T)) %>%
-  ungroup()
-
-# generate plot by participant zscore
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
-  geom_hline(yintercept=0) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
-  scale_y_continuous(name="mean z-score", limits=c(-2, 2)) +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_ajt_zscore_scatter_ppt.png", width=5.5, height=3, dpi=600)
-ggsave("plots/plots_su/plot_ajt_zscore_scatter_ppt.png", width=5.5, height=3, dpi=600)
-
-# summarise data for scatterplot by participant raw score
-plot <- ajt %>%
-  mutate(dependency = as.character(dependency)) %>%
-  mutate(dependency = fct_relevel(dependency, 'gap', 'pronoun', 'filler')) %>%
-  mutate(cond = as.factor(cond),
-         dependency = as.factor(dependency)) %>%
-  group_by(run_id, environment, dependency, cond) %>%
-  summarise(mean = mean(button_pressed, na.rm=T)) %>%
-  ungroup()
-
-# generate plot by participant raw score
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
-  geom_hline(yintercept=3.5) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
-  scale_y_continuous(name="mean rating", limits=c(1, 6), breaks=c(1, 2, 3, 4, 5, 6)) +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_ajt_raw_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
-
-# summarise data for scatterplot by participant acceptance
-plot <- ajt %>%
-  mutate(dependency = as.character(dependency)) %>%
-  mutate(acceptance = case_when(button_pressed > 3.5 ~ TRUE,
-                                button_pressed < 3.5 ~ FALSE)) %>%
-  mutate(dependency = fct_relevel(dependency, 'gap', 'pronoun', 'filler')) %>%
-  mutate(cond = as.factor(cond),
-         dependency = as.factor(dependency)) %>%
-  group_by(run_id, environment, dependency, cond) %>%
-  summarise(mean = mean(acceptance, na.rm=T) * 100) %>%
-  ungroup()
-
-# generate plot by participant acceptance
-ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
-  geom_hline(yintercept=50) +
-  geom_violin() +
-  geom_boxplot(width = .1, fill='white') +
-  #geom_jitter(shape=1, position = position_jitter(seed=2)) +
-  geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
-  scale_y_continuous(name="mean rating", limits=c(0, 100)) +
-  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right")
-
-# save plot
-ggsave("plots/plot_ajt_acceptance_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
-
-# clear objects from workspace
-rm(plot, check)
-
-#------------------------------------------------------------------------------------------#
-#### ajt: proficiency effects ####
-#------------------------------------------------------------------------------------------#
-
-# *** overall z-scores for resumption ***
-
-# summarize data for plotting
-plot <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
-  group_by(group, participant, task, dependency) %>%
-  summarise(mean = mean(zscore, na.rm=T),
-            sd = sd(zscore, na.rm=T),
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() %>%
-  filter(dependency != 'NA') %>%
-  filter(dependency == 'pronoun')
-
-score <- ct %>%
-  group_by(participant) %>%
-  summarise(accuracy = mean(accuracy, na.rm=T)) %>%
+  group_by(study, group, task, participant, environment, dependency, condition) %>%
+  summarise(mean = mean(response, na.rm = T)) %>%
   ungroup()
 
 plot <- plot %>%
-  left_join(score, by = 'participant') %>%
-  filter(accuracy != 'NA')
+  filter(study == '210510_do', group == 'english', task == 'english_ajt')
 
-# facet labels
-groups <- c(`english` = 'L1-English Group', `korean` = 'L1-Korean Group', `English AJT` = 'English AJT', `Korean AJT` = 'Korean AJT')
+# generate and save
 
-# generate plot
-ggplot(plot, aes(x=accuracy, y=mean)) + 
-  geom_smooth(method=lm, col="#785ef0") +
-  geom_point(shape = 1) +
+ggplot(plot, aes(x=condition, y=mean, fill=dependency, label=participant)) +
+  geom_hline(yintercept=3.5) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  #geom_jitter(shape = 1, size = 1, position = position_jitter(seed = 2, width = .2)) +
+  #geom_text(size = 1, col = "black", position = position_jitter(seed=2)) +
   theme_classic() +
-  scale_x_continuous(name='proficiency') +
-  scale_y_continuous(name="z-score") +
+  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
+  scale_y_continuous(name="mean rating", limits=c(1, 6), breaks=c(1, 2, 3, 4, 5, 6)) +
+  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
   theme(text = element_text(size = 12), 
         plot.title = element_text(size = 12, hjust = .5), 
         legend.position = "right") +
-  facet_wrap(group~task, labeller = as_labeller(groups))
+  facet_grid(group~study~task)
 
-# simple regression analysis for korean group on english ajt
-md <- plot %>% filter(group == "korean", task == 'English AJT')
-cor(md$accuracy, md$mean) 
-model <- lm(mean ~ accuracy, data = md)
+ggsave("plots/ajt_scatter_rating_ppt.png", width=8, height=8, dpi=600)
+
+# summarise data for plotting by participant (percent acceptance)
+
+plot <- ajt %>%
+  mutate(dependency = as.character(dependency)) %>%
+  mutate(dependency = fct_relevel(dependency, 'gap', 'pronoun', 'filler')) %>%
+  mutate(condition = as.factor(condition),
+         dependency = as.factor(dependency)) %>%
+  group_by(study, group, task, participant, environment, dependency, condition) %>%
+  summarise(mean = mean(acceptance, na.rm = T)) %>%
+  ungroup()
+
+plot <- plot %>%
+  filter(study == '210510_do', group == 'mandarin', task == 'mandarin_ajt')
+
+# generate and save
+
+ggplot(plot, aes(x=condition, y=mean, fill=dependency, label=participant)) +
+  geom_hline(yintercept=.5) +
+  geom_violin() +
+  #geom_boxplot(width = .1, fill='white') +
+  geom_jitter(shape = 1, size = 1, position = position_jitter(seed = 2, width = .2)) +
+  #geom_text(size = 1, col = "black", position = position_jitter(seed=2)) +
+  theme_classic() +
+  scale_x_discrete(name="environment", labels=c('short', 'long', 'island', 'short', 'long', 'island', 'gram', 'ungram')) +
+  scale_y_continuous(name="mean rating", limits=c(0, 1)) +
+  scale_fill_manual(name='dependency', values=c("#9b82f3", "#00a78f", 'coral2'), labels=c('gap', 'RP', 'filler')) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right") +
+  facet_grid(group~study~task)
+
+ggsave("plots/ajt_scatter_acceptance_ppt.png", width=8, height=8, dpi=600)
+
+#------------------------------------------------------------------------------#
+#### ajt: relationship between spr and ajt data (all ORC environments) ####
+#------------------------------------------------------------------------------#
+
+rt_score <- trim %>%
+  mutate(region = as.numeric(region)) %>%
+  mutate(region2 = case_when(study == '210510_do' ~ region - 11,
+                             study == '210510_su' & environment %in% c('short', 'long') ~ region - 8,
+                             study == '210510_su' & environment == 'island' ~ region - 10))
+
+rt_score <- rt_score %>%
+  filter(region2 %in% c('1', '2', '3')) %>%
+  mutate(logrt = log(rt)) %>%
+  group_by(study, group, participant, item, dependency) %>%
+  summarise(logrt = mean(logrt)) %>%
+  ungroup()
+
+rt_score <- rt_score %>%
+  filter(study == '210510_do')
+
+rt_score <- rt_score %>%
+  group_by(group, participant) %>%
+  summarise(mean_gap = mean(logrt[dependency == 'gap'], na.rm = TRUE),
+         mean_rp = mean(logrt[dependency == 'pronoun'], na.rm = TRUE)) %>%
+  ungroup()
+
+rt_score <- rt_score %>%
+  mutate(rt_dif = mean_gap - mean_rp)
+
+rt_score <- rt_score %>%
+  select(-mean_gap, -mean_rp)
+
+ggplot(rt_score, aes(x=group, y=rt_dif, fill=group, label=participant)) +
+  geom_hline(yintercept = 0) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+ajt_score <- crit %>%
+  filter(study == '210510_do',
+         task == 'english_ajt',
+         dependency == 'pronoun') %>%
+  group_by(group, participant) %>%
+  summarise(ajt_score = mean(response, na.rm=T)) %>%
+  ungroup()
+
+ggplot(ajt_score, aes(x=group, y=ajt_score, fill=group, label=participant)) +
+  geom_hline(yintercept = 3.5) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+plot <- rt_score %>%
+  left_join(ajt_score, by = c('group', 'participant')) %>%
+  filter(is.na(rt_dif) == FALSE, is.na(ajt_score) == FALSE) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS on English AJT',
+                           group == 'korean' ~ 'KLE on English AJT',
+                           group == 'mandarin' ~ 'MLE on English AJT'))
+
+ggplot(plot, aes(x=ajt_score, y=rt_dif)) + 
+  ggtitle('SPRT results vs. AJT results (all ORC environments)') +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 3.5) +
+  geom_smooth(method=lm, col="#785ef0") +
+  geom_point(shape = 1) +
+  theme_classic() +
+  scale_x_continuous(name='acceptability of RP trials (raw ratings)', breaks = c(1, 2, 3, 4, 5, 6)) +
+  scale_y_continuous(name="RP advantage (logRTs)", limits = c(-1, 1), breaks = c(-1, -.5, 0, .5, 1)) +
+  theme(text = element_text(size = 12),
+        plot.title = element_text(hjust = .5),
+        legend.position = "right") +
+  facet_grid(~panel)
+
+# save plot
+ggsave("plots/orc/spr_v_ajt_all.png", width=6.5, height=2.5, dpi=600)
+
+md <- plot %>% 
+  filter(group == "mandarin")
+cor(md$ajt_score, md$rt_dif) 
+model <- lm(ajt_score ~ rt_dif, data = md)
 summary(model)
-# not significant
-# Multiple R-squared:  0.02112,	Adjusted R-squared:  -0.01151 
-# F-statistic: 0.6471 on 1 and 30 DF,  p-value: 0.4275
 
-# *** difference scores for resumption in island environment ***
+# doen
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   2.1256     0.1103  19.270   <2e-16 ***
+#   rt_dif        1.5534     1.1129   1.396    0.166   
 
-# summarize data for plotting
-plot <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
+# doko
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)  2.88075    0.22077  13.048   <2e-16 ***
+#   rt_dif       0.02937    1.22560   0.024    0.981  
+
+# dozh
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   3.5133     0.2072  16.952   <2e-16 ***
+#   rt_dif        1.0006     1.1542   0.867    0.389  
+
+#------------------------------------------------------------------------------#
+#### ajt: relationship between spr and ajt data (ORC island environment) ####
+#------------------------------------------------------------------------------#
+
+rt_score <- trim %>%
+  mutate(region = as.numeric(region)) %>%
+  mutate(region2 = case_when(study == '210510_do' ~ region - 11,
+                             study == '210510_su' & environment %in% c('short', 'long') ~ region - 8,
+                             study == '210510_su' & environment == 'island' ~ region - 10))
+
+rt_score <- rt_score %>%
   filter(environment == 'island') %>%
-  group_by(group, participant, task, dependency) %>%
-  summarise(mean = mean(zscore, na.rm=T)) %>%
-  ungroup() %>%
-  filter(dependency != 'NA') %>%
-  group_by(participant) %>%
-  pivot_wider(names_from = dependency, values_from = mean) %>%
-  mutate(diff = gap - pronoun)
-
-score <- ct %>%
-  group_by(participant) %>%
-  summarise(accuracy = mean(accuracy, na.rm=T)) %>%
+  filter(region2 %in% c('1', '2', '3')) %>%
+  mutate(logrt = log(rt)) %>%
+  group_by(study, group, participant, item, dependency) %>%
+  summarise(logrt = mean(logrt)) %>%
   ungroup()
 
-plot <- plot %>%
-  left_join(score, by = 'participant') %>%
-  filter(accuracy != 'NA')
+rt_score <- rt_score %>%
+  filter(study == '210510_do')
 
-# facet labels
-groups <- c(`english` = 'L1-English Group', `korean` = 'L1-Korean Group', `English AJT` = 'English AJT', `Korean AJT` = 'Korean AJT')
+rt_score <- rt_score %>%
+  group_by(group, participant) %>%
+  summarise(mean_gap = mean(logrt[dependency == 'gap'], na.rm = TRUE),
+            mean_rp = mean(logrt[dependency == 'pronoun'], na.rm = TRUE)) %>%
+  ungroup()
 
-# generate plot
-ggplot(plot, aes(x=accuracy, y=diff)) + 
-  geom_hline() +
+rt_score <- rt_score %>%
+  mutate(rt_dif = mean_gap - mean_rp)
+
+rt_score <- rt_score %>%
+  select(-mean_gap, -mean_rp)
+
+ggplot(rt_score, aes(x=group, y=rt_dif, fill=group, label=participant)) +
+  geom_hline(yintercept = 0) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+ajt_score <- crit %>%
+  filter(study == '210510_do',
+         environment == 'island',
+         task == 'english_ajt',
+         dependency == 'pronoun') %>%
+  group_by(group, participant) %>%
+  summarise(ajt_score = mean(response, na.rm=T)) %>%
+  ungroup()
+
+ggplot(ajt_score, aes(x=group, y=ajt_score, fill=group, label=participant)) +
+  geom_hline(yintercept = 3.5) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+plot <- rt_score %>%
+  left_join(ajt_score, by = c('group', 'participant')) %>%
+  filter(is.na(rt_dif) == FALSE, is.na(ajt_score) == FALSE) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS on English AJT',
+                           group == 'korean' ~ 'KLE on English AJT',
+                           group == 'mandarin' ~ 'MLE on English AJT'))
+
+ggplot(plot, aes(x=ajt_score, y=rt_dif)) + 
+  ggtitle('SPRT results vs. AJT results (ORC island environment)') +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 3.5) +
   geom_smooth(method=lm, col="#785ef0") +
   geom_point(shape = 1) +
   theme_classic() +
-  scale_x_continuous(name='proficiency') +
-  scale_y_continuous(name="difference score") +
-  theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
+  scale_x_continuous(name='acceptability of RP trials (raw ratings)', breaks = c(1, 2, 3, 4, 5, 6)) +
+  scale_y_continuous(name="RP advantage (logRTs)", limits = c(-1, 1), breaks = c(-1, -.5, 0, .5, 1)) +
+  theme(text = element_text(size = 12),
+        plot.title = element_text(hjust = .5),
         legend.position = "right") +
-  facet_wrap(group~task, labeller = as_labeller(groups))
+  facet_grid(~panel)
 
-# simple regression analysis for korean group on english ajt
-md <- plot %>% filter(group == "korean", task == 'English AJT')
-cor(md$accuracy, md$diff) 
-model <- lm(diff ~ accuracy, data = md)
+# save plot
+ggsave("plots/orc/spr_v_ajt_island.png", width=6.5, height=2.5, dpi=600)
+
+md <- plot %>% 
+  filter(group == "mandarin")
+cor(md$ajt_score, md$rt_dif) 
+model <- lm(ajt_score ~ rt_dif, data = md)
 summary(model)
-# not signficiant
-# Multiple R-squared:  4.043e-07,	Adjusted R-squared:  -0.03333 
-# F-statistic: 1.213e-05 on 1 and 30 DF,  p-value: 0.9972
 
-# *** overall raw scores for resumption ***
+# doen
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)  2.50494    0.17846   14.04   <2e-16 ***
+#   rt_dif      -0.09108    0.91173   -0.10    0.921  
+
+# doko
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   3.5260     0.2303  15.309   <2e-16 ***
+#   rt_dif       -0.3132     0.9174  -0.341    0.734 
+
+# dozh
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   3.6452     0.2155  16.914   <2e-16 ***
+#   rt_dif        0.2330     1.0023   0.232    0.817  
+
+#------------------------------------------------------------------------------#
+#### ajt: relationship between spr and ajt data (ORC long environment) ####
+#------------------------------------------------------------------------------#
+
+rt_score <- trim %>%
+  mutate(region = as.numeric(region)) %>%
+  mutate(region2 = case_when(study == '210510_do' ~ region - 11,
+                             study == '210510_su' & environment %in% c('short', 'long') ~ region - 8,
+                             study == '210510_su' & environment == 'island' ~ region - 10))
+
+rt_score <- rt_score %>%
+  filter(environment == 'long') %>%
+  filter(region2 %in% c('1', '2', '3')) %>%
+  mutate(logrt = log(rt)) %>%
+  group_by(study, group, participant, item, dependency) %>%
+  summarise(logrt = mean(logrt)) %>%
+  ungroup()
+
+rt_score <- rt_score %>%
+  filter(study == '210510_do')
+
+rt_score <- rt_score %>%
+  group_by(group, participant) %>%
+  summarise(mean_gap = mean(logrt[dependency == 'gap'], na.rm = TRUE),
+            mean_rp = mean(logrt[dependency == 'pronoun'], na.rm = TRUE)) %>%
+  ungroup()
+
+rt_score <- rt_score %>%
+  mutate(rt_dif = mean_gap - mean_rp)
+
+rt_score <- rt_score %>%
+  select(-mean_gap, -mean_rp)
+
+ggplot(rt_score, aes(x=group, y=rt_dif, fill=group, label=participant)) +
+  geom_hline(yintercept = 0) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+ajt_score <- crit %>%
+  filter(study == '210510_do',
+         environment == 'long',
+         task == 'english_ajt',
+         dependency == 'pronoun') %>%
+  group_by(group, participant) %>%
+  summarise(ajt_score = mean(response, na.rm=T)) %>%
+  ungroup()
+
+ggplot(ajt_score, aes(x=group, y=ajt_score, fill=group, label=participant)) +
+  geom_hline(yintercept = 3.5) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+plot <- rt_score %>%
+  left_join(ajt_score, by = c('group', 'participant')) %>%
+  filter(is.na(rt_dif) == FALSE, is.na(ajt_score) == FALSE) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS on English AJT',
+                           group == 'korean' ~ 'KLE on English AJT',
+                           group == 'mandarin' ~ 'MLE on English AJT'))
+
+ggplot(plot, aes(x=ajt_score, y=rt_dif)) + 
+  ggtitle('SPRT results vs. AJT results (ORC long environment)') +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 3.5) +
+  geom_smooth(method=lm, col="#785ef0") +
+  geom_point(shape = 1) +
+  theme_classic() +
+  scale_x_continuous(name='acceptability of RP trials (raw ratings)', breaks = c(1, 2, 3, 4, 5, 6)) +
+  scale_y_continuous(name="RP advantage (logRTs)", limits = c(-1, 1), breaks = c(-1, -.5, 0, .5, 1)) +
+  theme(text = element_text(size = 12),
+        plot.title = element_text(hjust = .5),
+        legend.position = "right") +
+  facet_grid(~panel)
+
+# save plot
+ggsave("plots/orc/spr_v_ajt_long.png", width=6.5, height=2.5, dpi=600)
+
+md <- plot %>% 
+  filter(group == "mandarin")
+cor(md$ajt_score, md$rt_dif) 
+model <- lm(ajt_score ~ rt_dif, data = md)
+summary(model)
+
+# doen
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   1.9884     0.1073  18.524  < 2e-16 ***
+#   rt_dif        1.8966     0.6638   2.857  0.00533 ** 
+
+# doko
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   2.6379     0.2426  10.871 5.35e-16 ***
+#   rt_dif        0.3197     0.9560   0.334    0.739 
+
+# dozh
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   3.5702     0.2328  15.337   <2e-16 ***
+#   rt_dif       -0.4305     0.9193  -0.468    0.641  
+
+#------------------------------------------------------------------------------#
+#### ajt: relationship between spr and ajt data (ORC short environment) ####
+#------------------------------------------------------------------------------#
+
+rt_score <- trim %>%
+  mutate(region = as.numeric(region)) %>%
+  mutate(region2 = case_when(study == '210510_do' ~ region - 11,
+                             study == '210510_su' & environment %in% c('short', 'long') ~ region - 8,
+                             study == '210510_su' & environment == 'island' ~ region - 10))
+
+rt_score <- rt_score %>%
+  filter(environment == 'short') %>%
+  filter(region2 %in% c('1', '2', '3')) %>%
+  mutate(logrt = log(rt)) %>%
+  group_by(study, group, participant, item, dependency) %>%
+  summarise(logrt = mean(logrt)) %>%
+  ungroup()
+
+rt_score <- rt_score %>%
+  filter(study == '210510_do')
+
+rt_score <- rt_score %>%
+  group_by(group, participant) %>%
+  summarise(mean_gap = mean(logrt[dependency == 'gap'], na.rm = TRUE),
+            mean_rp = mean(logrt[dependency == 'pronoun'], na.rm = TRUE)) %>%
+  ungroup()
+
+rt_score <- rt_score %>%
+  mutate(rt_dif = mean_gap - mean_rp)
+
+rt_score <- rt_score %>%
+  select(-mean_gap, -mean_rp)
+
+ggplot(rt_score, aes(x=group, y=rt_dif, fill=group, label=participant)) +
+  geom_hline(yintercept = 0) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+ajt_score <- crit %>%
+  filter(study == '210510_do',
+         environment == 'short',
+         task == 'english_ajt',
+         dependency == 'pronoun') %>%
+  group_by(group, participant) %>%
+  summarise(ajt_score = mean(response, na.rm=T)) %>%
+  ungroup()
+
+ggplot(ajt_score, aes(x=group, y=ajt_score, fill=group, label=participant)) +
+  geom_hline(yintercept = 3.5) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic()
+
+plot <- rt_score %>%
+  left_join(ajt_score, by = c('group', 'participant')) %>%
+  filter(is.na(rt_dif) == FALSE, is.na(ajt_score) == FALSE) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS on English AJT',
+                           group == 'korean' ~ 'KLE on English AJT',
+                           group == 'mandarin' ~ 'MLE on English AJT'))
+
+ggplot(plot, aes(x=ajt_score, y=rt_dif)) + 
+  ggtitle('SPRT results vs. AJT results (ORC short environment)') +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 3.5) +
+  geom_smooth(method=lm, col="#785ef0") +
+  geom_point(shape = 1) +
+  theme_classic() +
+  scale_x_continuous(name='acceptability of RP trials (raw ratings)', breaks = c(1, 2, 3, 4, 5, 6)) +
+  scale_y_continuous(name="RP advantage (logRTs)", limits = c(-1, 1), breaks = c(-1, -.5, 0, .5, 1)) +
+  theme(text = element_text(size = 12),
+        plot.title = element_text(hjust = .5),
+        legend.position = "right") +
+  facet_grid(~panel)
+
+# save plot
+ggsave("plots/orc/spr_v_ajt_short.png", width=6.5, height=2.5, dpi=600)
+
+md <- plot %>% 
+  filter(group == "mandarin")
+cor(md$ajt_score, md$rt_dif) 
+model <- lm(ajt_score ~ rt_dif, data = md)
+summary(model)
+
+# doen
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   2.0182     0.1125  17.935   <2e-16 ***
+#   rt_dif        1.2662     0.6810   1.859   0.0663 .  
+
+# doko
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   2.4165     0.2150   11.24   <2e-16 ***
+#   rt_dif        0.6053     0.9164    0.66    0.511  
+
+# dozh
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   3.4795     0.2197   15.84   <2e-16 ***
+#   rt_dif        1.6109     1.0132    1.59    0.117 
+
+#------------------------------------------------------------------------------#
+#### ajt: proficiency effects - all environments - raw ratings ####
+#------------------------------------------------------------------------------#
 
 # summarize data for plotting
+
 plot <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
-  group_by(group, participant, task, dependency) %>%
-  summarise(mean = mean(button_pressed, na.rm=T),
-            sd = sd(button_pressed, na.rm=T),
+  filter(dependency == 'pronoun') %>%
+  group_by(study, group, participant, task, dependency) %>%
+  summarise(mean = mean(response, na.rm=T),
+            sd = sd(response, na.rm=T),
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
-  filter(dependency != 'NA') %>%
-  filter(dependency == 'pronoun')
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
+  mutate(panel = factor(panel, levels = c('ENS on English AJT', 
+                                          'KLE on English AJT', 
+                                          'MLE on English AJT', 
+                                          'KLE on Korean AJT', 
+                                          'MLE on Mandarin AJT'))) %>%
+  filter(panel %in% c('KLE on English AJT', 'MLE on English AJT'))
 
 score <- ct %>%
   group_by(participant) %>%
-  summarise(accuracy = mean(accuracy, na.rm=T)) %>%
+  summarise(ctest = mean(accuracy, na.rm=T)) %>%
   ungroup()
 
 plot <- plot %>%
   left_join(score, by = 'participant') %>%
-  filter(accuracy != 'NA')
+  filter(ctest != 'NA')
 
-# facet labels
-groups <- c(`english` = 'L1-English Group', `korean` = 'L1-Korean Group', `English AJT` = 'English AJT', `Korean AJT` = 'Korean AJT')
+# generate and save
+
+ggplot(plot, aes(x=ctest, y=mean)) + 
+  geom_smooth(method=lm, col="#785ef0") +
+  geom_point(shape = 1) +
+  theme_classic() +
+  scale_x_continuous(name='proficiency') +
+  scale_y_continuous(name="mean rating", breaks = c(1, 2, 3, 4, 5, 6)) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right") +
+  facet_grid(study~panel)
+
+ggsave("plots/ajt_scatter_proficiency_rating.png", width=6.5, height=3, dpi=600)
+
+# simple regression analysis
+
+md <- plot %>% 
+  filter(study == '210510_su', group == "mandarin", task == 'english_ajt')
+cor(md$ctest, md$mean) 
+model <- lm(mean ~ ctest, data = md)
+summary(model)
+
+# doko
+# Multiple R-squared:  0.05276,	Adjusted R-squared:  0.03818 
+# F-statistic:  3.62 on 1 and 65 DF,  p-value: 0.06151 . (marginal)
+
+# dozh
+# Multiple R-squared:  0.04471,	Adjusted R-squared:  0.03125 
+# F-statistic: 3.323 on 1 and 71 DF,  p-value: 0.07254 . (marginal)
+
+# suko
+# Multiple R-squared:  0.02743,	Adjusted R-squared:  0.01223 
+# F-statistic: 1.805 on 1 and 64 DF,  p-value: 0.1839 (n.s.)
+
+# suzh
+# Multiple R-squared:  0.0004505,	Adjusted R-squared:  -0.01447 
+# F-statistic: 0.0302 on 1 and 67 DF,  p-value: 0.8626 (n.s.)
+
+#------------------------------------------------------------------------------#
+#### ajt: proficiency effects - island environment - raw ratings ####
+#------------------------------------------------------------------------------#
+
+# summarize data for plotting
+
+plot <- crit %>%
+  filter(dependency == 'pronoun' & environment == 'island') %>%
+  group_by(study, group, participant, task, dependency) %>%
+  summarise(mean = mean(response, na.rm=T),
+            sd = sd(response, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
+  mutate(panel = factor(panel, levels = c('ENS on English AJT', 
+                                          'KLE on English AJT', 
+                                          'MLE on English AJT', 
+                                          'KLE on Korean AJT', 
+                                          'MLE on Mandarin AJT'))) %>%
+  filter(panel %in% c('KLE on English AJT', 'MLE on English AJT'))
+
+score <- ct %>%
+  group_by(participant) %>%
+  summarise(ctest = mean(accuracy, na.rm=T)) %>%
+  ungroup()
+
+plot <- plot %>%
+  left_join(score, by = 'participant') %>%
+  filter(ctest != 'NA')
 
 # generate plot
-ggplot(plot, aes(x=accuracy, y=mean)) + 
+ggplot(plot, aes(x=ctest, y=mean)) + 
+  geom_smooth(method=lm, col="#785ef0") +
+  geom_point(shape = 1) +
+  theme_classic() +
+  scale_x_continuous(name='proficiency') +
+  scale_y_continuous(name="mean rating", breaks = c(1, 2, 3, 4, 5, 6)) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right") +
+  facet_grid(study~panel)
+
+ggsave("plots/ajt_scatter_proficiency_rating_long.png", width=4, height=4, dpi=600)
+
+# simple regression analysis
+
+md <- plot %>% 
+  filter(study == '210510_do', group == "korean", task == 'english_ajt')
+cor(md$ctest, md$mean) 
+model <- lm(mean ~ ctest, data = md)
+summary(model)
+
+# doko
+# Multiple R-squared:  0.02766,	Adjusted R-squared:  0.0127 
+# F-statistic: 1.849 on 1 and 65 DF,  p-value: 0.1786 (n.s.)
+
+# dozh
+# Multiple R-squared:  0.06621,	Adjusted R-squared:  0.05306 
+# F-statistic: 5.034 on 1 and 71 DF,  p-value: 0.02797 (significant)
+
+# suko
+# Multiple R-squared:  0.01532,	Adjusted R-squared:  -6.278e-05 
+# F-statistic: 0.9959 on 1 and 64 DF,  p-value: 0.3221 (n.s.)
+
+# suzh
+# Multiple R-squared:  0.01298,	Adjusted R-squared:  -0.001749 
+# F-statistic: 0.8813 on 1 and 67 DF,  p-value: 0.3512 (n.s.)
+
+#------------------------------------------------------------------------------#
+#### ajt: proficiency effects - island environment - binary ratings ####
+#------------------------------------------------------------------------------#
+
+# summarize data for plotting
+
+plot <- crit %>%
+  filter(group %in% c('korean', 'mandarin') & dependency == 'pronoun' & environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, participant, task, dependency) %>%
+  mutate(acceptance = case_when(response < 3.5 ~ FALSE,
+                                response > 3.5 ~ TRUE)) %>%
+  summarise(mean = mean(acceptance, na.rm=T),
+            sd = sd(response, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
+  mutate(panel = factor(panel, levels = c('ENS on English AJT', 
+                                          'KLE on English AJT', 
+                                          'MLE on English AJT', 
+                                          'KLE on Korean AJT', 
+                                          'MLE on Mandarin AJT'))) %>%
+  filter(panel %in% c('KLE on English AJT', 'MLE on English AJT'))
+
+score <- ct %>%
+  group_by(participant) %>%
+  summarise(ctest = mean(accuracy, na.rm=T)) %>%
+  ungroup()
+
+plot <- plot %>%
+  left_join(score, by = 'participant') %>%
+  filter(ctest != 'NA')
+
+# generate plot
+ggplot(plot, aes(x=ctest, y=mean)) + 
   geom_smooth(method=lm, col="#785ef0") +
   geom_point(shape = 1) +
   theme_classic() +
@@ -2480,24 +3389,220 @@ ggplot(plot, aes(x=accuracy, y=mean)) +
   theme(text = element_text(size = 12), 
         plot.title = element_text(size = 12, hjust = .5), 
         legend.position = "right") +
-  facet_wrap(group~task, labeller = as_labeller(groups))
+  facet_grid(study~panel)
 
-# simple regression analysis for korean group on english ajt
-md <- plot %>% filter(group == "korean", task == 'English AJT')
-cor(md$accuracy, md$mean) 
-model <- lm(mean ~ accuracy, data = md)
+ggsave("plots/ajt_scatter_proficiency_acceptance_all.png", width=4, height=4, dpi=600)
+
+# simple regression analysis
+
+md <- plot %>% 
+  filter(study == '210510_do', group == "korean", task == 'english_ajt')
+cor(md$ctest, md$mean) 
+model <- lm(mean ~ ctest, data = md)
 summary(model)
-# not significant
-# Multiple R-squared:  0.02727,	Adjusted R-squared:  -0.005153 
-# F-statistic: 0.8411 on 1 and 30 DF,  p-value: 0.3664
 
-#------------------------------------------------------------------------------------------#
-#### ajt: modeling ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+#### ajt: modeling - glmer - critical ####
+#------------------------------------------------------------------------------#
+
+# prep data
 
 md <- crit %>%
-  mutate(dependency = fct_drop(dependency),
-         environment = fct_drop(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'),
+         dependency = as.factor(dependency)) %>%
+  mutate(acceptance = case_when(response > 3.5 ~ TRUE,
+                                response < 3.5 ~ FALSE)) %>%
+  filter(study == '210510_do', 
+         group == 'mandarin',
+         task == 'mandarin_ajt')
+
+# view contrasts
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+# model 1 (maximal model)
+
+tic()
+model1 <- glmer(acceptance ~ environment * dependency + 
+                (1 + environment * dependency | participant) + 
+                (1 + environment * dependency | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa",
+                                       optCtrl=list(maxfun = 1e6)))
+summary(model1)
+toc()
+beep(1)
+
+# doen-ejt
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           4.4571     0.6719   6.634 3.27e-11 ***
+# environmentlong                      -0.5082     0.9037  -0.562    0.574    
+# environmentisland                    -4.8227     0.7766  -6.210 5.31e-10 ***
+# dependencypronoun                    -7.6782     0.8221  -9.340  < 2e-16 ***
+# environmentlong:dependencypronoun     0.3287     1.0535   0.312    0.755    
+# environmentisland:dependencypronoun   5.2213     0.9500   5.496 3.88e-08 ***
+
+# doko-ejt
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           2.9764     0.6280   4.739 2.15e-06 ***
+#   environmentlong                      -1.3425     0.5440  -2.468   0.0136 *  
+#   environmentisland                    -1.6203     0.6397  -2.533   0.0113 *  
+#   dependencypronoun                    -4.9261     0.9046  -5.446 5.16e-08 ***
+#   environmentlong:dependencypronoun     1.6596     0.7399   2.243   0.0249 *  
+#   environmentisland:dependencypronoun   3.7220     0.8014   4.645 3.41e-06 ***
+
+# doko-kjt
+# Model failed to converge: degenerate  Hessian with 11 negative eigenvalues
+# (see below for results from simplified model)
+
+# dozh-ejt
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           3.1582     0.5517   5.725 1.04e-08 ***
+#   environmentlong                      -1.1486     0.5834  -1.969   0.0490 *  
+#   environmentisland                    -1.3680     0.6388  -2.141   0.0322 *  
+#   dependencypronoun                    -3.0913     0.7052  -4.383 1.17e-05 ***
+#   environmentlong:dependencypronoun     1.1183     0.6163   1.814   0.0696 .  
+# environmentisland:dependencypronoun   1.5071     0.6879   2.191   0.0285 * 
+
+# dozh-zjt
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           0.9123     0.3970   2.298 0.021557 *  
+#   environmentlong                      -0.3938     0.3776  -1.043 0.297049    
+# environmentisland                    -2.1612     0.3792  -5.699 1.21e-08 ***
+#   dependencypronoun                    -2.3961     0.4080  -5.873 4.28e-09 ***
+#   environmentlong:dependencypronoun     1.5354     0.4196   3.660 0.000253 ***
+#   environmentisland:dependencypronoun   2.6887     0.4684   5.740 9.47e-09 ***
+
+# model 2 (simplified model for when the maximal model does not converge)
+
+tic()
+model2 <- glmer(acceptance ~ environment * dependency + 
+                  (1 + environment + dependency | participant) + 
+                  (1 + environment + dependency | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa",
+                                       optCtrl=list(maxfun = 1e6)))
+summary(model2)
+toc()
+beep(1)
+
+# dozh-ejt
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           5.0245     0.6145   8.177 2.92e-16 ***
+# environmentlong                      -4.0218     0.6540  -6.150 7.76e-10 ***
+# environmentisland                    -4.5681     0.6432  -7.102 1.23e-12 ***
+# dependencypronoun                    -7.3361     0.7318 -10.025  < 2e-16 ***
+# environmentlong:dependencypronoun     4.9090     0.7376   6.655 2.83e-11 ***
+# environmentisland:dependencypronoun   6.9606     0.7171   9.706  < 2e-16 ***
+
+# dozh-zjt
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                           0.8427     0.3499   2.408 0.016025 *  
+#   environmentlong                      -0.3218     0.3216  -1.000 0.317101    
+# environmentisland                    -2.0913     0.3280  -6.376 1.81e-10 ***
+#   dependencypronoun                    -2.0930     0.2874  -7.283 3.26e-13 ***
+#   environmentlong:dependencypronoun     1.2474     0.3246   3.842 0.000122 ***
+#   environmentisland:dependencypronoun   2.3292     0.3367   6.917 4.60e-12 ***
+
+# post-hoc tests: pairwise comparisons of estimated marginal means
+
+pairs(emmeans(model1, "dependency", by = "environment"))
+
+# doen-ejt
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     7.68 0.822 Inf   9.340  <.0001
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     7.35 0.804 Inf   9.136  <.0001
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     2.46 0.609 Inf   4.034  0.0001
+# Results are given on the log odds ratio (not the response) scale.
+
+# doko-ejt
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     4.93 0.905 Inf   5.446  <.0001
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     3.27 0.817 Inf   3.999  0.0001
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     1.20 0.704 Inf   1.711  0.0871
+# Results are given on the log odds ratio (not the response) scale. 
+
+# doko-kjt
+# (see below)
+
+# dozh-ejt
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     3.09 0.705 Inf   4.383  <.0001
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     1.97 0.473 Inf   4.170  <.0001
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun     1.58 0.505 Inf   3.139  0.0017
+# Results are given on the log odds ratio (not the response) scale. 
+
+# dozh-zjt
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun    2.396 0.408 Inf   5.873  <.0001
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun    0.861 0.289 Inf   2.975  0.0029
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun   -0.293 0.301 Inf  -0.971  0.3317
+# Results are given on the log odds ratio (not the response) scale. 
+
+pairs(emmeans(model2, "dependency", by = "environment"))
+
+# doko-kjt
+# environment = short:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun    7.336 0.732 Inf  10.025  <.0001
+# environment = long:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun    2.427 0.415 Inf   5.851  <.0001
+# environment = island:
+#   contrast      estimate    SE  df z.ratio p.value
+# gap - pronoun    0.375 0.355 Inf   1.056  0.2908
+# Results are given on the log odds ratio (not the response) scale. 
+
+anova(model1, model2)
+
+# dozh-ejt
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)  
+# model2   26 1635.9 1781.7 -791.95   1583.9                       
+# model1   48 1648.1 1917.2 -776.04   1552.1 31.828 22    0.08037 .
+
+# dozh-zjt
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   26 2212.5 2361.2 -1080.3   2160.5                     
+# model1   48 2235.2 2509.6 -1069.6   2139.2 21.349 22     0.4993
+
+#------------------------------------------------------------------------------#
+#### ajt: modeling - old ####
+#------------------------------------------------------------------------------#
+
+md <- crit %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
   filter(group == 'english',
          task == 'English AJT')
@@ -2663,9 +3768,9 @@ summary(model4)
 # source on different coding schemes
 # https://marissabarlaz.github.io/portfolio/contrastcoding/
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ajt: interaction plots for fillers ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # filter to filler trials
 fill <- ajt %>% filter(cond %in% c('grammatical', 'ungrammatical', 'gram', 'ungr')) %>%
@@ -2883,9 +3988,9 @@ ggsave("data/objects/plots/ajt_fillers_acceptance.png", width=6.5, height=3.5, d
 # clear objects from workspace
 rm(plot, check)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ajt: density plots for ajt critical trials ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # density plot of z-score data
 density <- crit %>%
@@ -2970,9 +4075,9 @@ ggplot(plot, aes(x=mean, fill=dependency)) +
         legend.box.margin = margin(-10, -10, 0, -10)) +
   facet_grid(panel ~ environment)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ajt: bar plot of rating distributions ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # summarise for plotting by panel
 plot <- ajt %>%
@@ -3055,9 +4160,9 @@ ggsave("data/objects/plots/ajt_rating_distribution.png", width=6.5, height=3.5, 
 #save plot
 ggsave("data/objects/plots/ajt_rating_distribution_everyone.png", width=5, height=1.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### corrections to files 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 files <- fs::dir_ls('data/subjects/korean/raw', regexp = 'task5.*\\.csv$')
 
@@ -3067,9 +4172,9 @@ for (file in files) {
   write_csv(x, file)
 }
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### check submissions 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # read in data from file
 sub <- read_csv('data/objects/korean/payment-korea.csv', col_types = cols(.default = 'c')) %>%
@@ -3086,13 +4191,32 @@ sub <- read_csv('data/objects/korean/payment-korea.csv', col_types = cols(.defau
 # tidy up
 rm(sub)
 
-#------------------------------------------------------------------------------------------#
-#### chopping block ####
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+#### key ####
+#------------------------------------------------------------------------------#
 
-#------------------------------------------------------------------------------------------#
+# tasks...
+# language_survey: language background survey
+# ept: english oral elicited production task
+# sprt: english self-paced reading task
+# english_ajt: english acceptability judgment task
+# korean_ajt: korean acceptability judgment task
+# mandarin_ajt: mandarin acceptability judgment task
+# ctest: english c-test
+# exit_survey: exit survey
+
+# groups...
+# ens: english native speakers
+# kle: l1-korean l2 learners of english
+# mle: l1-mandarin l2 learners of english
+
+#------------------------------------------------------------------------------#
+#### chopping block ####
+#------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------#
 #### ept: complex bar plot
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # exclude participants who produced relative clauses at least half the time
 
@@ -3167,9 +4291,9 @@ ggsave("plots/orc/ept_simple.png", width=6.5, height=2.5, dpi=600)
 p2 + s
 ggsave("plots/src/ept_simple.png", width=6.5, height=2.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: interaction plot
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # read in combined dataframe from .csv
 ep <- read_csv('data/ept/data.csv', col_types = cols(.default = 'f'))
@@ -3318,9 +4442,9 @@ ggplot(data=plot3, aes(x=cond, y=prop, group=category, col=category, shape=categ
 # save plot
 ggsave("data/plots/ept_interaction_plot_resumer_comparison.png", width=5.5, height=4.5, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### ept: scatter plot of resumption rate against proficiency scores (by environment)
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # summarise data for plotting
 
@@ -3385,9 +4509,9 @@ ggsave("plots/orc/ept_proficiency.png", width=6.5, height=3, dpi=600)
 p2 + s
 ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: plots for rt data by participant and by item
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 # summarise data for plotting by participant
 plot2 <- trim %>%
@@ -3487,9 +4611,9 @@ ggplot(plot, aes(x=cond, y=mean, fill=dependency, label=run_id)) +
 ggsave("plots/plot_spr_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
 ggsave("plots/plots_su/plot_spr_scatter_ppt.png", width=5.5, height=2.75, dpi=600)
 
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 #### spr: plots for accuracy data by participant and by item
-#------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 #summarize data for plotting by participant
 plot <- ds %>%
