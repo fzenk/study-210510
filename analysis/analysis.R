@@ -326,6 +326,28 @@ ep <- df %>%
   select_if(function(x){!all(is.na(x))})
 
 #------------------------------------------------------------------------------#
+#### ept: inter-rater reliability ####
+#------------------------------------------------------------------------------#
+
+temp <- ep %>%
+  mutate(agree = case_when(type_rater1 == type_rater2 ~ TRUE,
+                           TRUE ~ FALSE))
+
+check <- temp %>%
+  group_by(study, group) %>%
+  summarise(irr = mean(agree, na.rm = TRUE)) %>%
+  ungroup()
+
+# study     group      irr
+# <chr>     <chr>    <dbl>
+# 1 210510_do english  0.966
+# 2 210510_do korean   0.949
+# 3 210510_do mandarin 0.934
+# 4 210510_su english  0.980
+# 5 210510_su korean   0.953
+# 6 210510_su mandarin 0.899
+
+#------------------------------------------------------------------------------#
 #### ept: bar plot critical ####
 #------------------------------------------------------------------------------#
 
@@ -566,7 +588,7 @@ ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
 
 # simple regression analysis
 
-md <- plot %>% filter(group == 'mandarin' & study == '210510_su')
+md <- plot %>% filter(group == 'korean' & study == '210510_do')
 
 cor(md$proficiency, md$prop) 
 
@@ -1023,6 +1045,321 @@ ggsave("plots/orc/spr_accuracy.png", width=6.5, height=2.5, dpi=600)
 
 p2 + s
 ggsave("plots/src/spr_accuracy.png", width=6.5, height=2.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+#### spr: trim data and calculate RRTs ####
+#------------------------------------------------------------------------------#
+
+# filter to critical trials
+
+spr_crit <- spr %>%
+  filter(!condition %in% c('grammatical', 'ungrammatical')) %>%
+  mutate(rt = as.numeric(as.character(rt)),
+         participant = as.factor(participant)) %>%
+  mutate(participant = fct_drop(participant))
+
+# trim based on rt
+
+spr_trim <- spr_crit %>%
+  filter(rt <= 3000) %>%
+  filter(rt >= 200)
+
+# adjust region numbers
+
+spr_trim <- spr_trim %>%
+  mutate(region = as.numeric(region)) %>%
+  mutate(region2 = case_when(study == '210510_do' ~ region - 11,
+                             study == '210510_su' & environment %in% c('short', 'long') ~ region - 8,
+                             study == '210510_su' & environment == 'island' ~ region - 10))
+
+# make word length column
+
+spr_trim <- spr_trim %>%
+  mutate(stimulus = str_trim(tolower(stimulus))) %>%
+  mutate(length = nchar(stimulus))
+  
+# calculate RRTs by participant for each study and add to dataframe
+
+class(spr_trim$length)
+class(spr_trim$region)
+
+spr_trim <- spr_trim %>%
+  mutate(region = as.factor(region))
+
+spr_trim_orc <- spr_trim %>%
+  filter(study == '210510_do')
+
+mod_spr_rrt_orc <- lmer(rt ~ length + region + (1 | participant), data = spr_trim_orc)
+
+spr_trim_orc <- spr_trim_orc %>%
+  mutate(rrt = residuals(mod_spr_rrt_orc))
+
+spr_trim_src <- spr_trim %>%
+  filter(study == '210510_su')
+
+mod_spr_rrt_src <- lmer(rt ~ length + region + (1 | participant), data = spr_trim_src)
+
+spr_trim_src <- spr_trim_src %>%
+  mutate(rrt = residuals(mod_spr_rrt_src))
+
+spr_trim <- bind_rows(spr_trim_orc, spr_trim_src)
+
+# replace extreme RRTs
+
+spr_trim <- spr_trim %>%
+  group_by(study, group, condition, region2) %>%
+  mutate(sd2 = mean(rrt, na.rm = T) + (2 * (sd(rrt, na.rm = T)))) %>%
+  ungroup() %>%
+  mutate(rrt = case_when(rrt > sd2 ~ sd2, TRUE ~ as.numeric(rrt))) %>%
+  select(-sd2)
+
+# calculate accuracy rates on comprehension question by participant
+
+spr_trim <- spr_trim %>%
+  group_by(study, group, participant) %>%
+  mutate(acc_rate = mean(as.logical(accuracy))) %>%
+  ungroup()
+
+# check distribution of RRTs
+
+hist(spr_trim$rrt)
+qqnorm(spr_trim$rrt)
+
+# https://stat.ethz.ch/pipermail/r-help/2008-July/168808.html
+
+#------------------------------------------------------------------------------#
+#### spr: plots of RRTs ####
+#------------------------------------------------------------------------------#
+
+# check participants
+
+check <- spr_trim %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# inspect accuracy rates
+
+plot <- spr_trim %>%
+  group_by(study, group, participant, acc_rate) %>%
+  summarise() %>%
+  ungroup()
+
+ggplot(plot, aes(x=group, y=acc_rate, fill=group, label=participant)) + 
+  geom_hline(yintercept=.5) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic() +
+  scale_x_discrete(name="group", 
+                   limits = c('english', 'korean', 'mandarin'),
+                   labels = c('ENS', 'KLE', 'MLE')) +
+  scale_y_continuous(name="accuracy rate", 
+                     limits=c(0, 1)) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "hide") +
+  facet_wrap(~study)
+
+# trim based on accuracy
+
+spr_trim <- spr_trim %>%
+  filter(acc_rate > .5)
+
+# check participants
+
+check <- spr_trim %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# summarise data for plotting by group
+
+plot <- spr_trim %>%
+  mutate(environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  group_by(study, group, region2, dependency, environment, condition) %>%
+  summarise(mean_rrt = mean(rrt, na.rm=T),
+            sd = sd(rrt, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  filter(region2 %in% c(-3, -2, -1, 0, 1, 2, 3, 4)) %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS',
+                           group == 'korean' ~ 'KLE',
+                           group == 'mandarin' ~ 'MLE')) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# generate plot
+
+p1a <- ggplot(data=filter(plot, study == '210510_do', environment == 'short'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+p1b <- ggplot(data=filter(plot, study == '210510_do', environment == 'long'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+p1c <- ggplot(data=filter(plot, study == '210510_do', environment == 'island'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+
+p2a <- ggplot(data=filter(plot, study == '210510_su', environment == 'short'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+p2b <- ggplot(data=filter(plot, study == '210510_su', environment == 'long'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+p2c <- ggplot(data=filter(plot, study == '210510_su', environment == 'island'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+
+s <- list(
+  annotate('rect', xmin = 0.5, xmax = 3.5, ymin = -175, ymax = 175, alpha = .15),
+  geom_hline(yintercept = 0),
+  geom_vline(xintercept = 0),
+  geom_line(lwd=1),
+  geom_point(size=2),
+  geom_errorbar(aes(ymin=mean_rrt-ci, ymax=mean_rrt+ci), width=.5, lwd=1, linetype=1),
+  theme_classic(),
+  scale_y_continuous(name="residual reading time (ms)", limits=c(-175, 175), breaks = c(-150, -100, -50, 0, 50, 100, 150)),
+  scale_x_continuous(name="region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
+)
+
+p1a + s + 
+  theme(legend.position = 'none', 
+        strip.background.y = element_blank(), 
+        strip.text.y = element_blank(),
+        axis.title.x = element_blank()) +
+  p1b + s +
+  theme(legend.position = 'none',
+        axis.title.y = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text.y = element_blank()) +
+  p1c + s +
+  theme(legend.position = c(-.8, -.15),
+        legend.direction = 'horizontal',
+        legend.margin = margin(t = 0, unit='cm'),
+        plot.margin = margin(b = 12),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank())
+
+ggsave('plots/orc/spr_rrt.png', width=6.5, height=4.5, dpi=600)
+
+p2a + s + 
+  theme(legend.position = 'none', 
+        strip.background.y = element_blank(), 
+        strip.text.y = element_blank(),
+        axis.title.x = element_blank()) +
+  p2b + s +
+  theme(legend.position = 'none',
+        axis.title.y = element_blank(),
+        strip.background.y = element_blank(),
+        strip.text.y = element_blank()) +
+  p2c + s +
+  theme(legend.position = c(-.8, -.15),
+        legend.direction = 'horizontal',
+        legend.margin = margin(t = 0, unit='cm'),
+        plot.margin = margin(b = 12),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank())
+
+ggsave('plots/src/spr_rrt.png', width=6.5, height=4.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+#### spr: modeling for RRTs ####
+#------------------------------------------------------------------------------#
+
+# filter data for analysis
+
+md <- spr_trim %>%
+  filter(region2 == 1,
+         study == '210510_do',
+         group == 'english')
+
+# check distribution
+
+hist(md$rrt)
+qqnorm(md$rrt)
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# view contrasts
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+# full model
+
+mod_spr_1 <- lmer(rrt ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), data = md)
+summary(mod_spr_1)
+beepr::beep(1)
+
+# doen region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#                                     Estimate Std. Error      df t value Pr(>|t|)   
+# (Intercept)                           -6.094      8.216  37.583  -0.742  0.46288   
+# environmentlong                        6.518     12.629  40.439   0.516  0.60859   
+# environmentisland                     28.809     11.464  65.225   2.513  0.01446 * 
+# dependencypronoun                      2.508     11.716  93.254   0.214  0.83097   
+# environmentlong:dependencypronoun    -15.898     17.741  44.225  -0.896  0.37507   
+# environmentisland:dependencypronoun  -52.826     16.303 113.487  -3.240  0.00157 **
+saveRDS(mod_spr_1, file='models/orc_spr_doen_region1_mod.rds')
+mod <- readRDS('models/orc_spr_doen_r1_mod.rds')
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doen_r1_mod.txt', sep = ''), sep='\n')
+# https://www.r-bloggers.com/2012/04/a-better-way-of-saving-and-loading-objects-in-r/
+
+# doen region 2
+
+# doen region 3
+
+# doko region 1
+
+# doko region 2
+
+# doko region 3
+
+# dozh region 1
+
+# dozh region 2
+
+# dozh region 3
+
+# suen region 1
+
+# suen region 2
+
+# suen region 3
+
+# suko region 1
+
+# suko region 2
+
+# suko region 3
+
+# suzh region 1
+
+# suzh region 2
+
+# suzh region 3
+
+# https://marissabarlaz.github.io/portfolio/contrastcoding/
+
+# post-hoc tests: pairwise comparisons of estimated marginal means
+
+library(emmeans) # see https://marissabarlaz.github.io/portfolio/contrastcoding/
+pairs(emmeans(mod_spr_1, 'dependency', by = 'environment'))
+beep(1)
+
+# doen region 1
+# environment = short:
+#   contrast      estimate   SE   df t.ratio p.value
+# gap - pronoun    -2.51 11.8 31.1  -0.213  0.8328
+# environment = long:
+#   contrast      estimate   SE   df t.ratio p.value
+# gap - pronoun    13.39 11.9 26.9   1.122  0.2718
+# environment = island:
+#   contrast      estimate   SE   df t.ratio p.value
+# gap - pronoun    50.32 11.8 29.2   4.247  0.0002 ***
+# Degrees-of-freedom method: kenward-roger 
 
 #------------------------------------------------------------------------------#
 #### spr: modeling for reading times at critical region ####
