@@ -1,0 +1,49 @@
+Linear mixed model fit by REML. t-tests use Satterthwaite's method ['lmerModLmerTest']
+Formula: rrt ~ environment * dependency + (environment * dependency |  
+    participant) + (environment * dependency | item)
+   Data: md
+
+REML criterion at convergence: 25174.4
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.1062 -0.5719 -0.2094  0.2457  3.6345 
+
+Random effects:
+ Groups      Name                                Variance Std.Dev. Corr                         
+ participant (Intercept)                          7198     84.84                                
+             environmentlong                     11095    105.33   -0.23                        
+             environmentisland                   13605    116.64   -0.73  0.17                  
+             dependencypronoun                   11068    105.21   -0.84  0.17  0.81            
+             environmentlong:dependencypronoun   13899    117.89   -0.06 -0.75 -0.32 -0.22      
+             environmentisland:dependencypronoun 24094    155.22    0.71 -0.18 -0.88 -0.96  0.39
+ item        (Intercept)                          1156     33.99                                
+             environmentlong                      6437     80.23   -0.42                        
+             environmentisland                    1618     40.22   -0.80  0.32                  
+             dependencypronoun                    3609     60.08   -0.05 -0.52  0.53            
+             environmentlong:dependencypronoun    4036     63.53   -0.21 -0.43 -0.30 -0.28      
+             environmentisland:dependencypronoun 12372    111.23    0.24  0.59 -0.57 -0.95  0.01
+ Residual                                        67021    258.88                                
+Number of obs: 1797, groups:  participant, 63; item, 30
+
+Fixed effects:
+                                    Estimate Std. Error       df t value Pr(>|t|)   
+(Intercept)                           -9.833     19.532   39.301  -0.503  0.61747   
+environmentlong                       73.007     29.217   34.140   2.499  0.01744 * 
+environmentisland                     -7.263     26.873   36.802  -0.270  0.78847   
+dependencypronoun                    -12.304     27.666   40.168  -0.445  0.65888   
+environmentlong:dependencypronoun   -103.034     35.722   47.964  -2.884  0.00586 **
+environmentisland:dependencypronoun    4.768     41.479   32.796   0.115  0.90918   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) envrnmntl envrnmnts dpndnc envrnmntl:
+envrnmntlng -0.525                                      
+envrnmntsln -0.725  0.378                               
+dpndncyprnn -0.655  0.217     0.580                     
+envrnmntln:  0.293 -0.655    -0.339    -0.552           
+envrnmntsl:  0.505 -0.082    -0.711    -0.811  0.392    
+optimizer (nloptwrap) convergence code: 0 (OK)
+boundary (singular) fit: see help('isSingular')
+

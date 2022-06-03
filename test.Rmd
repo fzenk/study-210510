@@ -1,0 +1,61 @@
+---
+title: "Test"
+author: "Fred Zenker"
+date: '2022-05-25'
+output:
+  word_document: 
+    pandoc_args:
+      - --lua-filter=pandoc-ling.lua
+  html_document: 
+    pandoc_args:
+      - --lua-filter=pandoc-ling.lua
+  pdf_document: 
+    pandoc_args:
+      - --lua-filter=pandoc-ling.lua
+---
+
+```{r setup, include = FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(parameters)
+library(emmeans)
+
+mod1 <- readRDS('analysis/models/orc_spr_doen_region1_mod.rds')
+
+tab1 <- model_parameters(mod1)
+
+```
+
+## Parameters Table
+
+```{r table, echo = FALSE}
+
+display(tab1)
+
+# https://easystats.github.io/parameters/articles/model_parameters_formatting.html
+
+```
+
+## Linguistic Example
+
+::: ex
+This is the most basic structure of a linguistic example. 
+:::
+
+:::ex
+| Dutch (Germanic)
+| Deze zin is in het nederlands.
+| DEM sentence AUX in DET dutch.
+| This sentence is dutch.
+:::
+
+:::ex
+| 
+| Minci-nun cinan-tal-ey {__/ku-ka} enu chayk-ul pillye-ss-nunci nay-ka kwungkumhayha-nun namca-lul a-n-ta
+| Minji-TOP last-month-LOC {__/3MS-NOM} which book-ACC borrow-PST-COMP 1S-NOM wonder-REL man-ACC know-PRES-DEC
+| ‘Minji knows the man that I wonder which book {__/he} borrowed last month.’
+:::
+
+

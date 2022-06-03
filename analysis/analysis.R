@@ -26,6 +26,8 @@ library(tictoc) # for timing operations
 library(ggh4x) # for plotting
 library(emmeans) #  for post-hoc tests; see https://marissabarlaz.github.io/portfolio/contrastcoding/
 
+citation('performance')
+
 #------------------------------------------------------------------------------#
 #### read in data ####
 #------------------------------------------------------------------------------#
@@ -34,6 +36,12 @@ df <- read_csv('data/data.csv', col_types = cols(.default = 'c')) %>%
   select(-audio_data)
 
 ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'f', accuracy = 'l'))
+
+library(report)
+
+mod1 <- readRDS('analysis/models/orc_spr_doen_region1_mod.rds')
+
+report(mod1)
 
 #------------------------------------------------------------------------------#
 #### plot number of participants per task ####
@@ -286,8 +294,6 @@ ggsave("plots/src/ctest.png", width=6, height=2, dpi=600)
 #------------------------------------------------------------------------------#
 #### ctest: modeling ####
 #------------------------------------------------------------------------------#
-
-#fred
 
 md <- ct %>%
   filter(study == '210510_do')
@@ -860,6 +866,13 @@ trim <- ds %>%
   mutate(acc_rate = mean(as.logical(accuracy))) %>%
   ungroup()
 
+# check participants
+check <- trim %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  summarise(n = n()) %>%
+  ungroup()
+
 plot <- trim %>%
   group_by(study, group, participant, acc_rate) %>%
   summarise() %>%
@@ -1106,6 +1119,16 @@ spr_trim <- bind_rows(spr_trim_orc, spr_trim_src)
 
 # replace extreme RRTs
 
+check <- spr_trim %>%
+  group_by(study, group, condition, region2) %>%
+  mutate(sd2 = mean(rrt, na.rm = T) + (2 * (sd(rrt, na.rm = T)))) %>%
+  ungroup() %>%
+  mutate(extreme = case_when(rrt > sd2 ~ TRUE, TRUE ~ FALSE)) %>%
+  select(-sd2) %>%
+  group_by(study) %>%
+  summarise(mean = mean(extreme, na.rm = TRUE) * 100) %>%
+  ungroup()
+
 spr_trim <- spr_trim %>%
   group_by(study, group, condition, region2) %>%
   mutate(sd2 = mean(rrt, na.rm = T) + (2 * (sd(rrt, na.rm = T)))) %>%
@@ -1128,7 +1151,370 @@ qqnorm(spr_trim$rrt)
 # https://stat.ethz.ch/pipermail/r-help/2008-July/168808.html
 
 #------------------------------------------------------------------------------#
-#### spr: plots of RRTs ####
+#### spr: plots of raw RTs ####
+#------------------------------------------------------------------------------#
+
+# check participants
+
+check <- spr_trim %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# inspect accuracy rates
+
+plot <- spr_trim %>%
+  group_by(study, group, participant, acc_rate) %>%
+  summarise() %>%
+  ungroup()
+
+ggplot(plot, aes(x=group, y=acc_rate, fill=group, label=participant)) + 
+  geom_hline(yintercept=.5) +
+  geom_violin() +
+  geom_boxplot(width = .1, fill='white') +
+  theme_classic() +
+  scale_x_discrete(name="group", 
+                   limits = c('english', 'korean', 'mandarin'),
+                   labels = c('ENS', 'KLE', 'MLE')) +
+  scale_y_continuous(name="accuracy rate", 
+                     limits=c(0, 1)) +
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "hide") +
+  facet_wrap(~study)
+
+# trim based on accuracy
+
+spr_trim <- spr_trim %>%
+  filter(acc_rate > .5)
+
+# check participants
+
+check <- spr_trim %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# summarise data for plotting by group
+
+plot <- spr_trim %>%
+  mutate(environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  group_by(study, group, region2, dependency, environment, condition) %>%
+  summarise(mean_rt = mean(rt, na.rm=T),
+            sd = sd(rt, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  filter(region2 %in% c(-3, -2, -1, 0, 1, 2, 3, 4)) %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS',
+                           group == 'korean' ~ 'KLE',
+                           group == 'mandarin' ~ 'MLE')) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# generate plot
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=region2, y=mean_rt, group=dependency, col=dependency, shape=dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=region2, y=mean_rt, group=dependency, col=dependency, shape=dependency))
+
+s <- list(
+  annotate('rect', xmin = 0.6, xmax = 1.4, ymin = 300, ymax = 900, alpha = .15),
+  annotate('rect', xmin = 1.6, xmax = 2.4, ymin = 300, ymax = 900, alpha = .15),
+  annotate('rect', xmin = 2.6, xmax = 3.4, ymin = 300, ymax = 900, alpha = .15),
+  geom_hline(yintercept = 0),
+  geom_vline(xintercept = 0),
+  geom_line(lwd=1),
+  geom_point(size=2),
+  geom_errorbar(aes(ymin=mean_rt-ci, ymax=mean_rt+ci), width=.5, lwd=1, linetype=1),
+  theme_classic(),
+  scale_y_continuous(name="raw reading time (ms)", limits=c(270, 930)),
+  scale_x_continuous(name="region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'bottom',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
+)
+
+p1 + s + 
+  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 1, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'short', panel == 'MLE'), mapping = aes(x = 2, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 910, label = '*'), col = 'black')
+
+ggsave('plots/orc/spr_rawrt.png', width=6.5, height=4.5, dpi=600)
+
+p2 + s +
+  geom_text(data = filter(plot, environment == 'short', panel == 'ENS'), mapping = aes(x = 2, y = 920, label = '·'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 2, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 3, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'short', panel == 'KLE'), mapping = aes(x = 3, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'KLE'), mapping = aes(x = 3, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 1, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 1, y = 910, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 920, label = '·'), col = 'black')
+
+ggsave('plots/src/spr_rawrt.png', width=6.5, height=4.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+#### spr: modeling for raw RTs ####
+#------------------------------------------------------------------------------#
+
+# filter data for analysis
+
+md <- spr_trim %>%
+  filter(region2 == 2,
+         study == '210510_do',
+         group == 'mandarin')
+
+# check distribution
+
+hist(md$rt)
+qqnorm(md$rt)
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# view contrasts
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+# full model
+
+mod_spr_1 <- lmer(rt ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), data = md)
+summary(mod_spr_1)
+beep(1)
+
+# doen region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)   
+# (Intercept)                           -6.094      8.216  37.583  -0.742  0.46288   
+# environmentlong                        6.518     12.629  40.439   0.516  0.60859   
+# environmentisland                     28.809     11.464  65.225   2.513  0.01446 * 
+# dependencypronoun                      2.508     11.716  93.254   0.214  0.83097   
+# environmentlong:dependencypronoun    -15.898     17.741  44.225  -0.896  0.37507   
+# environmentisland:dependencypronoun  -52.826     16.303 113.487  -3.240  0.00157 **
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_doen_region1_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/orc_spr_doen_region1_mod.rds')
+# https://www.r-bloggers.com/2012/04/a-better-way-of-saving-and-loading-objects-in-r/
+
+# doen region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                          354.140     12.954  85.520  27.338   <2e-16 ***
+# environmentlong                       -2.863     12.105 128.014  -0.237   0.8134    
+# environmentisland                     29.335     15.576  37.188   1.883   0.0675 .  
+# dependencypronoun                     25.527     16.561  55.505   1.541   0.1289    
+# environmentlong:dependencypronoun    -19.319     21.131  45.512  -0.914   0.3654    
+# environmentisland:dependencypronoun  -54.305     24.577  50.547  -2.210   0.0317 *  
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_doen_region1_mod.txt', sep = ''), sep='\n')
+
+# doen region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                          353.289     11.332  94.850  31.177   <2e-16 ***
+# environmentlong                       -4.343      9.479 152.562  -0.458    0.648    
+# environmentisland                     15.606      9.585 113.045   1.628    0.106    
+# dependencypronoun                     13.880      9.159 198.322   1.516    0.131    
+# environmentlong:dependencypronoun      2.136     15.023  41.767   0.142    0.888    
+# environmentisland:dependencypronoun  -18.094     15.151  46.068  -1.194    0.238 
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_doen_region3_mod.txt', sep = ''), sep='\n')
+
+# doko region 1
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_doko_region1_mod.txt', sep = ''), sep='\n')
+
+# doko region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error     df t value Pr(>|t|)    
+# (Intercept)                           394.87      20.38  51.47  19.372   <2e-16 ***
+#   environmentlong                        38.87      24.93  34.48   1.559    0.128    
+# environmentisland                      38.41      33.69  48.11   1.140    0.260    
+# dependencypronoun                     -27.10      23.70 104.21  -1.143    0.255    
+# environmentlong:dependencypronoun     -55.22      35.00  46.51  -1.578    0.121    
+# environmentisland:dependencypronoun   -22.64      38.64  55.24  -0.586    0.560 
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_doko_region2_mod.txt', sep = ''), sep='\n')
+
+# doko region 3
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_doko_region3_mod.txt', sep = ''), sep='\n')
+
+# dozh region 1
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_dozh_region1_mod.txt', sep = ''), sep='\n')
+
+# dozh region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error     df t value Pr(>|t|)    
+# (Intercept)                           439.15      19.76  56.21  22.221   <2e-16 ***
+# environmentlong                        37.46      29.64  36.78   1.264   0.2143    
+# environmentisland                      39.86      28.87  41.52   1.381   0.1747    
+# dependencypronoun                     -36.68      21.49  92.77  -1.707   0.0912 .  
+# environmentlong:dependencypronoun     -37.57      37.22  41.11  -1.009   0.3187    
+# environmentisland:dependencypronoun   -34.59      35.20  52.20  -0.983   0.3303 
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_dozh_region2_mod.txt', sep = ''), sep='\n')
+
+# dozh region 3
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_rawrt_dozh_region3_mod.txt', sep = ''), sep='\n')
+
+# suen region 1
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suen_region1_mod.txt', sep = ''), sep='\n')
+
+# suen region 2
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suen_region2_mod.txt', sep = ''), sep='\n')
+
+# suen region 3
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suen_region3_mod.txt', sep = ''), sep='\n')
+
+# suko region 1
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region1_mod.txt', sep = ''), sep='\n')
+
+# suko region 2
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region2_mod.txt', sep = ''), sep='\n')
+
+# suko region 3
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region3_mod.txt', sep = ''), sep='\n')
+
+# suzh region 1
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region1_mod.txt', sep = ''), sep='\n')
+
+# suzh region 2
+# boundary (singular) fit: see help('isSingular')
+ 
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region2_mod.txt', sep = ''), sep='\n')
+
+# suzh region 3
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region3_mod.txt', sep = ''), sep='\n')
+
+# https://marissabarlaz.github.io/portfolio/contrastcoding/
+
+# check assumptions: linearity, normality of the residuals, homogeneity of residual variance (homoscedasticity), no autoccorelation and no multicollinearity (only for models without interaction terms)
+
+performance::check_model(mod_spr_1) # perform checks
+ggsave('plots/check_model.png', width=10, height=10, dpi=600) # save output
+performance::model_performance(mod_spr_1) # check model performance
+lattice::qqmath(mod_spr_1, id = 0.05) # check for normality of residuals (identified outliers)
+car::leveneTest(residuals(mod_spr_1) ~ md$environment * md$dependency) # check homogeneity of residual variance (should not be significant)
+
+# https://easystats.github.io/performance/index.html
+# https://ademos.people.uic.edu/Chapter18.html
+# https://bookdown.org/animestina/phd_july_19/testing-the-assumptions.html
+
+# post-hoc tests: pairwise comparisons of estimated marginal means (see https://stats.stackexchange.com/questions/424304/when-to-correct-for-multiple-comparisons-with-specific-reference-to-emmeans-in)
+
+# pairs(emmeans(mod_spr_1, 'dependency', by = 'environment'))
+
+mod_spr_1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', by = 'environment') %>%
+  summary(by = NULL, adjust = 'holm')
+beep(1)
+
+# doen region 1
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short          -2.51 11.8 31.1  -0.213  0.8328
+# gap - pronoun long           13.39 11.9 26.9   1.122  0.5437
+# gap - pronoun island         50.32 11.8 29.2   4.247  0.0006 ***
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# doen region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short         -25.53 16.6 46.0  -1.535  0.2630 (rrt: '*')
+# gap - pronoun long           -6.21 14.6 35.9  -0.425  0.6734
+# gap - pronoun island         28.78 16.3 36.4   1.769  0.2558 (rrt: '*')
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# doko region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short           27.1 24.0 26.7   1.131  0.2680
+# gap - pronoun long            82.3 27.8 28.5   2.963  0.0183
+# gap - pronoun island          49.7 31.4 32.8   1.585  0.2452
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# dozh region 1
+
+
+# dozh region 2
+
+
+# suen region 1
+
+
+# suen region 2
+
+
+# suen region 3
+
+
+# suko region 2
+
+
+# suko region 3
+
+
+# suzh region 1
+
+
+# suzh region 2
+
+
+#------------------------------------------------------------------------------#
+#### spr: plots of residual RTs ####
 #------------------------------------------------------------------------------#
 
 # check participants
@@ -1195,81 +1581,66 @@ plot <- spr_trim %>%
 
 # generate plot
 
-p1a <- ggplot(data=filter(plot, study == '210510_do', environment == 'short'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
-p1b <- ggplot(data=filter(plot, study == '210510_do', environment == 'long'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
-p1c <- ggplot(data=filter(plot, study == '210510_do', environment == 'island'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
-
-p2a <- ggplot(data=filter(plot, study == '210510_su', environment == 'short'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
-p2b <- ggplot(data=filter(plot, study == '210510_su', environment == 'long'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
-p2c <- ggplot(data=filter(plot, study == '210510_su', environment == 'island'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
 
 s <- list(
-  annotate('rect', xmin = 0.5, xmax = 3.5, ymin = -175, ymax = 175, alpha = .15),
+  annotate('rect', xmin = 0.6, xmax = 1.4, ymin = -180, ymax = 180, alpha = .15),
+  annotate('rect', xmin = 1.6, xmax = 2.4, ymin = -180, ymax = 180, alpha = .15),
+  annotate('rect', xmin = 2.6, xmax = 3.4, ymin = -180, ymax = 180, alpha = .15),
   geom_hline(yintercept = 0),
   geom_vline(xintercept = 0),
   geom_line(lwd=1),
   geom_point(size=2),
   geom_errorbar(aes(ymin=mean_rrt-ci, ymax=mean_rrt+ci), width=.5, lwd=1, linetype=1),
   theme_classic(),
-  scale_y_continuous(name="residual reading time (ms)", limits=c(-175, 175), breaks = c(-150, -100, -50, 0, 50, 100, 150)),
+  scale_y_continuous(name="residual reading time (ms)", limits=c(-200, 200)),
   scale_x_continuous(name="region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
   scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
   theme(text = element_text(size = 12),
+        legend.position = 'bottom',
+        legend.margin = margin(t = -.4, unit = 'cm'),
         plot.title = element_text(size = 12, hjust = .5)),
   facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
 )
 
-p1a + s + 
-  theme(legend.position = 'none', 
-        strip.background.y = element_blank(), 
-        strip.text.y = element_blank(),
-        axis.title.x = element_blank()) +
-  p1b + s +
-  theme(legend.position = 'none',
-        axis.title.y = element_blank(),
-        strip.background.y = element_blank(),
-        strip.text.y = element_blank()) +
-  p1c + s +
-  theme(legend.position = c(-.8, -.15),
-        legend.direction = 'horizontal',
-        legend.margin = margin(t = 0, unit='cm'),
-        plot.margin = margin(b = 12),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank())
+p1 + s + 
+  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'short', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'KLE'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'short', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black')
 
 ggsave('plots/orc/spr_rrt.png', width=6.5, height=4.5, dpi=600)
 
-p2a + s + 
-  theme(legend.position = 'none', 
-        strip.background.y = element_blank(), 
-        strip.text.y = element_blank(),
-        axis.title.x = element_blank()) +
-  p2b + s +
-  theme(legend.position = 'none',
-        axis.title.y = element_blank(),
-        strip.background.y = element_blank(),
-        strip.text.y = element_blank()) +
-  p2c + s +
-  theme(legend.position = c(-.8, -.15),
-        legend.direction = 'horizontal',
-        legend.margin = margin(t = 0, unit='cm'),
-        plot.margin = margin(b = 12),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank())
+p2 + s +
+  geom_text(data = filter(plot, environment == 'short', panel == 'ENS'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'short', panel == 'KLE'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'KLE'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
+  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black')
 
 ggsave('plots/src/spr_rrt.png', width=6.5, height=4.5, dpi=600)
 
 #------------------------------------------------------------------------------#
-#### spr: modeling for RRTs ####
+#### spr: modeling for residual RTs ####
 #------------------------------------------------------------------------------#
 
 # filter data for analysis
 
 md <- spr_trim %>%
-  filter(region2 == 1,
-         study == '210510_do',
-         group == 'english')
+  filter(region2 == 3,
+         study == '210510_su',
+         group == 'mandarin')
 
 # check distribution
 
@@ -1290,7 +1661,7 @@ contrasts(md$environment)
 
 mod_spr_1 <- lmer(rrt ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), data = md)
 summary(mod_spr_1)
-beepr::beep(1)
+beep(1)
 
 # doen region 1
 # boundary (singular) fit: see help('isSingular')
@@ -1302,64 +1673,353 @@ beepr::beep(1)
 # dependencypronoun                      2.508     11.716  93.254   0.214  0.83097   
 # environmentlong:dependencypronoun    -15.898     17.741  44.225  -0.896  0.37507   
 # environmentisland:dependencypronoun  -52.826     16.303 113.487  -3.240  0.00157 **
-saveRDS(mod_spr_1, file='models/orc_spr_doen_region1_mod.rds')
-mod <- readRDS('models/orc_spr_doen_r1_mod.rds')
-cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doen_r1_mod.txt', sep = ''), sep='\n')
+saveRDS(mod_spr_1, file='models/orc_spr_doen_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doen_region1_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/orc_spr_doen_region1_mod.rds')
 # https://www.r-bloggers.com/2012/04/a-better-way-of-saving-and-loading-objects-in-r/
 
 # doen region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                           18.909      7.447  82.527   2.539 0.012985 *  
+#   environmentlong                       -1.983      7.723 814.992  -0.257 0.797429    
+# environmentisland                     26.983      9.589  47.803   2.814 0.007086 ** 
+#   dependencypronoun                     24.560      9.479  68.194   2.591 0.011697 *  
+#   environmentlong:dependencypronoun    -16.569     13.173  36.622  -1.258 0.216433    
+# environmentisland:dependencypronoun  -50.294     14.149  73.771  -3.555 0.000665 ***
+saveRDS(mod_spr_1, file='models/orc_spr_doen_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doen_region1_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/orc_spr_doen_region2_mod.rds')
 
 # doen region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)  
+# (Intercept)                          16.2765     8.8078  68.0970   1.848   0.0690 .
+# environmentlong                      -4.5110     7.6742  67.6572  -0.588   0.5586  
+# environmentisland                    12.8944     7.7875  63.8697   1.656   0.1027  
+# dependencypronoun                    13.0496     7.5429  86.1457   1.730   0.0872 .
+# environmentlong:dependencypronoun     0.6997    11.9051  38.2415   0.059   0.9534  
+# environmentisland:dependencypronoun -16.4919    12.7929  34.1701  -1.289   0.2060 
+saveRDS(mod_spr_1, file='models/orc_spr_doen_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doen_region3_mod.txt', sep = ''), sep='\n')
 
 # doko region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)
+# (Intercept)                          -22.700     17.960  46.022  -1.264    0.213
+# environmentlong                       -2.302     20.502  42.972  -0.112    0.911
+# environmentisland                     -6.051     22.236  31.049  -0.272    0.787
+# dependencypronoun                    -33.742     22.493  36.054  -1.500    0.142
+# environmentlong:dependencypronoun     12.442     25.884  90.654   0.481    0.632
+# environmentisland:dependencypronoun   31.638     31.099  31.953   1.017    0.317
+saveRDS(mod_spr_1, file='models/orc_spr_doko_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doko_region1_mod.txt', sep = ''), sep='\n')
 
 # doko region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error     df t value Pr(>|t|)  
+# (Intercept)                           -40.71      17.18  68.23  -2.370   0.0206 *
+# environmentlong                        35.00      17.41  50.39   2.010   0.0498 *
+# environmentisland                      28.40      20.58  61.53   1.380   0.1726  
+# dependencypronoun                     -19.45      14.52  95.38  -1.340   0.1834  
+# environmentlong:dependencypronoun     -46.21      23.52  47.88  -1.965   0.0553 .
+# environmentisland:dependencypronoun   -20.75      25.09  55.81  -0.827   0.4118  
+saveRDS(mod_spr_1, file='models/orc_spr_doko_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doko_region2_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/orc_spr_doko_region2_mod.rds')
 
 # doko region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)
+# (Intercept)                          -25.335     18.481  57.836  -1.371    0.176
+# environmentlong                      -20.596     16.682  50.175  -1.235    0.223
+# environmentisland                      3.596     18.830  29.555   0.191    0.850
+# dependencypronoun                    -30.901     18.613  43.521  -1.660    0.104
+# environmentlong:dependencypronoun      5.751     23.048  96.870   0.250    0.803
+# environmentisland:dependencypronoun    8.417     25.537  30.334   0.330    0.744
+saveRDS(mod_spr_1, file='models/orc_spr_doko_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_doko_region3_mod.txt', sep = ''), sep='\n')
 
 # dozh region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)  
+# (Intercept)                          -12.773     21.019  50.146  -0.608   0.5461  
+# environmentlong                        4.094     24.508  36.950   0.167   0.8683  
+# environmentisland                    -15.724     20.665  89.120  -0.761   0.4487  
+# dependencypronoun                    -39.771     23.848  45.319  -1.668   0.1023  
+# environmentlong:dependencypronoun      4.434     29.625  80.336   0.150   0.8814  
+# environmentisland:dependencypronoun   54.108     30.646  39.095   1.766   0.0853 .
+saveRDS(mod_spr_1, file='models/orc_spr_dozh_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_dozh_region1_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/orc_spr_dozh_region1_mod.rds')
 
 # dozh region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error     df t value Pr(>|t|)  
+# (Intercept)                           -40.50      17.77  58.03  -2.279   0.0264 *
+# environmentlong                        25.54      20.19  36.88   1.265   0.2138  
+# environmentisland                      33.54      21.17  42.22   1.585   0.1205  
+# dependencypronoun                     -35.86      14.94  65.28  -2.400   0.0193 *
+# environmentlong:dependencypronoun     -26.83      24.06  48.97  -1.115   0.2702  
+# environmentisland:dependencypronoun   -22.34      25.85  47.17  -0.864   0.3919
+saveRDS(mod_spr_1, file='models/orc_spr_dozh_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_dozh_region2_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/orc_spr_dozh_region2_mod.rds')
 
 # dozh region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)
+# (Intercept)                          -16.755     19.898  53.210  -0.842    0.404
+# environmentlong                      -16.891     21.333  32.707  -0.792    0.434
+# environmentisland                     -5.552     24.676  35.726  -0.225    0.823
+# dependencypronoun                    -23.355     20.605  45.019  -1.133    0.263
+# environmentlong:dependencypronoun     10.054     25.456  57.158   0.395    0.694
+# environmentisland:dependencypronoun    8.032     29.335  39.327   0.274    0.786
+saveRDS(mod_spr_1, file='models/orc_spr_dozh_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/orc_spr_dozh_region3_mod.txt', sep = ''), sep='\n')
 
 # suen region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                         -94.4957    11.5507  52.3598  -8.181 6.28e-11 ***
+# environmentlong                       0.4633    15.2077  68.2516   0.030   0.9758    
+# environmentisland                    35.4499    17.8622  44.7862   1.985   0.0533 .  
+# dependencypronoun                    35.7479    15.8883  35.0287   2.250   0.0308 *  
+# environmentlong:dependencypronoun    -5.9114    26.0650  33.3015  -0.227   0.8220    
+# environmentisland:dependencypronoun -54.1687    27.3279  28.7903  -1.982   0.0571 . 
+saveRDS(mod_spr_1, file='models/src_spr_suen_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suen_region1_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/src_spr_suen_region1_mod.rds')
 
 # suen region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                           -55.49      12.68   45.73  -4.377 6.93e-05 ***
+# environmentlong                        13.23      18.61   45.12   0.711   0.4807    
+# environmentisland                      94.65      12.18  271.83   7.769 1.63e-13 ***
+# dependencypronoun                      29.40      13.26   57.68   2.216   0.0306 *  
+# environmentlong:dependencypronoun     -33.09      19.92   55.13  -1.661   0.1024    
+# environmentisland:dependencypronoun  -109.14      19.11   55.37  -5.711 4.60e-07 ***
+saveRDS(mod_spr_1, file='models/src_spr_suen_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suen_region2_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/src_spr_suen_region2_mod.rds')
 
 # suen region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                          -103.74      16.55   28.21  -6.267 8.66e-07 ***
+# environmentlong                        18.05      15.42   32.72   1.170  0.25034    
+# environmentisland                     187.31      23.15   45.43   8.090 2.38e-10 ***
+# dependencypronoun                      17.83      15.81   34.41   1.128  0.26721    
+# environmentlong:dependencypronoun     -11.90      22.59   32.70  -0.527  0.60200    
+# environmentisland:dependencypronoun   -74.48      22.52   42.96  -3.308  0.00191 ** 
+saveRDS(mod_spr_1, file='models/src_spr_suen_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suen_region3_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/src_spr_suen_region3_mod.rds')
 
 # suko region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)
+# (Intercept)                          11.8752    26.7665  32.1748   0.444    0.660
+# environmentlong                     -14.9229    39.0395  35.4573  -0.382    0.705
+# environmentisland                     0.8691    39.7102  29.9687   0.022    0.983
+# dependencypronoun                   -15.8171    32.4809  63.1945  -0.487    0.628
+# environmentlong:dependencypronoun   -14.2447    54.4191  54.4822  -0.262    0.794
+# environmentisland:dependencypronoun -13.4231    56.9894  38.8554  -0.236    0.815
+saveRDS(mod_spr_1, file='models/src_spr_suko_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suko_region1_mod.txt', sep = ''), sep='\n')
 
 # suko region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)   
+# (Intercept)                           -9.833     19.532   39.301  -0.503  0.61747   
+# environmentlong                       73.007     29.217   34.140   2.499  0.01744 * 
+# environmentisland                     -7.263     26.873   36.802  -0.270  0.78847   
+# dependencypronoun                    -12.304     27.666   40.168  -0.445  0.65888   
+# environmentlong:dependencypronoun   -103.034     35.722   47.964  -2.884  0.00586 **
+# environmentisland:dependencypronoun    4.768     41.479   32.796   0.115  0.90918  
+saveRDS(mod_spr_1, file='models/src_spr_suko_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suko_region2_mod.txt', sep = ''), sep='\n')
 
 # suko region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                           -76.23      18.03   70.73  -4.228 6.94e-05 ***
+# environmentlong                        60.95      29.51   45.10   2.065 0.044701 *  
+# environmentisland                     125.22      27.11   62.84   4.619 1.96e-05 ***
+# dependencypronoun                      67.74      26.50   51.88   2.556 0.013558 *  
+# environmentlong:dependencypronoun    -101.79      39.39   47.10  -2.584 0.012927 *  
+# environmentisland:dependencypronoun  -140.36      34.38   81.45  -4.083 0.000103 ***
+saveRDS(mod_spr_1, file='models/src_spr_suko_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suko_region3_mod.txt', sep = ''), sep='\n')
+# mod_spr_1 <- readRDS('models/src_spr_suko_region3_mod.rds')
 
 # suzh region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                            12.81      23.81   45.28   0.538 0.593192    
+# environmentlong                        54.39      35.07   46.38   1.551 0.127767    
+# environmentisland                     108.05      31.21   74.53   3.462 0.000892 ***
+# dependencypronoun                     -10.62      29.14   63.91  -0.364 0.716848    
+# environmentlong:dependencypronoun    -112.29      47.51   39.20  -2.364 0.023153 *  
+# environmentisland:dependencypronoun  -116.55      43.54   63.17  -2.677 0.009457 ** 
+saveRDS(mod_spr_1, file='models/src_spr_suzh_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suzh_region1_mod.txt', sep = ''), sep='\n')
 
 # suzh region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                          -63.1519    19.2731   79.8946  -3.277  0.00156 ** 
+# environmentlong                      171.1295    31.4737   59.9389   5.437 1.05e-06 ***
+# environmentisland                     53.4415    32.3608   58.6065   1.651  0.10400    
+# dependencypronoun                     -0.9302    24.0921  367.5248  -0.039  0.96922    
+# environmentlong:dependencypronoun   -176.4626    40.7114   69.6624  -4.334 4.82e-05 ***
+# environmentisland:dependencypronoun  -50.2838    34.2306  265.3421  -1.469  0.14303  
+saveRDS(mod_spr_1, file='models/src_spr_suzh_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suzh_region2_mod.txt', sep = ''), sep='\n')
 
 # suzh region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)
+# (Intercept)                           13.256     33.098  47.181   0.401    0.691
+# environmentlong                       31.380     37.616  36.211   0.834    0.410
+# environmentisland                    -23.822     39.817  55.114  -0.598    0.552
+# dependencypronoun                    -20.730     32.301  38.533  -0.642    0.525
+# environmentlong:dependencypronoun     -3.404     52.579  40.549  -0.065    0.949
+# environmentisland:dependencypronoun  -13.256     40.077  54.968  -0.331    0.742
+saveRDS(mod_spr_1, file='models/src_spr_suzh_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_suzh_region3_mod.txt', sep = ''), sep='\n')
 
 # https://marissabarlaz.github.io/portfolio/contrastcoding/
 
-# post-hoc tests: pairwise comparisons of estimated marginal means
+# check assumptions
 
-library(emmeans) # see https://marissabarlaz.github.io/portfolio/contrastcoding/
-pairs(emmeans(mod_spr_1, 'dependency', by = 'environment'))
+performance::check_model(mod_spr_1) # perform checks
+ggsave('plots/check_model.png', width=10, height=10, dpi=600) # save output for viewing
+performance::model_performance(mod_spr_1) # check model performance
+
+# post-hoc tests: pairwise comparisons of estimated marginal means (see https://stats.stackexchange.com/questions/424304/when-to-correct-for-multiple-comparisons-with-specific-reference-to-emmeans-in)
+
+# pairs(emmeans(mod_spr_1, 'dependency', by = 'environment'))
+
+mod_spr_1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', by = 'environment') %>%
+  summary(by = NULL, adjust = 'holm')
 beep(1)
 
 # doen region 1
-# environment = short:
-#   contrast      estimate   SE   df t.ratio p.value
-# gap - pronoun    -2.51 11.8 31.1  -0.213  0.8328
-# environment = long:
-#   contrast      estimate   SE   df t.ratio p.value
-# gap - pronoun    13.39 11.9 26.9   1.122  0.2718
-# environment = island:
-#   contrast      estimate   SE   df t.ratio p.value
-# gap - pronoun    50.32 11.8 29.2   4.247  0.0002 ***
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short          -2.51 11.8 31.1  -0.213  0.8328
+# gap - pronoun long           13.39 11.9 26.9   1.122  0.5437
+# gap - pronoun island         50.32 11.8 29.2   4.247  0.0006 **
 # Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# doen region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short         -24.56 9.53 33.8  -2.577  0.0357 *
+# gap - pronoun long           -7.99 8.68 23.4  -0.920  0.3668
+# gap - pronoun island         25.73 9.68 33.7   2.659  0.0357 *
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# doko region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short           19.5 14.7 23.9   1.325  0.1976
+# gap - pronoun long            65.7 17.3 28.2   3.790  0.0022 **
+# gap - pronoun island          40.2 18.8 32.5   2.143  0.0794 .
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# dozh region 1
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short           39.8 24.1 27.4   1.650  0.3310
+# gap - pronoun long            35.3 23.6 28.4   1.497  0.3310
+# gap - pronoun island         -14.3 23.9 26.4  -0.599  0.5541
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# dozh region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short           35.9 15.2 22.2   2.364  0.0386 *
+# gap - pronoun long            62.7 19.1 33.5   3.284  0.0072 **
+# gap - pronoun island          58.2 24.0 46.2   2.425  0.0386 *
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# suen region 1
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short          -35.7 15.9 23.0  -2.242  0.1048
+# gap - pronoun long           -29.8 20.1 39.0  -1.488  0.2896
+# gap - pronoun island          18.4 22.2 46.3   0.831  0.4101
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# suen region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short         -29.40 13.3 23.9  -2.207  0.0743 .
+# gap - pronoun long            3.69 15.0 28.2   0.246  0.8072
+# gap - pronoun island         79.75 13.0 21.7   6.129  <.0001 ***
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# suen region 3
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short         -17.83 15.9 31.8  -1.124  0.5389
+# gap - pronoun long           -5.93 14.6 23.4  -0.406  0.6886
+# gap - pronoun island         56.65 17.5 35.7   3.242  0.0077 **
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests
+
+# suko region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short          12.30 28.0 30.8   0.440  0.9618
+# gap - pronoun long          115.34 31.1 37.2   3.708  0.0020 **
+# gap - pronoun island          7.54 25.3 25.0   0.298  0.9876
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: sidak method for 3 tests 
+
+# suko region 3
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short          -67.7 26.8 25.3  -2.527  0.0363 *
+# gap - pronoun long            34.1 33.8 34.3   1.007  0.3208
+# gap - pronoun island          72.6 24.4 22.8   2.971  0.0206 *
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# suzh region 1
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short           10.6 29.3 23.6   0.363  0.7200
+# gap - pronoun long           122.9 36.7 35.4   3.350  0.0039 **
+# gap - pronoun island         127.2 30.4 25.5   4.185  0.0009 ***
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# suzh region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short           0.93 24.2 21.0   0.038  0.9697
+# gap - pronoun long          177.39 31.7 35.7   5.600  <.0001 ***
+# gap - pronoun island         51.21 24.5 20.8   2.090  0.0982 .
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
 
 #------------------------------------------------------------------------------#
 #### spr: modeling for reading times at critical region ####
