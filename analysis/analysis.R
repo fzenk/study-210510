@@ -915,6 +915,142 @@ summary(model1)
 # condcond2   1.587e-01  1.533e-01 1.238e+02   1.036    0.302    
 # condcond3   9.543e-01  1.547e-01 1.249e+02   6.170 8.76e-09 ***
 
+#------------------------------------------------------------------------------#
+# speaking time - plot - overall ----
+#------------------------------------------------------------------------------#
+
+st <- read_excel('data/ept_spoken_analysis.xlt')
+
+# check participants
+
+check <- st %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# filter to doen
+
+st <- st %>%
+  filter(study == '210510_do', group == 'english')
+
+# summarise data for plotting by group
+
+plot <- st %>%
+  mutate(durations = as.numeric(durations) * 1000) %>%
+  rename(dependency = type) %>%
+  mutate(environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  group_by(study, group, dependency, environment) %>%
+  summarise(mean = mean(durations, na.rm=T),
+            sd = sd(durations, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS',
+                           group == 'korean' ~ 'KLE',
+                           group == 'mandarin' ~ 'MLE')) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  filter(is.na(mean) == 'FALSE')
+
+# generate plot
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'), aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency))
+p2 <- ggplot(data = filter(plot, study == '210510_su'), aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency))
+
+s <- list(
+  ggtitle('ORC Speaking Times (Overall)'),
+  geom_line(lwd=1),
+  geom_point(size=2),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1),
+  theme_classic(),
+  scale_y_continuous(name="speaking time (ms)", limits=c(500, 700)),
+  scale_x_discrete(name="environment", limits=c('short', 'long', 'island')),
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'bottom',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_grid2(vars(panel), axes = 'all', remove_labels = 'y')
+)
+
+p1 + s
+p2 + s
+
+ggsave('plots/orc/ept_time_overall.png', width=6.5, height=3.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+# speaking time - plot - by region ----
+#------------------------------------------------------------------------------#
+
+st <- read_excel('data/ept_spoken_analysis.xlt')
+
+# check participants
+
+check <- st %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# filter to doen
+
+st <- st %>%
+  filter(study == '210510_do', group == 'english')
+
+# summarise data for plotting by group
+
+plot <- st %>%
+  mutate(durations = as.numeric(durations) * 1000) %>%
+  rename(dependency = type) %>%
+  mutate(environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  group_by(study, group, dependency, environment, region) %>%
+  summarise(mean = mean(durations, na.rm=T),
+            sd = sd(durations, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(panel = case_when(group == 'english' ~ 'ENS',
+                           group == 'korean' ~ 'KLE',
+                           group == 'mandarin' ~ 'MLE')) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  filter(is.na(mean) == 'FALSE')
+
+# generate plot
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'), aes(x = region, y = mean, group = dependency, col = dependency, shape = dependency))
+p2 <- ggplot(data = filter(plot, study == '210510_su'), aes(x = region, y = mean, group = dependency, col = dependency, shape = dependency))
+
+s <- list(
+  ggtitle('ORC Speaking Times (by Region)'),
+  geom_line(lwd=1),
+  geom_point(size=2),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1),
+  theme_classic(),
+  scale_y_continuous(name="speaking time (ms)", limits=c(0, 1300)),
+  scale_x_discrete(name="region", 
+                   limits=c('region1', 'region2', 'region3', 'region4', 'region5', 'region6', 'region7'),
+                   labels=c('1', '2', '3', '4', '5', '6', '7')),
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'bottom',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
+)
+
+p1 + s
+p2 + s
+
+ggsave('plots/orc/ept_time_region.png', width=6.5, height=3.5, dpi=600)
+
 #==============================================================================#
 # ::::: self-paced reading task (sprt) :::::  ----
 #==============================================================================#
@@ -2768,37 +2904,18 @@ summary(model1)
 toc()
 beep()
 
-write_rds(model1, 'models/spr_doen_acc_md1.rds')
-
 model1 <- read_rds('models/spr_doen_acc_md1.rds')
 
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.8458     0.5919   6.497 8.17e-11 ***
-dependencypronoun                     0.8593     1.1411   0.753    0.451
-environmentlong                      -0.3853     0.7153  -0.539    0.590
-environmentisland                     0.3546     0.9122   0.389    0.697
-environmentlong:dependencypronoun     0.8629     1.6303   0.529    0.597
-environmentisland:dependencypronoun  -0.3207     1.5887  -0.202    0.840
-
-#------------------------------------------------------------------------------#
-# + + model 2 
-#------------------------------------------------------------------------------#
-
-tic()
-model2 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment || participant) + 
-                  (dependency * environment || item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# skip for now
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               4.32597    0.34719  12.460   <2e-16 ***
+# dependency2               0.84492    0.76115   1.110    0.267    
+# environment2              0.13692    1.02568   0.133    0.894    
+# environment3              0.49225    0.90789   0.542    0.588    
+# dependency2:environment2  1.11743    2.22829   0.501    0.616    
+# dependency2:environment3 -0.04087    1.81099  -0.023    0.982 
 
 #------------------------------------------------------------------------------#
 # + + model 3
@@ -2815,7 +2932,27 @@ summary(model3)
 toc()
 beep()
 
-# skip for now
+model3 <- read_rds('models/spr_doen_acc_md3.rds')
+
+# 2435.58 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.92513    0.24601  15.955   <2e-16 ***
+# dependency2               0.18935    0.40465   0.468    0.640    
+# environment2             -0.14796    0.51738  -0.286    0.775    
+# environment3              0.17597    0.55967   0.314    0.753    
+# dependency2:environment2  0.50081    0.93346   0.537    0.592    
+# dependency2:environment3 -0.07302    0.98115  -0.074    0.941 
+
+# compare models ...
+
+anova(model1, model3)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model3   37 940.65 1159.0 -433.33   866.65                     
+# model1   48 956.88 1240.1 -430.44   860.88 5.7667 11     0.8885
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -2832,7 +2969,27 @@ summary(model4)
 toc()
 beep()
 
-# skip for now
+model4 <- read_rds('models/spr_doen_acc_md4.rds')
+
+# 265.82 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.86811    0.22755  16.999   <2e-16 ***
+# dependency2               0.21421    0.33822   0.633    0.527    
+# environment2             -0.15598    0.46740  -0.334    0.739    
+# environment3              0.09027    0.51528   0.175    0.861    
+# dependency2:environment2  0.03805    0.60071   0.063    0.949    
+# dependency2:environment3 -0.22013    0.58596  -0.376    0.707 
+
+# compare models ...
+
+anova(model3, model4)
+
+# npar    AIC  BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model4   26 919.52 1073 -433.76   867.52                     
+# model3   37 940.65 1159 -433.33   866.65 0.8711 11          1
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -2849,6 +3006,8 @@ summary(model5)
 toc()
 beep()
 
+model5 <- read_rds('models/spr_doen_acc_md5.rds')
+
 # 12.76 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
@@ -2861,8 +3020,16 @@ beep()
 # dependency2:environment2  0.26222    0.55428   0.473    0.636    
 # dependency2:environment3  0.12010    0.59372   0.202    0.840 
 
+# compare models ...
+
+anova(model4, model5)
+
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model5   17 907.46 1007.8 -436.73   873.46                    
+# model4   26 919.52 1073.0 -433.76   867.52 5.934  9     0.7465
+
 #------------------------------------------------------------------------------#
-# + + model 6 (final?) ----
+# + + model 6 (final) ----
 #------------------------------------------------------------------------------#
 
 tic()
@@ -2875,6 +3042,8 @@ model6 <- glmer(accuracy ~ dependency * environment +
 summary(model6)
 toc()
 beep()
+
+model6 <- read_rds('models/spr_doen_acc_md6.rds')
 
 # 1.91 sec elapsed
 # no warnings
@@ -2894,6 +3063,17 @@ anova(model5, model6)
 # npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
 # model6    8 896.21  943.41 -440.10   880.21                     
 # model5   17 907.46 1007.77 -436.73   873.46 6.7506  9     0.6631
+
+anova(model1, model6)
+
+# npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 896.21  943.41 -440.10   880.21                     
+# model1   48 956.88 1240.13 -430.44   860.88 19.322 40     0.9976
+
+# check assumptions ...
+
+check_model(model6)
+ggsave('plots/check_model.png', width=10, height=10, dpi=600)
 
 #------------------------------------------------------------------------------#
 # + doko ----
@@ -2939,16 +3119,19 @@ summary(model1)
 toc()
 beep()
 
-doko (everybody)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                          1.60016    0.25551   6.263 3.78e-10 ***
-dependencypronoun                    1.89983    0.57708   3.292 0.000994 ***
-environmentlong                     -0.11455    0.31752  -0.361 0.718264
-environmentisland                    0.06303    0.36812   0.171 0.864053
-dependencypronoun:environmentlong   -0.40906    0.70812  -0.578 0.563487
-dependencypronoun:environmentisland -0.76532    0.72946  -1.049 0.294104
+model1 <- read_rds('models/spr_doko_acc_md1.rds')
+
+# 4618.69 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                2.3364     0.1959  11.925  < 2e-16 ***
+# dependency2                1.5085     0.2777   5.431  5.6e-08 ***
+# environment2              -0.3198     0.3392  -0.943    0.346    
+# environment3              -0.3216     0.3169  -1.015    0.310    
+# dependency2:environment2  -0.4101     0.7079  -0.579    0.562    
+# dependency2:environment3  -0.7649     0.7295  -1.049    0.294 
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -2967,20 +3150,30 @@ summary(model5)
 toc()
 beep()
 
-# 6.42 sec elapsed
+model5 <- read_rds('models/spr_doko_acc_md5.rds')
+
+# 16.36 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.1255     0.1808  11.758  < 2e-16 ***
-# dependency2                1.4563     0.1824   7.986  1.4e-15 ***
-# environment2              -0.1617     0.2204  -0.734    0.463    
-# environment3              -0.1188     0.2101  -0.565    0.572    
-# dependency2:environment2  -0.1473     0.3634  -0.405    0.685    
-# dependency2:environment3  -0.2733     0.3584  -0.762    0.446 
+# (Intercept)                2.1794     0.1683  12.953  < 2e-16 ***
+# dependency2                1.4001     0.1966   7.123 1.05e-12 ***
+# environment2              -0.1640     0.2427  -0.676    0.499    
+# environment3              -0.1136     0.2300  -0.494    0.621    
+# dependency2:environment2  -0.1571     0.3886  -0.404    0.686    
+# dependency2:environment3  -0.1784     0.3853  -0.463    0.643 
+
+# compare models ...
+
+anova(model1, model5)
+
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model5   17 1551.3 1646.4 -758.66   1517.3                    
+# model1   48 1592.0 1860.4 -748.03   1496.0 21.27 31     0.9046
 
 #------------------------------------------------------------------------------#
-# + + model 6 (final?) ----
+# + + model 6 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -2996,24 +3189,37 @@ summary(model6)
 toc()
 beep()
 
+model6 <- read_rds('models/spr_doko_acc_md6.rds')
+
 # 1.71 sec elapsed
 # no warnings
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               2.07619    0.17413  11.923   <2e-16 ***
-# dependency2               1.36374    0.14114   9.662   <2e-16 ***
-# environment2             -0.20931    0.16932  -1.236    0.216    
-# environment3             -0.08972    0.17142  -0.523    0.601    
-# dependency2:environment2 -0.06965    0.34038  -0.205    0.838    
-# dependency2:environment3 -0.19870    0.34262  -0.580    0.562 
+# (Intercept)               2.14936    0.16093  13.356   <2e-16 ***
+# dependency2               1.40744    0.14654   9.604   <2e-16 ***
+# environment2             -0.19510    0.17597  -1.109    0.268    
+# environment3             -0.04670    0.17985  -0.260    0.795    
+# dependency2:environment2 -0.03271    0.35363  -0.092    0.926    
+# dependency2:environment3 -0.06833    0.35921  -0.190    0.849 
 
 # compare models ...
+
+anova(model1, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 1537.2 1582.0 -760.63   1521.2                     
+# model1   48 1592.0 1860.4 -748.03   1496.0 25.201 40     0.9672
 
 anova(model5, model6)
 
 # npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1622.6 1667.5 -803.29   1606.6                     
-# model5   17 1637.1 1732.7 -801.56   1603.1 3.4623  9     0.9431
+# model6    8 1537.2 1582.0 -760.63   1521.2                     
+# model5   17 1551.3 1646.4 -758.66   1517.3 3.9306  9     0.9159
+
+# check assumptions ...
+
+check_model(model6)
+ggsave('plots/check_model.png', width=10, height=10, dpi=600)
 
 #------------------------------------------------------------------------------#
 # + dozh ----
@@ -3059,29 +3265,19 @@ summary(model1)
 toc()
 beep()
 
-dozh (everybody)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                          3.999463   0.705482   5.669 1.44e-08 ***
-dependencypronoun                   -0.001692   0.855696  -0.002   0.9984
-environmentlong                     -0.825229   0.760581  -1.085   0.2779
-environmentisland                   -1.461149   0.772294  -1.892   0.0585 .
-dependencypronoun:environmentlong    1.438693   1.210922   1.188   0.2348
-dependencypronoun:environmentisland  2.191246   1.307525   1.676   0.0938 .
+model1 <- read_rds('models/spr_dozh_acc_md1.rds')
 
-# post-hoc tests ...
-
-pairwise1 <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise1
-
-contrast      environment estimate    SE  df z.ratio p.value
-gap - pronoun short        0.00169 0.856 Inf   0.002  0.9984
-gap - pronoun long        -1.43700 0.864 Inf  -1.662  0.1929
-gap - pronoun island      -2.18955 0.977 Inf  -2.242  0.0749 .
+# 1717.86 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                3.8007     0.3166  12.006   <2e-16 ***
+# dependency2                1.1720     0.4939   2.373   0.0177 *  
+# environment2              -0.1428     0.6234  -0.229   0.8189    
+# environment3              -0.5478     0.6444  -0.850   0.3953    
+# dependency2:environment2   1.0256     1.1382   0.901   0.3675    
+# dependency2:environment3   1.5550     1.0640   1.462   0.1439 
 
 #------------------------------------------------------------------------------#
 # + + model 3
@@ -3100,25 +3296,27 @@ summary(model3)
 toc()
 beep()
 
-137.08 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.6951     0.5466   6.760 1.38e-11 ***
-dependencypronoun                     0.5366     0.5069   1.059    0.290
-environmentlong                      -0.3856     0.5860  -0.658    0.511
-environmentisland                    -1.2327     0.5910  -2.086    0.037 *
-dependencypronoun:environmentlong     0.0604     0.5123   0.118    0.906
-dependencypronoun:environmentisland   0.7486     0.5842   1.281    0.200
+model3 <- read_rds('models/spr_dozh_acc_md3.rds')
+
+# 488.4 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.55710    0.28596  12.439   <2e-16 ***
+# dependency2               0.81722    0.33417   2.446   0.0145 *  
+# environment2             -0.35603    0.57372  -0.621   0.5349    
+# environment3             -0.85667    0.57475  -1.491   0.1361    
+# dependency2:environment2  0.07305    0.56159   0.130   0.8965    
+# dependency2:environment3  0.67998    0.59071   1.151   0.2497 
 
 # compare models ...
 
 anova(model3, model1)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   26 1014.5 1160.3 -481.27   962.54
-model1   48 1047.8 1316.8 -475.88   951.76 10.777 22     0.9778
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model3   26 1014.7 1160.5 -481.35   962.70                    
+# model1   48 1048.9 1318.0 -476.45   952.91 9.797 22     0.9881
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -3137,28 +3335,36 @@ summary(model4)
 toc()
 beep()
 
-308.89 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                          3.67842    0.59441   6.188 6.08e-10 ***
-dependencypronoun                    0.06087    0.67276   0.090   0.9279
-environmentlong                     -0.48737    0.65749  -0.741   0.4585
-environmentisland                   -1.10440    0.64765  -1.705   0.0881 .
-dependencypronoun:environmentlong    1.21006    1.07537   1.125   0.2605
-dependencypronoun:environmentisland  1.04034    0.88038   1.182   0.2373
+model4 <- read_rds('models/spr_dozh_acc_md4.rds')
+
+# 69.7 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.517461   0.285402  12.325   <2e-16 ***
+# dependency2               0.771873   0.375679   2.055   0.0399 *  
+# environment2              0.005219   0.545209   0.010   0.9924    
+# environment3             -0.638777   0.474521  -1.346   0.1783    
+# dependency2:environment2  0.686489   0.902823   0.760   0.4470    
+# dependency2:environment3  0.666644   0.777452   0.857   0.3912 
 
 # compare models ...
 
 anova(model1, model4)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   28 1019.3 1176.3 -481.66   963.32
-model1   48 1047.8 1316.8 -475.88   951.76 11.566 20     0.9302
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model4   28 1020.4 1177.4 -482.22   964.43                     
+# model1   48 1048.9 1318.0 -476.45   952.91 11.525 20     0.9314
+
+anova(model3, model4)
+
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model3   26 1014.7 1160.5 -481.35   962.70                    
+# model4   28 1020.4 1177.4 -482.22   964.43     0  2          1
 
 #------------------------------------------------------------------------------#
-# + + model 5
+# + + model 5 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3174,20 +3380,30 @@ summary(model5)
 toc()
 beep()
 
-# 19.94 sec elapsed
+model5 <- read_rds('models/spr_dozh_acc_md5.rds')
+
+# 14.53 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.30133    0.32232  10.243  < 2e-16 ***
-# dependency2               0.96351    0.27773   3.469 0.000522 ***
-# environment2             -0.08774    0.42868  -0.205 0.837829    
-# environment3             -0.42185    0.41807  -1.009 0.312952    
-# dependency2:environment2  0.21721    0.46229   0.470 0.638457    
-# dependency2:environment3  0.37280    0.46768   0.797 0.425382  
+# (Intercept)               3.46372    0.27446  12.620  < 2e-16 ***
+# dependency2               0.79196    0.30610   2.587  0.00967 ** 
+# environment2             -0.04924    0.51008  -0.097  0.92310    
+# environment3             -0.61506    0.46842  -1.313  0.18916    
+# dependency2:environment2  0.16803    0.54197   0.310  0.75653    
+# dependency2:environment3  0.75679    0.56992   1.328  0.18422
+
+# compare models ...
+
+anova(model4, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 1001.2 1096.5 -483.62   967.24                     
+# model4   28 1020.4 1177.4 -482.22   964.43 2.8109 11      0.993
 
 #------------------------------------------------------------------------------#
-# + + model 6 (final?) ----
+# + + model 6
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3203,24 +3419,24 @@ summary(model6)
 toc()
 beep()
 
-# 2.48 sec elapsed
-# no warnings
+model6 <- read_rds('models/spr_dozh_acc_md6.rds')
+
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.13304    0.29789  10.517  < 2e-16 ***
-# dependency2               0.98950    0.17299   5.720 1.07e-08 ***
-# environment2             -0.28222    0.21074  -1.339    0.181    
-# environment3             -0.16226    0.21438  -0.757    0.449    
-# dependency2:environment2  0.03125    0.41351   0.076    0.940    
-# dependency2:environment3  0.34034    0.41902   0.812    0.417 
+# (Intercept)               3.26369    0.24570  13.283  < 2e-16 ***
+# dependency2               0.98170    0.19136   5.130  2.9e-07 ***
+# environment2             -0.23260    0.23434  -0.993    0.321    
+# environment3             -0.14076    0.24246  -0.581    0.562    
+# dependency2:environment2 -0.03142    0.45959  -0.068    0.945    
+# dependency2:environment3  0.57751    0.47463   1.217    0.224 
 
 # compare models ...
 
 anova(model6, model5)
 
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1195.0 1240.4 -589.51   1179.0                     
-# model5   17 1199.1 1295.6 -582.56   1165.1 13.898  9      0.126
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)  
+# model6    8 1000.0 1044.9 -492.00   984.01                       
+# model5   17 1001.2 1096.5 -483.62   967.24 16.767  9     0.0525 .
 
 #------------------------------------------------------------------------------#
 # + suen ----
@@ -3268,36 +3484,17 @@ beep()
 
 model1 <- read_rds('models/spr_suen_acc_md1.rds')
 
-518.55 sec elapsed (8 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.8242     0.3615   7.812 5.63e-15 ***
-dependencypronoun                     0.8093     0.6346   1.275    0.202
-environmentlong                      -0.2813     0.4743  -0.593    0.553
-environmentisland                    -0.9161     0.4414  -2.075    0.038 *
-dependencypronoun:environmentlong     0.5468     0.9395   0.582    0.561
-dependencypronoun:environmentisland   1.0220     0.9360   1.092    0.275
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment || participant) + 
-                  (dependency * environment || item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# skip for now
+# 1105.91 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.09121    0.24818  12.455  < 2e-16 ***
+# dependency2               1.33220    0.38692   3.443 0.000575 ***
+# environment2             -0.00791    0.47680  -0.017 0.986764    
+# environment3             -0.40507    0.49115  -0.825 0.409521    
+# dependency2:environment2  0.54681    0.93946   0.582 0.560536    
+# dependency2:environment3  1.02199    0.93589   1.092 0.274834 
 
 #------------------------------------------------------------------------------#
 # + + model 3
@@ -3316,25 +3513,7 @@ summary(model3)
 toc()
 beep()
 
-265.64 sec elapsed (4 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.7315     0.3246   8.415   <2e-16 ***
-dependencypronoun                     0.9171     0.6135   1.495   0.1349
-environmentlong                      -0.1659     0.4189  -0.396   0.6922
-environmentisland                    -0.8856     0.3963  -2.234   0.0255 *
-dependencypronoun:environmentlong     0.3010     0.8507   0.354   0.7235
-dependencypronoun:environmentisland   0.9085     0.8296   1.095   0.2734
-
-# compare models ...
-
-anova (model1, model3)
-
-       npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   37 1076.2 1280.1 -501.12  1002.24
-model1   48 1093.4 1357.9 -498.69   997.39 4.8506 11     0.9382
+# skip for now
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -3353,17 +3532,17 @@ summary(model4)
 toc()
 beep()
 
-74.5 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                          2.73790    0.32135   8.520   <2e-16 ***
-dependencypronoun                    0.91598    0.50162   1.826   0.0678 .
-environmentlong                     -0.06792    0.42060  -0.161   0.8717
-environmentisland                   -0.95384    0.37264  -2.560   0.0105 *
-dependencypronoun:environmentlong    0.07569    0.56525   0.134   0.8935
-dependencypronoun:environmentisland  0.99261    0.56357   1.761   0.0782 .
+# 76.96 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.03336    0.24319  12.473  < 2e-16 ***
+# dependency2               1.27208    0.35871   3.546 0.000391 ***
+# environment2             -0.03007    0.40248  -0.075 0.940437    
+# environment3             -0.45754    0.37687  -1.214 0.224735    
+# dependency2:environment2  0.07569    0.56524   0.134 0.893479    
+# dependency2:environment3  0.99261    0.56357   1.761 0.078190 .  
 
 # compare models ...
 
@@ -3388,6 +3567,8 @@ summary(model5)
 toc()
 beep()
 
+model5 <- read_rds('models/spr_suen_acc_md5.rds')
+
 # 7.9 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
@@ -3401,7 +3582,7 @@ beep()
 # dependency2:environment3  0.89985    0.50233   1.791 0.073239 . 
 
 #------------------------------------------------------------------------------#
-# + + model 6 (final?) ----
+# + + model 6 (final) ----
 #------------------------------------------------------------------------------#
 
 tic()
@@ -3414,6 +3595,8 @@ model6 <- glmer(accuracy ~ dependency * environment +
 summary(model6)
 toc()
 beep()
+
+model6 <- read_rds('models/spr_suen_acc_md6.rds')
 
 # 1.56 sec elapsed
 # no warnings
@@ -3431,6 +3614,18 @@ anova(model6, model5)
 # npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
 # model6    8 1025.4 1069.5 -504.70   1009.4                    
 # model5   17 1039.8 1133.5 -502.92   1005.8 3.557  9     0.9381
+
+anova(model4, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 1025.4 1069.5 -504.70   1009.4                     
+# model4   26 1055.3 1198.6 -501.66   1003.3 6.0642 18     0.9959
+
+anova(model1, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 1025.4 1069.5 -504.70  1009.39                     
+# model1   48 1093.4 1357.9 -498.69   997.39 12.004 40          1
 
 # post-hoc tests ...
 
@@ -3493,31 +3688,17 @@ beep()
 
 model1 <- read_rds('models/spr_suko_acc_md1.rds')
 
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                          3.41970    0.52114   6.562 5.31e-11 ***
-dependencypronoun                    1.90213    1.45392   1.308 0.190781
-environmentlong                     -1.04233    0.61448  -1.696 0.089833 .
-environmentisland                   -1.79053    0.53594  -3.341 0.000835 ***
-dependencypronoun:environmentlong   -0.66729    1.66860  -0.400 0.689222
-dependencypronoun:environmentisland -0.07859    1.54661  -0.051 0.959476
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-tic()
-model2 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment || participant) + 
-                  (dependency * environment || item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_acc_md2.rds')
-summary(model2)
-toc()
-beep()
+# 3775.56 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.30218    0.31797  10.385  < 2e-16 ***
+# dependency2               1.65354    0.56411   2.931  0.00338 ** 
+# environment2             -1.37605    0.78757  -1.747  0.08060 .  
+# environment3             -1.82990    0.73873  -2.477  0.01325 *  
+# dependency2:environment2 -0.66746    1.66759  -0.400  0.68897    
+# dependency2:environment3 -0.07874    1.54553  -0.051  0.95937  
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -3536,25 +3717,27 @@ summary(model4)
 toc()
 beep()
 
-88.19 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.1201     0.3884   8.034 9.47e-16 ***
-dependencypronoun                     1.0071     0.5273   1.910 0.056122 .
-environmentlong                      -0.9997     0.4339  -2.304 0.021216 *
-environmentisland                    -1.4318     0.3997  -3.582 0.000341 ***
-dependencypronoun:environmentlong     0.1397     0.5711   0.245 0.806767
-dependencypronoun:environmentisland   0.3615     0.5373   0.673 0.501059
+model4 <- read_rds('models/spr_suko_acc_md4.rds')
+
+# 117.45 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               3.30218    0.31797  10.385  < 2e-16 ***
+# dependency2               1.65354    0.56411   2.931  0.00338 ** 
+# environment2             -1.37605    0.78757  -1.747  0.08060 .  
+# environment3             -1.82990    0.73873  -2.477  0.01325 *  
+# dependency2:environment2 -0.66746    1.66759  -0.400  0.68897    
+# dependency2:environment3 -0.07874    1.54553  -0.051  0.95937  
 
 # compare models ...
 
 anova(model1, model4)
 
-npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-model4   26 1181.9 1326.1 -564.97   1129.9
-model1   48 1205.2 1471.4 -554.61   1109.2 20.71 22     0.5387
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model4   26 1181.9 1326.1 -564.97   1129.9                    
+# model1   48 1205.2 1471.4 -554.61   1109.2 20.71 22     0.5387
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -3573,13 +3756,15 @@ summary(model5)
 toc()
 beep()
 
+model5 <- read_rds('models/spr_suko_acc_md5.rds')
+
 # 5.78 sec elapsed
 # Model failed to converge with max|grad| = 0.169075 (tol = 0.002, component 1)
 # Model is nearly unidentifiable: very large eigenvalue
 # - Rescale variables?
   
 #------------------------------------------------------------------------------#
-# + + model 6 ----
+# + + model 6 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3595,35 +3780,32 @@ summary(model6)
 toc()
 beep()
 
-# 1.25 sec elapsed
+model6 <- read_rds('models/spr_suko_acc_md6.rds')
+
+# 1.36 sec elapsed
 # no warnings
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.6151     0.2219  11.787  < 2e-16 ***
-# dependency2                1.0341     0.1606   6.437 1.22e-10 ***
-# environment2              -0.7558     0.2028  -3.727 0.000194 ***
-# environment3              -0.8408     0.2006  -4.192 2.76e-05 ***
-# dependency2:environment2   0.5713     0.4023   1.420 0.155519    
-# dependency2:environment3   0.7688     0.4031   1.907 0.056509 .  
+# (Intercept)                2.7622     0.2021  13.670  < 2e-16 ***
+# dependency2                1.1325     0.1770   6.399 1.57e-10 ***
+# environment2              -0.8526     0.2288  -3.727 0.000194 ***
+# environment3              -1.0365     0.2238  -4.631 3.63e-06 ***
+# dependency2:environment2   0.5178     0.4566   1.134 0.256780    
+# dependency2:environment3   0.5981     0.4506   1.327 0.184411  
 
 # compare models ...
 
+anova(model4, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 1153.7 1198.0 -568.83   1137.7                     
+# model4   26 1181.9 1326.1 -564.97   1129.9 7.7169 18     0.9826
+
 anova(model6, model1)
 
-# post-hoc tests ...
-
-pairwise1 <- model6 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise1
-
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short         -0.587 0.311 Inf  -1.887  0.0591
-# gap - pronoun long          -1.159 0.259 Inf  -4.479  <.0001
-# gap - pronoun island        -1.356 0.255 Inf  -5.325  <.0001
-# Results are given on the log odds ratio (not the response) scale. 
-# P value adjustment: holm method for 3 tests 
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 1153.7 1198.0 -568.83   1137.7                     
+# model1   48 1205.2 1471.4 -554.61   1109.2 28.427 40     0.9144
 
 #------------------------------------------------------------------------------#
 # + suzh ----
@@ -3671,16 +3853,17 @@ beep()
 
 model1 <- read_rds('models/spr_suzh_acc_md1.rds')
 
-suzh (everybody)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.1708     0.4394   7.216 5.37e-13 ***
-dependencypronoun                     1.1282     0.8210   1.374  0.16941
-environmentlong                      -1.3016     0.4795  -2.714  0.00664 **
-environmentisland                    -0.9211     0.5113  -1.801  0.07163 .
-dependencypronoun:environmentlong     0.7879     1.0814   0.729  0.46628
-dependencypronoun:environmentisland  -0.1671     1.0067  -0.166  0.86816
+# 1747.23 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                3.0974     0.2409  12.857  < 2e-16 ***
+# dependency2                1.3350     0.3822   3.493 0.000478 ***
+# environment2              -0.9075     0.5640  -1.609 0.107586    
+# environment3              -1.0045     0.5111  -1.965 0.049360 *  
+# dependency2:environment2   0.7882     1.0811   0.729 0.465980    
+# dependency2:environment3  -0.1669     1.0064  -0.166 0.868303 
 
 #------------------------------------------------------------------------------#
 # + + model 3 
@@ -3699,17 +3882,25 @@ summary(model3)
 toc()
 beep()
 
-85.54 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.3426     0.4341   7.700 1.36e-14 ***
-dependencypronoun                     0.5528     0.4417   1.251  0.21081
-environmentlong                      -1.4831     0.4627  -3.205  0.00135 **
-environmentisland                    -1.2545     0.4447  -2.821  0.00479 **
-dependencypronoun:environmentlong     0.8905     0.5113   1.742  0.08156 .
-dependencypronoun:environmentisland   0.3846     0.4852   0.793  0.42795
+# 99.14 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                2.9171     0.2162  13.493  < 2e-16 ***
+# dependency2                0.9761     0.2665   3.662  0.00025 ***
+# environment2              -1.0376     0.4414  -2.351  0.01874 *  
+# environment3              -1.0614     0.4193  -2.531  0.01136 *  
+# dependency2:environment2   0.8669     0.4895   1.771  0.07655 .  
+# dependency2:environment3   0.3725     0.4786   0.778  0.43639  
+
+# compare models ...
+
+anova(model1, model3)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model3   26 1280.3 1426.8 -614.17   1228.3                     
+# model1   48 1311.2 1581.7 -607.60   1215.2 13.128 22     0.9295
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -3728,20 +3919,28 @@ summary(model4)
 toc()
 beep()
 
-50.31 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.0360     0.3704   8.197 2.45e-16 ***
-dependencypronoun                     0.3881     0.4957   0.783  0.43369
-environmentlong                      -1.1391     0.4015  -2.837  0.00456 **
-environmentisland                    -0.7959     0.4551  -1.749  0.08028 .
-dependencypronoun:environmentlong     1.4062     0.7992   1.760  0.07847 .
-dependencypronoun:environmentisland   0.6208     0.7241   0.857  0.39128
+# 58.47 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                2.9229     0.2135  13.688  < 2e-16 ***
+# dependency2                1.0638     0.3089   3.444 0.000573 ***
+# environment2              -0.4359     0.4144  -1.052 0.292853    
+# environment3              -0.4856     0.3727  -1.303 0.192616    
+# dependency2:environment2   1.4062     0.7992   1.760 0.078469 .  
+# dependency2:environment3   0.6208     0.7241   0.857 0.391262 
+
+# compare models ...
+
+anova(model3, model4)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model3   26 1280.3 1426.8 -614.17   1228.3                     
+# model4   28 1282.5 1440.3 -613.26   1226.5 1.8186  2     0.4028
 
 #------------------------------------------------------------------------------#
-# + + model 5 ----
+# + + model 5
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3757,6 +3956,8 @@ summary(model5)
 toc()
 beep()
 
+model5 <- read_rds('models/spr_suzh_acc_md5.rds')
+
 # 15.28 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
@@ -3769,8 +3970,16 @@ beep()
 # dependency2:environment2   0.9930     0.4632   2.144 0.032038 *  
 # dependency2:environment3   0.4440     0.4572   0.971 0.331508
 
+# compare models ...
+
+anova(model4, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 1271.2 1367.0 -618.58   1237.2                     
+# model4   28 1282.5 1440.3 -613.26   1226.5 10.635 11     0.4743
+
 #------------------------------------------------------------------------------#
-# + + model 6
+# + + model 6 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3786,6 +3995,8 @@ summary(model6)
 toc()
 beep()
 
+model6 <- read_rds('models/spr_suzh_acc_md6.rds')
+
 # 1.32 sec elapsed
 # no warnings
 # Fixed effects:
@@ -3799,11 +4010,17 @@ beep()
 
 # compare models ...
 
-anova (model6, model5)
+anova(model6, model5)
 
 # npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
 # model6    8 1260.2 1305.2 -622.08   1244.2                     
 # model5   17 1271.2 1367.0 -618.58   1237.2 6.9998  9     0.6371
+
+anova(model1, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 1260.2 1305.2 -622.08   1244.2                     
+# model1   48 1311.2 1581.7 -607.60   1215.2 28.945 40     0.9025
 
 # post-hoc tests
 
@@ -4524,7 +4741,316 @@ ggplot(plot, aes(x=condition, y=mean, fill=dependency, label=participant)) +
 ggsave("plots/ajt_scatter_acceptance_ppt.png", width=8, height=8, dpi=600)
 
 #------------------------------------------------------------------------------#
-# modeling - glmer - critical (2022-06-08) ----
+# modeling - clmm - critical ----
+#------------------------------------------------------------------------------#
+
+# prep data
+
+temp <- ajt %>%
+  filter(!condition %in% c('grammatical', 'ungrammatical')) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'),
+         dependency = as.factor(dependency))
+
+#------------------------------------------------------------------------------#
+# + doenen ----
+#------------------------------------------------------------------------------#
+
+# doenen = ORC study (do) + ENS group (en) + English AJT (en)
+
+# load package ...
+
+library(ordinal)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_do', 
+         group == 'english',
+         task == 'english_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = as.factor(response))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_doenen_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 7096.41 sec elapsed
+# no warnings?
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -5.8542     0.3791 -15.443  < 2e-16 ***
+# environment2              -0.5718     0.2566  -2.229 0.025834 *  
+# environment3              -2.1130     0.3543  -5.963 2.47e-09 ***
+# dependency2:environment2   1.6434     0.4507   3.646 0.000266 ***
+# dependency2:environment3   6.7497     0.5432  12.425  < 2e-16 ***
+
+# post-hoc tests ...
+
+model1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun      8.65 0.548 Inf  15.786  <.0001
+# long        .          gap - pronoun      7.01 0.483 Inf  14.508  <.0001
+# island      .          gap - pronoun      1.90 0.375 Inf   5.077  <.0001
+# .           gap        short - long       1.39 0.424 Inf   3.283  0.0041
+# .           gap        short - island     5.49 0.500 Inf  10.971  <.0001
+# .           gap        long - island      4.09 0.414 Inf   9.884  <.0001
+# .           pronoun    short - long      -0.25 0.230 Inf  -1.085  0.2779
+# .           pronoun    short - island    -1.26 0.385 Inf  -3.276  0.0041
+# .           pronoun    long - island     -1.01 0.374 Inf  -2.707  0.0136
+# P value adjustment: holm method for 9 tests
+
+#------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_doenen_clmm_md2.rds')
+summary(model2)
+toc()
+beep()
+
+model1 <- read_rds('models/ajt_doenen_clmm_md2.rds')
+
+# 3963.31 sec elapsed
+# no warnings?
+#   Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -5.8438     0.3796 -15.393  < 2e-16 ***
+# environment2              -0.5614     0.2533  -2.217 0.026648 *  
+# environment3              -2.0912     0.3523  -5.936 2.92e-09 ***
+# dependency2:environment2   1.6465     0.4475   3.680 0.000234 ***
+# dependency2:environment3   6.7519     0.5331  12.666  < 2e-16 ***
+  
+# compare models ...
+
+anova(model1, model2)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)
+# model2     41 5533.3 -2725.7                      
+# model1     52 5553.3 -2724.7  2.0167 11     0.9984
+
+install.packages("RVAideMemoire") 
+library(RVAideMemoire) 
+install.packages("car") 
+library(car)
+
+Anova(model1, type="II")
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_doenen_clmm_md3.rds')
+summary(model3)
+toc()
+beep()
+
+class(model3)
+
+# 807.76 sec elapsed (13 min)
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -5.7936     0.3702 -15.650  < 2e-16 ***
+# environment2              -0.5868     0.2478  -2.369 0.017860 *  
+# environment3              -2.0901     0.3503  -5.966 2.43e-09 ***
+# dependency2:environment2   1.6515     0.4448   3.713 0.000205 ***
+# dependency2:environment3   6.7123     0.5298  12.669  < 2e-16 ***
+
+# compare models ...
+
+anova(model3, model6)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
+# model6     12 6232.5 -3104.3                          
+# model3     32 5520.2 -2728.1   752.3 20  < 2.2e-16 ***
+
+anova(model2, model3)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)
+# model3     32 5520.2 -2728.1                      
+# model2     41 5533.3 -2725.7  4.8992  9      0.843
+
+# post-hoc tests ...
+
+model3 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun     8.582 0.542 Inf  15.845  <.0001
+# long        .          gap - pronoun     6.930 0.473 Inf  14.644  <.0001
+# island      .          gap - pronoun     1.869 0.356 Inf   5.252  <.0001
+# .           gap        short - long      1.413 0.414 Inf   3.415  0.0026
+# .           gap        short - island    5.446 0.493 Inf  11.049  <.0001
+# .           gap        long - island     4.034 0.407 Inf   9.909  <.0001
+# .           pronoun    short - long     -0.239 0.225 Inf  -1.063  0.2879
+# .           pronoun    short - island   -1.266 0.378 Inf  -3.350  0.0026
+# .           pronoun    long - island    -1.027 0.360 Inf  -2.851  0.0087
+# P value adjustment: holm method for 9 tests 
+
+#------------------------------------------------------------------------------#
+# + + model 4
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_doenen_clmm_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# 952.84 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -5.4166     0.3405 -15.907  < 2e-16 ***
+# environment2              -0.6767     0.1758  -3.849 0.000119 ***
+# environment3              -2.0481     0.3306  -6.195 5.81e-10 ***
+# dependency2:environment2   1.5568     0.2719   5.725 1.03e-08 ***
+# dependency2:environment3   5.6509     0.2888  19.568  < 2e-16 ***
+
+anova(model3, model4)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
+# model4     30 5608.2 -2774.1                          
+# model3     32 5520.2 -2728.1   91.91  2  < 2.2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_doenen_clmm_md5.rds')
+summary(model5)
+toc()
+beep()
+
+tic()
+model5 <- clmm(response ~ dependency * environment +
+                 (1 + dependency + environment | participant) +
+                 (1 | item),
+               data = md)
+toc()
+beep()
+
+# does not converge
+
+#------------------------------------------------------------------------------#
+# + + model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- clmm(response ~ dependency * environment + 
+                  (1 | participant) + 
+                  (1 | item), 
+               data = md) %>%
+  write_rds('models/ajt_doenen_clmm_md6.rds')
+summary(model6)
+toc()
+beep()
+
+model6 <- read_rds('models/ajt_doenen_clmm_md6.rds')
+
+# 19.08 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -3.8823     0.1114 -34.848  < 2e-16 ***
+# environment2              -0.6673     0.1109  -6.017 1.78e-09 ***
+# environment3              -1.6386     0.1102 -14.871  < 2e-16 ***
+# dependency2:environment2   1.4595     0.2222   6.570 5.04e-11 ***
+# dependency2:environment3   4.9034     0.2297  21.349  < 2e-16 ***
+
+# compare models ...
+
+anova(model5, model6)
+
+# pairwise comparisons ...
+
+model6 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun    6.0033 0.202 Inf  29.756  <.0001
+# long        .          gap - pronoun    4.5437 0.166 Inf  27.433  <.0001
+# island      .          gap - pronoun    1.0999 0.129 Inf   8.529  <.0001
+# .           gap        short - long     1.3971 0.178 Inf   7.867  <.0001
+# .           gap        short - island   4.0903 0.182 Inf  22.498  <.0001
+# .           gap        long - island    2.6932 0.148 Inf  18.224  <.0001
+# .           pronoun    short - long    -0.0625 0.133 Inf  -0.469  0.6391
+# .           pronoun    short - island  -0.8131 0.133 Inf  -6.128  <.0001
+# .           pronoun    long - island   -0.7506 0.131 Inf  -5.738  <.0001
+# P value adjustment: holm method for 9 tests 
+
+# visualize ...
+
+emmip(model6, dependency ~ environment)
+
+#------------------------------------------------------------------------------#
+# modeling - glmer - critical ----
 #------------------------------------------------------------------------------#
 
 # prep data
@@ -4751,6 +5277,8 @@ summary(model5)
 toc()
 beep()
 
+model5 <- read_rds('models/ajt_doenen_acc_md5.rds')
+
 # 16.03 sec elapsed
 # no warnings
 # Fixed effects:
@@ -4952,9 +5480,9 @@ model3 %>%
   summary(by = NULL, adjust = 'holm')
 
 # contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short           5.01 0.911 Inf   5.500  <.0001
-# gap - pronoun long            3.28 0.821 Inf   4.001  0.0001
-# gap - pronoun island          1.16 0.673 Inf   1.725  0.0844
+# gap - pronoun short           5.01 0.911 Inf   5.500  <.0001 ***
+# gap - pronoun long            3.28 0.821 Inf   4.001  0.0001 ***
+# gap - pronoun island          1.16 0.673 Inf   1.725  0.0844 .
 # Results are given on the log odds ratio (not the response) scale. 
 # P value adjustment: holm method for 3 tests 
 
@@ -5128,17 +5656,17 @@ beep()
 
 model1 <- read_rds('models/ajt_dozhen_acc_md1.rds')
 
-2625.09 sec elapsed (43 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.1582     0.5518   5.724 1.04e-08 ***
-dependencypronoun                    -3.0914     0.7053  -4.383 1.17e-05 ***
-environmentlong                      -1.1486     0.5835  -1.968   0.0490 *
-environmentisland                    -1.3680     0.6389  -2.141   0.0323 *
-dependencypronoun:environmentlong     1.1183     0.6164   1.814   0.0696 .
-dependencypronoun:environmentisland   1.5071     0.6880   2.190   0.0285 *
+# 2625.09 sec elapsed (43 min)
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                1.2125     0.2305   5.260 1.44e-07 ***
+# dependency2               -2.2188     0.4530  -4.898 9.69e-07 ***
+# environment2              -0.5965     0.3399  -1.755   0.0792 .  
+# environment3              -0.6193     0.3540  -1.749   0.0802 .  
+# dependency2:environment2   1.1327     0.6118   1.851   0.0641 .  
+# dependency2:environment3   1.5160     0.6886   2.202   0.0277 *
 
 #------------------------------------------------------------------------------#
 # + + model 2 
@@ -5158,25 +5686,27 @@ summary(model2)
 toc()
 beep()
 
-249.57 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.0426     0.5113   5.951 2.67e-09 ***
-dependencypronoun                    -2.9732     0.6732  -4.416 1.00e-05 ***
-environmentlong                      -1.0593     0.5354  -1.979   0.0479 *
-environmentisland                    -1.3660     0.5644  -2.420   0.0155 *
-dependencypronoun:environmentlong     1.0256     0.5754   1.782   0.0747 .
-dependencypronoun:environmentisland   1.5005     0.6237   2.406   0.0161 *
+model2 <- read_rds('models/ajt_dozhen_acc_md2.rds')
+
+# 249.57 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                1.1647     0.2229   5.225 1.74e-07 ***
+# dependency2               -2.1251     0.4407  -4.822 1.42e-06 ***
+# environment2              -0.5357     0.3251  -1.648   0.0993 .  
+# environment3              -0.6232     0.3183  -1.958   0.0502 .  
+# dependency2:environment2   1.0018     0.5691   1.761   0.0783 .  
+# dependency2:environment3   1.5091     0.6025   2.505   0.0123 * 
 
 # compare models ...
 
 anova(model2, model1)
 
-       npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model2   37 2047.9 2258.4 -986.94   1973.9
-model1   48 2064.7 2337.7 -984.33   1968.7 5.2306 11     0.9195
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   37 2051.3 2261.9 -988.68   1977.3                     
+# model1   48 2064.7 2337.8 -984.34   1968.7 8.6751 11     0.6519
 
 #------------------------------------------------------------------------------#
 # + + model 3 
@@ -5196,25 +5726,13 @@ summary(model3)
 toc()
 beep()
 
-60.1 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.0386     0.5101   5.957 2.57e-09 ***
-dependencypronoun                    -2.9689     0.6720  -4.418 9.96e-06 ***
-environmentlong                      -1.0752     0.5265  -2.042   0.0411 *
-environmentisland                    -1.3959     0.5495  -2.540   0.0111 *
-dependencypronoun:environmentlong     1.0339     0.5721   1.807   0.0708 .
-dependencypronoun:environmentisland   1.5400     0.6187   2.489   0.0128 *
+model3 <- read_rds('models/ajt_dozhen_acc_md3.rds')
 
-# compare models ...
-
-anova(model3, model2)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   28 2033.6 2192.9 -988.81   1977.6
-model2   37 2047.9 2258.4 -986.94   1973.9 3.7429  9     0.9275
+# Model failed to converge with max|grad| = 0.149796 (tol = 0.002, component 1)
+# Model is nearly unidentifiable: very large eigenvalue
+# - Rescale variables?
+#   Model is nearly unidentifiable: large eigenvalue ratio
+# - Rescale variables?
 
 #------------------------------------------------------------------------------#
 # + + model 4 
@@ -5234,28 +5752,36 @@ summary(model4)
 toc()
 beep()
 
-95.75 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.6811     0.3338   8.032 9.62e-16 ***
-dependencypronoun                    -2.6248     0.4824  -5.441 5.28e-08 ***
-environmentlong                      -0.6775     0.3412  -1.986 0.047074 *
-environmentisland                    -1.1724     0.3278  -3.577 0.000347 ***
-dependencypronoun:environmentlong     0.6468     0.3647   1.774 0.076141 .
-dependencypronoun:environmentisland   1.3548     0.3482   3.891 9.99e-05 ***
+model4 <- read_rds('models/ajt_dozhen_acc_md4.rds')
+
+# 95.75 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                1.0859     0.2144   5.064 4.11e-07 ***
+# dependency2               -1.9536     0.4199  -4.652 3.29e-06 ***
+# environment2              -0.3666     0.2649  -1.384   0.1664    
+# environment3              -0.5057     0.2518  -2.008   0.0446 *  
+# dependency2:environment2   0.6642     0.3653   1.818   0.0690 .  
+# dependency2:environment3   1.3859     0.3474   3.989 6.63e-05 ***
 
 # compare models ...
 
-anova(model4, model3)
+anova(model4, model2)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   26 2041.0 2188.9 -994.49   1989.0
-model3   28 2033.6 2192.9 -988.81   1977.6 11.348  2   0.003434 **
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model4   26 2043.6 2191.5 -995.78   1991.6                     
+# model2   37 2051.3 2261.9 -988.68   1977.3 14.215 11     0.2213
+
+anova(model4, model1)
+
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model4   26 2043.6 2191.5 -995.78   1991.6                    
+# model1   48 2064.7 2337.8 -984.34   1968.7 22.89 22      0.408
 
 #------------------------------------------------------------------------------#
-# + + model 5 ----
+# + + model 5 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5272,31 +5798,33 @@ summary(model5)
 toc()
 beep()
 
-10.61 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.6426     0.3243   8.150 3.65e-16 ***
-dependencypronoun                    -2.5847     0.4707  -5.491 3.99e-08 ***
-environmentlong                      -0.6627     0.3243  -2.044 0.040996 *
-environmentisland                    -1.1517     0.2999  -3.840 0.000123 ***
-dependencypronoun:environmentlong     0.6225     0.3575   1.741 0.081626 .
-dependencypronoun:environmentisland   1.3521     0.3418   3.956 7.61e-05 ***
+model5 <- read_rds('models/ajt_dozhen_acc_md5.rds')
+
+# 10.61 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                1.0746     0.2113   5.086 3.66e-07 ***
+# dependency2               -1.9265     0.4133  -4.661 3.14e-06 ***
+# environment2              -0.3514     0.2442  -1.439   0.1501    
+# environment3              -0.4757     0.2214  -2.148   0.0317 *  
+# dependency2:environment2   0.6225     0.3575   1.741   0.0816 .  
+# dependency2:environment3   1.3521     0.3417   3.957 7.60e-05 ***
 
 # compare models ...
 
 anova(model5, model4)
 
-npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-model5   17 2028.1 2124.8 -997.04   1994.1
-model4   26 2041.0 2188.9 -994.49   1989.0 5.111  9     0.8245
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 2028.1 2124.8 -997.04   1994.1                     
+# model4   26 2043.6 2191.5 -995.78   1991.6 2.5195  9     0.9804
 
 anova(model3, model5)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model5   17 2028.1 2124.8 -997.04   1994.1
-model3   28 2033.6 2192.9 -988.81   1977.6 16.459 11     0.1249
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 2028.1 2124.8 -997.04   1994.1                     
+# model3   28 2034.3 2193.6 -989.15   1978.3 15.787 11     0.1492
 
 # check assumptions ...
 
@@ -5309,6 +5837,13 @@ model5 %>%
   emmeans(~ dependency * environment) %>%
   contrast('pairwise', by = 'environment') %>%
   summary(by = NULL, adjust = 'holm')
+
+# contrast      environment estimate    SE  df z.ratio p.value
+# gap - pronoun short           2.58 0.471 Inf   5.492  <.0001 ***
+# gap - pronoun long            1.96 0.460 Inf   4.263  <.0001 ***
+# gap - pronoun island          1.23 0.444 Inf   2.776  0.0055 **
+# Results are given on the log odds ratio (not the response) scale. 
+# P value adjustment: holm method for 3 tests 
 
 #------------------------------------------------------------------------------#
 # + + model 6 
@@ -5328,67 +5863,71 @@ summary(model6)
 toc()
 beep()
 
-1.76 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.2266     0.2237   9.952  < 2e-16 ***
-dependencypronoun                    -2.1412     0.2018 -10.613  < 2e-16 ***
-environmentlong                      -0.5828     0.2091  -2.786  0.00533 **
-environmentisland                    -0.9422     0.2043  -4.611 4.00e-06 ***
-dependencypronoun:environmentlong     0.5891     0.2691   2.189  0.02858 *
-dependencypronoun:environmentisland   1.0564     0.2654   3.980 6.89e-05 ***
+model6 <- read_rds('models/ajt_dozhen_acc_md6.rds')
+
+# 1.76 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                0.9219     0.1634   5.643 1.68e-08 ***
+# dependency2               -1.5927     0.1114 -14.298  < 2e-16 ***
+# environment2              -0.2882     0.1345  -2.142  0.03218 *  
+# environment3              -0.4140     0.1326  -3.122  0.00179 ** 
+# dependency2:environment2   0.5891     0.2691   2.189  0.02857 *  
+# dependency2:environment3   1.0564     0.2654   3.980 6.89e-05 ***
 
 # model comparison ...
 
 anova(model6, model5)
 
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model6    8 2334.2 2379.7 -1159.08   2318.2
-model5   17 2028.1 2124.8  -997.04   1994.1 324.08  9  < 2.2e-16 ***
+# npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)    
+# model6    8 2334.2 2379.7 -1159.08   2318.2                         
+# model5   17 2028.1 2124.8  -997.04   1994.1 324.08  9  < 2.2e-16 ***
 
 anova(model6, model4)
 
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model6    8 2334.2 2379.7 -1159.08   2318.2
-model4   26 2041.0 2188.9  -994.49   1989.0 329.19 18  < 2.2e-16 ***
+# npar    AIC    BIC   logLik deviance Chisq Df Pr(>Chisq)    
+# model6    8 2334.2 2379.7 -1159.08   2318.2                        
+# model4   26 2043.6 2191.5  -995.78   1991.6 326.6 18  < 2.2e-16 ***
 
 #------------------------------------------------------------------------------#
-# + + model 7 
+# + + model 5b
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model7 <- glmer(acceptance ~ dependency * environment + 
+model5b <- glmer(acceptance ~ dependency * environment + 
                   (1 + dependency + environment || participant) + 
                   (1 | item), 
                 data = md, family = binomial, 
                 control = glmerControl(optimizer = "bobyqa",
                                        optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md7.rds')
-summary(model7)
+  write_rds('models/ajt_dozhen_acc_md5b.rds')
+summary(model5b)
 toc()
 beep()
 
-13.83 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.6130     0.3159   8.272  < 2e-16 ***
-dependencypronoun                    -2.5573     0.4674  -5.472 4.46e-08 ***
-environmentlong                      -0.6053     0.3169  -1.910  0.05616 .
-environmentisland                    -1.1278     0.2932  -3.847  0.00012 ***
-dependencypronoun:environmentlong     0.5748     0.3532   1.627  0.10365
-dependencypronoun:environmentisland   1.3334     0.3364   3.964 7.38e-05 ***
+model5b <- read_rds('models/ajt_dozhen_acc_md5b.rds')
 
-anova(model7, model5)
+# 13.83 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                1.0747     0.2100   5.118 3.09e-07 ***
+# dependency2               -1.9212     0.4118  -4.666 3.07e-06 ***
+# environment2              -0.3179     0.2399  -1.325   0.1852    
+# environment3              -0.4611     0.2198  -2.098   0.0359 *  
+# dependency2:environment2   0.5748     0.3532   1.627   0.1037    
+# dependency2:environment3   1.3334     0.3364   3.964 7.38e-05 ***
 
-        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model7   17 2029.0 2125.8 -997.52   1995.0
-model5   17 2028.1 2124.8 -997.04   1994.1 0.9447  0
+anova(model5b, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5b   17 2029.0 2125.8 -997.52   1995.0                     
+# model5    17 2028.1 2124.8 -997.04   1994.1 0.9447  0 
 
 #------------------------------------------------------------------------------#
 # + dokoko ----
@@ -5398,7 +5937,7 @@ model5   17 2028.1 2124.8 -997.04   1994.1 0.9447  0
 
 # filter for analysis ...
 
-md <- md %>% 
+md <- temp %>% 
   filter(study == '210510_do', 
          group == 'korean',
          task == 'korean_ajt')
@@ -5436,27 +5975,9 @@ summary(model1)
 toc()
 beep()
 
-fails to converge
+model1 <- read_rds('models/ajt_dokoko_acc_md1.rds')
 
-#------------------------------------------------------------------------------#
-# + + model 2 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment || participant) + 
-                  (1 + dependency * environment || item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoko_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-fails to converge
+missing
 
 #------------------------------------------------------------------------------#
 # + + model 3 
@@ -5476,16 +5997,19 @@ summary(model3)
 toc()
 beep()
 
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           5.0245     0.6146   8.176 2.94e-16 ***
-  dependencypronoun                    -7.3361     0.7319 -10.024  < 2e-16 ***
-  environmentlong                      -4.0218     0.6541  -6.149 7.79e-10 ***
-  environmentisland                    -4.5681     0.6433  -7.101 1.24e-12 ***
-  dependencypronoun:environmentlong     4.9090     0.7377   6.654 2.84e-11 ***
-  dependencypronoun:environmentisland   6.9606     0.7172   9.705  < 2e-16 ***
+model3 <- read_rds('models/ajt_dokoko_acc_md3.rds')
+
+# 244.86 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                0.4714     0.2988   1.578 0.114574    
+# dependency2               -3.3795     0.3788  -8.922  < 2e-16 ***
+# environment2              -1.5673     0.4316  -3.631 0.000282 ***
+# environment3              -1.0878     0.4164  -2.613 0.008982 ** 
+# dependency2:environment2   4.9090     0.7378   6.653 2.86e-11 ***
+# dependency2:environment3   6.9606     0.7173   9.704  < 2e-16 ***
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -5503,8 +6027,16 @@ summary(model4)
 toc()
 beep()
 
-Model failed to converge with max|grad| = 0.0709582 (tol = 0.002, component 1)
-Model is nearly unidentifiable: very large eigenvalue
+# 243.84 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                0.8563     0.4827   1.774 0.076095 .  
+# dependency2               -4.5496     0.8412  -5.408 6.36e-08 ***
+# environment2              -2.4650     1.2164  -2.026 0.042724 *  
+# environment3              -2.1469     1.2013  -1.787 0.073909 .  
+# dependency2:environment2   8.4309     2.4190   3.485 0.000492 ***
+# dependency2:environment3  10.5262     2.3954   4.394 1.11e-05 ***
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -5522,22 +6054,7 @@ summary(model5)
 toc()
 beep()
 
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                            7.828      2.312   3.386 0.000709 ***
-  dependencypronoun                    -10.869      2.407  -4.516 6.31e-06 ***
-  environmentlong                       -6.681      2.343  -2.852 0.004347 **
-  environmentisland                     -7.410      2.321  -3.193 0.001408 **
-  dependencypronoun:environmentlong      8.431      2.423   3.479 0.000503 ***
-  dependencypronoun:environmentisland   10.527      2.400   4.386 1.15e-05 ***
-
-anova(model5, model3)
-
-       npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   26 1635.9 1781.7 -791.95   1583.9
-model5   38 1643.0 1856.0 -783.50   1567.0 16.907 12     0.1531
+# Model failed to converge: degenerate  Hessian with 5 negative eigenvalues
 
 #------------------------------------------------------------------------------#
 # + + model 6 ----
@@ -5550,20 +6067,21 @@ model6 <- glmer(acceptance ~ dependency * environment +
                 data = md, family = binomial, 
                 control = glmerControl(optimizer = "bobyqa",
                                        optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_doko_acc_md6.rds')
+  write_rds('models/ajt_dokoko_acc_md6.rds')
 summary(model6)
 toc()
 beep()
 
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           4.8973     0.5763   8.498  < 2e-16 ***
-  dependencypronoun                    -7.1777     0.6847 -10.482  < 2e-16 ***
-  environmentlong                      -3.9038     0.6071  -6.431 1.27e-10 ***
-  environmentisland                    -4.4488     0.6042  -7.363 1.80e-13 ***
-  dependencypronoun:environmentlong     4.8642     0.6993   6.956 3.51e-12 ***
-  dependencypronoun:environmentisland   6.7890     0.6824   9.948  < 2e-16 ***
+# 14.12 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                0.4665     0.2932   1.591 0.111634    
+# dependency2               -3.2932     0.3425  -9.614  < 2e-16 ***
+# environment2              -1.4717     0.3928  -3.746 0.000179 ***
+# environment3              -1.0543     0.3875  -2.721 0.006517 ** 
+# dependency2:environment2   4.8643     0.6997   6.952 3.59e-12 ***
+# dependency2:environment3   6.7890     0.6828   9.944  < 2e-16 ***
 
 anova(model6, model3)
 
@@ -5582,6 +6100,13 @@ model6 %>%
   emmeans(~ dependency * environment) %>%
   contrast('pairwise', by = 'environment') %>%
   summary(by = NULL, adjust = 'holm')
+
+# contrast      environment estimate    SE  df z.ratio p.value
+# gap - pronoun short          7.178 0.685 Inf  10.477  <.0001 ***
+# gap - pronoun long           2.313 0.377 Inf   6.141  <.0001 ***
+# gap - pronoun island         0.389 0.325 Inf   1.196  0.2316
+# Results are given on the log odds ratio (not the response) scale. 
+# P value adjustment: holm method for 3 tests
 
 #------------------------------------------------------------------------------#
 # + dozhzh ----
@@ -5631,17 +6156,17 @@ beep()
 
 model1 <- read_rds('models/ajt_dozhzh_acc_md1.rds')
 
-485.11 sec elapsed (8 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           0.9123     0.3970   2.298 0.021548 *
-dependencypronoun                    -2.3960     0.4079  -5.875 4.24e-09 ***
-environmentlong                      -0.3938     0.3776  -1.043 0.297026
-environmentisland                    -2.1612     0.3792  -5.699 1.20e-08 ***
-dependencypronoun:environmentlong     1.5354     0.4195   3.660 0.000252 ***
-dependencypronoun:environmentisland   2.6886     0.4683   5.741 9.40e-09 ***
+# 1290.69 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.4334     0.2915  -1.487 0.137078    
+# dependency2               -0.9881     0.2287  -4.321 1.55e-05 ***
+# environment2               0.3739     0.3124   1.197 0.231264    
+# environment3              -0.8169     0.2987  -2.735 0.006243 ** 
+# dependency2:environment2   1.5354     0.4195   3.660 0.000252 ***
+# dependency2:environment3   2.6887     0.4684   5.740 9.44e-09 ***
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -5661,20 +6186,30 @@ summary(model2)
 toc()
 beep()
 
-160.57 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           0.8742     0.3682   2.374   0.0176 *
-dependencypronoun                    -2.3727     0.3887  -6.103 1.04e-09 ***
-environmentlong                      -0.3600     0.3378  -1.066   0.2866
-environmentisland                    -2.1006     0.3621  -5.801 6.61e-09 ***
-dependencypronoun:environmentlong     1.5288     0.3906   3.915 9.06e-05 ***
-dependencypronoun:environmentisland   2.6534     0.4568   5.809 6.28e-09 ***
+model2 <- read_rds('models/ajt_dozhzh_acc_md2.rds')
+
+# 688.68 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.4353     0.2884  -1.509  0.13123    
+# dependency2               -0.9786     0.2226  -4.395 1.11e-05 ***
+# environment2               0.4045     0.3061   1.321  0.18636    
+# environment3              -0.7740     0.2862  -2.705  0.00684 ** 
+# dependency2:environment2   1.5288     0.3906   3.914 9.07e-05 ***
+# dependency2:environment3   2.6534     0.4568   5.809 6.30e-09 ***
+
+# compare models ...
+
+anova(model1, model2)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   37 2217.6 2429.1 -1071.8   2143.6                     
+# model1   48 2235.2 2509.6 -1069.6   2139.2 4.3718 11     0.9578
 
 #------------------------------------------------------------------------------#
-# + + model 3 ----
+# + + model 3 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5691,25 +6226,27 @@ summary(model3)
 toc()
 beep()
 
-65.69 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           0.8427     0.3499   2.408 0.016026 *
-dependencypronoun                    -2.0930     0.2874  -7.283 3.26e-13 ***
-environmentlong                      -0.3218     0.3216  -1.000 0.317107
-environmentisland                    -2.0913     0.3280  -6.376 1.82e-10 ***
-dependencypronoun:environmentlong     1.2474     0.3246   3.842 0.000122 ***
-dependencypronoun:environmentisland   2.3292     0.3367   6.917 4.61e-12 ***
+model3 <- read_rds('models/ajt_dozhzh_acc_md3.rds')
+
+# 257.71 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.4120     0.2806  -1.468 0.142034    
+# dependency2               -0.9008     0.2056  -4.381 1.18e-05 ***
+# environment2               0.3019     0.2790   1.082 0.279210    
+# environment3              -0.9267     0.2739  -3.383 0.000716 ***
+# dependency2:environment2   1.2474     0.3246   3.842 0.000122 ***
+# dependency2:environment3   2.3292     0.3367   6.917 4.60e-12 ***
 
 # compare models ...
 
 anova(model2, model3)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   26 2212.5 2361.2 -1080.3   2160.5
-model2   37 2217.6 2429.1 -1071.8   2143.6 16.977 11     0.1086
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model3   26 2212.5 2361.2 -1080.3   2160.5
+# model2   37 2217.6 2429.1 -1071.8   2143.6 16.977 11     0.1086
 
 # pairwise comparisons ...
 
@@ -5717,6 +6254,11 @@ model3 %>%
   emmeans(~ dependency * environment) %>%
   contrast('pairwise', by = 'environment') %>%
   summary(by = NULL, adjust = 'holm')
+
+# contrast      environment estimate    SE  df z.ratio p.value
+# gap - pronoun short          2.093 0.287 Inf   7.283  <.0001 ***
+# gap - pronoun long           0.846 0.269 Inf   3.144  0.0033 **
+# gap - pronoun island        -0.236 0.281 Inf  -0.840  0.4009
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -5736,31 +6278,33 @@ summary(model4)
 toc()
 beep()
 
-47.97 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           0.7610     0.3025   2.516 0.011877 *
-dependencypronoun                    -2.1619     0.3529  -6.126 9.01e-10 ***
-environmentlong                      -0.2504     0.2918  -0.858 0.390881
-environmentisland                    -1.9807     0.3382  -5.856 4.74e-09 ***
-dependencypronoun:environmentlong     1.2775     0.3650   3.500 0.000466 ***
-dependencypronoun:environmentisland   2.4263     0.4300   5.642 1.68e-08 ***
+model4 <- read_rds('models/ajt_dozhzh_acc_md4.rds')
+
+# 112.33 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.4463     0.2821  -1.582 0.113596    
+# dependency2               -0.9273     0.2128  -4.357 1.32e-05 ***
+# environment2               0.3884     0.2529   1.536 0.124589    
+# environment3              -0.7676     0.2656  -2.890 0.003852 ** 
+# dependency2:environment2   1.2775     0.3650   3.500 0.000466 ***
+# dependency2:environment3   2.4263     0.4300   5.643 1.68e-08 ***
 
 # compare models ...
 
 anova(model1, model4)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   28 2218.5 2378.5 -1081.2   2162.5
-model1   48 2235.2 2509.6 -1069.6   2139.2 23.295 20     0.2745
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model4   28 2218.5 2378.5 -1081.2   2162.5
+# model1   48 2235.2 2509.6 -1069.6   2139.2 23.295 20     0.2745
 
 anova(model3, model4)
 
-npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-model3   26 2212.5 2361.2 -1080.3   2160.5
-model4   28 2218.5 2378.5 -1081.2   2162.5     0  2          1
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model3   26 2212.5 2361.2 -1080.3   2160.5
+# model4   28 2218.5 2378.5 -1081.2   2162.5     0  2          1
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -5780,36 +6324,38 @@ summary(model5)
 toc()
 beep()
 
-14.41 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           0.7564     0.2973   2.544 0.010957 *
-dependencypronoun                    -1.9384     0.2687  -7.215 5.41e-13 ***
-environmentlong                      -0.2510     0.2757  -0.910 0.362651
-environmentisland                    -2.0060     0.3135  -6.399 1.57e-10 ***
-dependencypronoun:environmentlong     1.0653     0.3120   3.415 0.000638 ***
-dependencypronoun:environmentisland   2.1691     0.3225   6.726 1.75e-11 ***
+model5 <- read_rds('models/ajt_dozhzh_acc_md5.rds')
+
+# 24.87 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.4260     0.2763  -1.542 0.123156    
+# dependency2               -0.8603     0.1979  -4.346 1.39e-05 ***
+# environment2               0.2817     0.2302   1.224 0.221136    
+# environment3              -0.9214     0.2626  -3.509 0.000450 ***
+# dependency2:environment2   1.0653     0.3119   3.415 0.000638 ***
+# dependency2:environment3   2.1691     0.3225   6.726 1.74e-11 ***
 
 # compare models ...
 
 anova(model1, model5)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model5   17 2212.6 2309.7 -1089.3   2178.6
-model1   48 2235.2 2509.6 -1069.6   2139.2 39.356 31     0.1442
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 2212.6 2309.7 -1089.3   2178.6
+# model1   48 2235.2 2509.6 -1069.6   2139.2 39.356 31     0.1442
 
 anova(model4, model5)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model5   17 2212.6 2309.7 -1089.3   2178.6
-model4   28 2218.5 2378.5 -1081.2   2162.5 16.061 11     0.1389
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 2212.6 2309.7 -1089.3   2178.6
+# model4   28 2218.5 2378.5 -1081.2   2162.5 16.061 11     0.1389
 
 anova(model3, model5)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model5   17 2212.6 2309.7 -1089.3   2178.6
-model3   26 2212.5 2361.2 -1080.3   2160.5 18.008  9    0.03509 *
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 2212.6 2309.7 -1089.3   2178.6
+# model3   26 2212.5 2361.2 -1080.3   2160.5 18.008  9    0.03509 *
 
 #------------------------------------------------------------------------------#
 # + + model 6
@@ -5829,30 +6375,38 @@ summary(model6)
 toc()
 beep()
 
-1.6 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           0.6746     0.2655   2.540   0.0111 *
-dependencypronoun                    -1.8251     0.1961  -9.305  < 2e-16 ***
-environmentlong                      -0.2614     0.1859  -1.406   0.1597
-environmentisland                    -1.5593     0.1932  -8.070 7.04e-16 ***
-dependencypronoun:environmentlong     1.1340     0.2662   4.260 2.05e-05 ***
-dependencypronoun:environmentisland   1.9809     0.2732   7.252 4.12e-13 ***
+model6 <- read_rds('models/ajt_dozhzh_acc_md6.rds')
+
+# 1.72 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.3257     0.2365  -1.377   0.1684    
+# dependency2               -0.7868     0.1101  -7.146 8.92e-13 ***
+# environment2               0.3056     0.1340   2.280   0.0226 *  
+# environment3              -0.5689     0.1363  -4.175 2.98e-05 ***
+# dependency2:environment2   1.1340     0.2662   4.260 2.05e-05 ***
+# dependency2:environment3   1.9809     0.2732   7.252 4.12e-13 ***
 
 # compare models ...
 
 anova(model1, model6)
 
-npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-model6    8 2293.8 2339.5 -1138.9   2277.8
-model1   48 2235.2 2509.6 -1069.6   2139.2 138.6 40  8.481e-13 ***
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model6    8 2293.8 2339.5 -1138.9   2277.8
+# model1   48 2235.2 2509.6 -1069.6   2139.2 138.6 40  8.481e-13 ***
 
 anova(model5, model6)
 
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model6    8 2293.8 2339.5 -1138.9   2277.8
-model5   17 2212.6 2309.7 -1089.3   2178.6 99.243  9  < 2.2e-16 ***
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model6    8 2293.8 2339.5 -1138.9   2277.8
+# model5   17 2212.6 2309.7 -1089.3   2178.6 99.243  9  < 2.2e-16 ***
+
+anova(model3, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
+# model6    8 2293.8 2339.5 -1138.9   2277.8                         
+# model3   26 2212.5 2361.2 -1080.3   2160.5 117.25 18  < 2.2e-16 ***
 
 #------------------------------------------------------------------------------#
 # + suenen ----
@@ -5883,7 +6437,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1 ----
+# + + model 1 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5902,17 +6456,17 @@ beep()
 
 model1 <- read_rds('models/ajt_suenen_acc_md1.rds')
 
-6983.77 sec elapsed (116 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                          17.616890   0.002214    7957   <2e-16 ***
-dependencypronoun                   -24.162444   0.002335  -10350   <2e-16 ***
-environmentlong                     -12.782311   0.002392   -5343   <2e-16 ***
-environmentisland                   -34.776498   0.002335  -14896   <2e-16 ***
-dependencypronoun:environmentlong    15.395926   0.002293    6715   <2e-16 ***
-dependencypronoun:environmentisland  38.085710   0.002335   16314   <2e-16 ***
+# 29465.95 sec elapsed (8 hours)
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          17.616890   0.002214    7957   <2e-16 ***
+# dependencypronoun                   -24.162444   0.002335  -10350   <2e-16 ***
+# environmentlong                     -12.782311   0.002392   -5343   <2e-16 ***
+# environmentisland                   -34.776498   0.002335  -14896   <2e-16 ***
+# dependencypronoun:environmentlong    15.395926   0.002293    6715   <2e-16 ***
+# dependencypronoun:environmentisland  38.085710   0.002335   16314   <2e-16 ***
 
 # pairwise comparisons ...
 
@@ -5921,25 +6475,10 @@ model1 %>%
   contrast('pairwise', by = 'environment') %>%
   summary(by = NULL, adjust = 'holm')
 
-#------------------------------------------------------------------------------#
-# + + model 1b
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1b <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment || participant) + 
-                  (1 + dependency * environment || item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suenen_acc_md1b.rds')
-summary(model1b)
-toc()
-beep()
-
-# run later
+# contrast      environment estimate        SE  df   z.ratio p.value
+# gap - pronoun short        24.1624 0.0023346 Inf 10349.850  <.0001
+# gap - pronoun long          8.7665 0.0032720 Inf  2679.232  <.0001
+# gap - pronoun island      -13.9233 0.0033015 Inf -4217.253  <.0001
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -6004,25 +6543,27 @@ summary(model3)
 toc()
 beep()
 
-175.41 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           6.8722     1.0619   6.471 9.72e-11 ***
-dependencypronoun                   -11.4609     1.3806  -8.302  < 2e-16 ***
-environmentlong                      -3.1995     0.9523  -3.360 0.000781 ***
-environmentisland                   -12.2373     1.5048  -8.132 4.22e-16 ***
-dependencypronoun:environmentlong     4.1445     1.4662   2.827 0.004701 **
-dependencypronoun:environmentisland  13.8977     1.7049   8.151 3.59e-16 ***
+model3 <- read_rds('models/ajt_suenen_acc_md3.rds')
+
+# 128.85 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.9966     0.4037  -2.469  0.01355 *  
+# dependency2               -5.4468     0.5792  -9.405  < 2e-16 ***
+# environment2              -1.1272     0.5137  -2.194  0.02820 *  
+# environment3              -5.2881     0.8619  -6.135  8.5e-10 ***
+# dependency2:environment2   4.1446     1.4652   2.829  0.00467 ** 
+# dependency2:environment3  13.8977     1.7035   8.158  3.4e-16 ***
 
 # compare models ...
 
 anova(model1, model3)
 
-npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   26 819.65  962.71 -383.83   767.65
-model1   48 804.68 1068.79 -354.34   708.68 58.971 22  3.169e-05 ***
+# npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)    
+# model3   26 819.65  962.71 -383.83   767.65                         
+# model1   48 804.68 1068.79 -354.34   708.68 58.972 22  3.168e-05 ***
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -6042,11 +6583,11 @@ summary(model4)
 toc()
 beep()
 
-148.22 sec elapsed
-Model failed to converge: degenerate  Hessian with 3 negative eigenvalues
+# 118.24 sec elapsed
+# Model failed to converge with max|grad| = 0.0424997 (tol = 0.002, component 1)
 
 #------------------------------------------------------------------------------#
-# + + model 5
+# + + model 5 (maybe?)
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -6063,26 +6604,33 @@ summary(model5)
 toc()
 beep()
 
-8.43 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                          6.604e+00  7.311e-04    9032   <2e-16 ***
-dependencypronoun                   -1.109e+01  7.311e-04  -15174   <2e-16 ***
-environmentlong                     -3.019e+00  7.311e-04   -4129   <2e-16 ***
-environmentisland                   -1.200e+01  7.312e-04  -16413   <2e-16 ***
-dependencypronoun:environmentlong    4.271e+00  7.311e-04    5842   <2e-16 ***
-dependencypronoun:environmentisland  1.345e+01  7.311e-04   18396   <2e-16 ***
+model5 <- read_rds('models/ajt_suenen_acc_md5.rds')
+
+# 50.84 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.9332     0.3992  -2.338 0.019400 *  
+# dependency2               -5.3905     0.5562  -9.691  < 2e-16 ***
+# environment2              -0.9651     0.4726  -2.042 0.041145 *  
+# environment3              -5.2713     0.8109  -6.500 8.01e-11 ***
+# dependency2:environment2   5.1344     1.4094   3.643 0.000269 ***
+# dependency2:environment3  14.2322     1.6855   8.444  < 2e-16 ***
 
 # compare models ...
 
 anova(model1, model5)
 
-npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model5   17 806.39  899.92 -386.19   772.39
-model1   48 804.68 1068.79 -354.34   708.68 63.703 31  0.0004831 ***
+# npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)    
+# model5   17 805.80  899.34 -385.90   771.80                         
+# model1   48 804.68 1068.79 -354.34   708.68 63.119 31  0.0005698 ***
 
+anova(model3, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   17 805.80 899.34 -385.90   771.80                     
+# model3   26 819.65 962.71 -383.83   767.65 4.1477  9     0.9014
+  
 #------------------------------------------------------------------------------#
 # + + model 6
 #------------------------------------------------------------------------------#
@@ -6101,24 +6649,32 @@ summary(model6)
 toc()
 beep()
 
-1.83 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           6.0560     0.6974   8.684  < 2e-16 ***
-dependencypronoun                   -10.2228     0.7826 -13.063  < 2e-16 ***
-environmentlong                      -2.7761     0.6444  -4.308 1.65e-05 ***
-environmentisland                    -9.9656     0.7682 -12.973  < 2e-16 ***
-dependencypronoun:environmentlong     3.4680     0.7511   4.617 3.89e-06 ***
-dependencypronoun:environmentisland  12.1821     0.8888  13.707  < 2e-16 ***
+model6 <- read_rds('models/ajt_suenen_acc_md6.rds')
+
+# 2.03 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)               -0.6943     0.3028  -2.293  0.02187 *  
+# dependency2               -5.0061     0.3465 -14.447  < 2e-16 ***
+# environment2              -1.0421     0.3740  -2.786  0.00533 ** 
+# environment3              -3.8746     0.4045  -9.579  < 2e-16 ***
+# dependency2:environment2   3.4680     0.7511   4.617 3.89e-06 ***
+# dependency2:environment3  12.1821     0.8887  13.707  < 2e-16 ***
 
 # compare models ...
 
-anova(model1, model6)
+anova(model5, model6)
 
-npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model6    8 819.54  863.55 -401.77   803.54
-model1   48 804.68 1068.79 -354.34   708.68 94.855 40  2.372e-06 ***
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
+# model6    8 819.54 863.55 -401.77   803.54                         
+# model5   17 805.80 899.34 -385.90   771.80 31.735  9  0.0002212 ***
+
+anova(model3, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)   
+# model6    8 819.54 863.55 -401.77   803.54                        
+# model3   26 819.65 962.71 -383.83   767.65 35.883 18   0.007304 **
 
 #------------------------------------------------------------------------------#
 # + sukoen ----
@@ -6179,24 +6735,6 @@ environmentlong                       -6.985      2.463  -2.836 0.004570 **
 environmentisland                    -10.189      2.494  -4.085 4.40e-05 ***
 dependencypronoun:environmentlong      9.287      2.597   3.576 0.000348 ***
 dependencypronoun:environmentisland   14.150      2.667   5.306 1.12e-07 ***
-
-#------------------------------------------------------------------------------#
-# + + model 1b
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1b <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment || participant) + 
-                  (1 + dependency * environment || item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoen_acc_md1b.rds')
-summary(model1b)
-toc()
-beep()
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -6977,400 +7515,6 @@ anova(model1, model6)
 npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
 model6    8 2250.7 2296.1 -1117.35   2234.7
 model1   48 2057.8 2330.4  -980.92   1961.8 272.87 40  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# modeling - glmer - critical ----
-#------------------------------------------------------------------------------#
-
-# prep data
-
-md <- crit %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'),
-         dependency = as.factor(dependency)) %>%
-  mutate(acceptance = case_when(response > 3.5 ~ TRUE,
-                                response < 3.5 ~ FALSE)) %>%
-  filter(study == '210510_do', 
-         group == 'korean',
-         task == 'korean_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# view contrasts
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-class(md$dependency)
-class(md$environment)
-
-# model 1 (maximal model)
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                (1 + dependency * environment | participant) + 
-                (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6)))
-summary(model1)
-toc()
-beep(1)
-
-# doen-ejt (old)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           4.4571     0.6719   6.634 3.27e-11 ***
-# dependencypronoun                    -7.6782     0.8221  -9.340  < 2e-16 ***
-# environmentlong                      -0.5082     0.9037  -0.562    0.574    
-# environmentisland                    -4.8227     0.7766  -6.210 5.31e-10 ***
-# environmentlong:dependencypronoun     0.3287     1.0535   0.312    0.755    
-# environmentisland:dependencypronoun   5.2213     0.9500   5.496 3.88e-08 ***
-saveRDS(model1, file = 'models/ajt_doen_acc_md1.rds') 
-saveRDS(model1, file = 'models/ajt_doen_acc_maxfun_md1.rds') 
-
-model1 <- readRDS('models/ajt_doen_acc_md1.rds') 
-summary(model1)
-
-# doko-ejt
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           2.9764     0.6280   4.739 2.15e-06 ***
-#   dependencypronoun                    -4.9261     0.9046  -5.446 5.16e-08 ***
-#   environmentlong                      -1.3425     0.5440  -2.468   0.0136 *  
-#   environmentisland                    -1.6203     0.6397  -2.533   0.0113 *  
-#   environmentlong:dependencypronoun     1.6596     0.7399   2.243   0.0249 *  
-#   environmentisland:dependencypronoun   3.7220     0.8014   4.645 3.41e-06 ***
-
-# doko-kjt
-# Model failed to converge: degenerate  Hessian with 11 negative eigenvalues
-# (see below for results from simplified model)
-
-# dozh-ejt
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           3.1582     0.5517   5.725 1.04e-08 ***
-#   dependencypronoun                    -3.0913     0.7052  -4.383 1.17e-05 ***
-#   environmentlong                      -1.1486     0.5834  -1.969   0.0490 *  
-#   environmentisland                    -1.3680     0.6388  -2.141   0.0322 *  
-#   environmentlong:dependencypronoun     1.1183     0.6163   1.814   0.0696 .  
-# environmentisland:dependencypronoun   1.5071     0.6879   2.191   0.0285 * 
-
-# dozh-zjt
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           0.9123     0.3970   2.298 0.021557 *  
-#   dependencypronoun                    -2.3961     0.4080  -5.873 4.28e-09 ***
-#   environmentlong                      -0.3938     0.3776  -1.043 0.297049    
-# environmentisland                    -2.1612     0.3792  -5.699 1.21e-08 ***
-#   environmentlong:dependencypronoun     1.5354     0.4196   3.660 0.000253 ***
-#   environmentisland:dependencypronoun   2.6887     0.4684   5.740 9.47e-09 ***
-
-# model 2 (simplified model for when the maximal model does not converge)
-
-tic()
-model2 <- glmer(acceptance ~ environment * dependency + 
-                  (1 + environment + dependency | participant) + 
-                  (1 + environment + dependency | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6)))
-summary(model2)
-toc()
-beep(1)
-
-# dozh-ejt (kjt???)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           5.0245     0.6145   8.177 2.92e-16 ***
-# dependencypronoun                    -7.3361     0.7318 -10.025  < 2e-16 ***
-# environmentlong                      -4.0218     0.6540  -6.150 7.76e-10 ***
-# environmentisland                    -4.5681     0.6432  -7.102 1.23e-12 ***
-# environmentlong:dependencypronoun     4.9090     0.7376   6.655 2.83e-11 ***
-# environmentisland:dependencypronoun   6.9606     0.7171   9.706  < 2e-16 ***
-
-# dozh-zjt
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                           0.8427     0.3499   2.408 0.016025 *  
-#   dependencypronoun                    -2.0930     0.2874  -7.283 3.26e-13 ***
-#   environmentlong                      -0.3218     0.3216  -1.000 0.317101    
-# environmentisland                    -2.0913     0.3280  -6.376 1.81e-10 ***
-#   environmentlong:dependencypronoun     1.2474     0.3246   3.842 0.000122 ***
-#   environmentisland:dependencypronoun   2.3292     0.3367   6.917 4.60e-12 ***
-
-# post-hoc tests: pairwise comparisons of estimated marginal means
-
-pairs(emmeans(model1, "dependency", by = "environment"))
-
-model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-beep(1)
-
-# doen-ejt
-# environment = short:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     7.68 0.822 Inf   9.340  <.0001 ***
-# environment = long:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     7.35 0.804 Inf   9.136  <.0001 ***
-# environment = island:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     2.46 0.609 Inf   4.034  0.0001 ***
-# Results are given on the log odds ratio (not the response) scale.
-# --------------------------------------------------------------------- #
-# doen-ejt (new on 220608)
-# contrast      environment estimate         SE  df   z.ratio p.value
-# gap - pronoun short         7.5144 0.00068940 Inf 10900.016  <.0001
-# gap - pronoun long          7.2759 0.00097497 Inf  7462.756  <.0001
-# gap - pronoun island        2.3419 0.00097495 Inf  2402.098  <.0001
-# Results are given on the log odds ratio (not the response) scale. 
-# P value adjustment: holm method for 3 tests 
-
-# doko-ejt
-# environment = short:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     4.93 0.905 Inf   5.446  <.0001 ***
-# environment = long:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     3.27 0.817 Inf   3.999  0.0001 ***
-# environment = island:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     1.20 0.704 Inf   1.711  0.0871 .
-# Results are given on the log odds ratio (not the response) scale. 
-
-# doko-kjt
-# (see below)
-
-# dozh-ejt
-# environment = short:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     3.09 0.705 Inf   4.383  <.0001 ***
-# environment = long:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     1.97 0.473 Inf   4.170  <.0001 ***
-# environment = island:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun     1.58 0.505 Inf   3.139  0.0017 **
-# Results are given on the log odds ratio (not the response) scale. 
-
-# dozh-zjt
-# environment = short:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun    2.396 0.408 Inf   5.873  <.0001 ***
-# environment = long:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun    0.861 0.289 Inf   2.975  0.0029 **
-# environment = island:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun   -0.293 0.301 Inf  -0.971  0.3317
-# Results are given on the log odds ratio (not the response) scale. 
-
-pairs(emmeans(model2, "dependency", by = "environment"))
-
-# doko-kjt
-# environment = short:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun    7.336 0.732 Inf  10.025  <.0001
-# environment = long:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun    2.427 0.415 Inf   5.851  <.0001
-# environment = island:
-#   contrast      estimate    SE  df z.ratio p.value
-# gap - pronoun    0.375 0.355 Inf   1.056  0.2908
-# Results are given on the log odds ratio (not the response) scale. 
-
-anova(model1, model2)
-
-# dozh-ejt
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)  
-# model2   26 1635.9 1781.7 -791.95   1583.9                       
-# model1   48 1648.1 1917.2 -776.04   1552.1 31.828 22    0.08037 .
-
-# dozh-zjt
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model2   26 2212.5 2361.2 -1080.3   2160.5                     
-# model1   48 2235.2 2509.6 -1069.6   2139.2 21.349 22     0.4993
-
-#------------------------------------------------------------------------------#
-# modeling - old ----
-#------------------------------------------------------------------------------#
-
-md <- crit %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
-  filter(group == 'english',
-         task == 'English AJT')
-
-# check distribution
-hist(md$zscore)
-qqnorm(md$zscore)
-
-# view contrasts
-contrasts(md$dependency)
-contrasts(md$environment)
-
-# full model
-model1 <- lmer(zscore ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), data = md)
-summary(model1)
-# singular fit
-# Fixed effects:
-# Estimate Std. Error         df t value Pr(>|t|)    
-# (Intercept)                            0.85068    0.02250 1011.82261  37.810  < 2e-16 ***
-# environmentlong                       -0.22160    0.04713   66.60669  -4.701 1.34e-05 ***
-# environmentisland                     -1.20600    0.08514   71.86721 -14.165  < 2e-16 ***
-# dependencypronoun                     -1.85627    0.04332   81.98937 -42.847  < 2e-16 ***
-# environmentlong:dependencypronoun      0.21812    0.05586   63.35406   3.904 0.000232 ***
-# environmentisland:dependencypronoun    1.42418    0.08093   65.39559  17.598  < 2e-16 ***
-
-# *** 210324 korean group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                          0.40649    0.08384 33.57062   4.848 2.78e-05 ***
-#   environmentlong                     -0.41398    0.11255 35.26985  -3.678 0.000777 ***
-#   environmentisland                   -0.71794    0.14137 31.91241  -5.079 1.59e-05 ***
-#   dependencypronoun                   -1.15057    0.15695 33.77773  -7.331 1.78e-08 ***
-#   environmentlong:dependencypronoun    0.54750    0.14980 31.13529   3.655 0.000939 ***
-#   environmentisland:dependencypronoun  1.20599    0.19221 33.18410   6.274 4.21e-07 ***
-
-# *** 210324 korean group on korean ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)    
-# (Intercept)                           0.78158    0.04757 683.62113  16.429  < 2e-16 ***
-#   environmentlong                      -0.73922    0.10210  50.10363  -7.240 2.50e-09 ***
-#   environmentisland                    -0.95340    0.11390  47.27339  -8.371 6.85e-11 ***
-#   dependencypronoun                    -1.59611    0.10628  44.15165 -15.018  < 2e-16 ***
-#   environmentlong:dependencypronoun     0.95378    0.13556  36.31382   7.036 2.81e-08 ***
-#   environmentisland:dependencypronoun   1.41796    0.17055  33.73098   8.314 1.12e-09 ***
-
-# *** 210324 english group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                          0.81679    0.04537 76.36099  18.004  < 2e-16 ***
-#   environmentlong                     -0.38897    0.09243 34.47047  -4.208 0.000174 ***
-#   environmentisland                   -0.70165    0.10951 35.57941  -6.407  2.1e-07 ***
-#   dependencypronoun                   -1.57087    0.10410 35.61274 -15.091  < 2e-16 ***
-#   environmentlong:dependencypronoun    0.42729    0.12638 33.87896   3.381 0.001833 ** 
-#   environmentisland:dependencypronoun  1.03418    0.12815 32.98285   8.070  2.6e-09 ***
-
-pr <- md %>%
-  filter(dependency == 'pronoun')
-
-model2 <- lmer(zscore ~ environment + (environment|participant) + (environment|item), data = pr)
-summary(model2)
-# singular fit
-# Fixed effects:
-# Estimate Std. Error        df t value Pr(>|t|)    
-# (Intercept)       -1.005764   0.034279 61.894844 -29.341  < 2e-16 ***
-# environmentlong   -0.003251   0.039736 38.805748  -0.082  0.93522    
-# environmentisland  0.218585   0.071319 62.040170   3.065  0.00322 ** 
-
-# *** 210324 korean group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)       -0.75038    0.11977 33.15911  -6.265 4.34e-07 ***
-#   environmentlong    0.13993    0.09295 66.03889   1.505  0.13699    
-# environmentisland  0.49245    0.14510 32.53437   3.394  0.00183 ** 
-
-# *** 210324 korean group on korean ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)       -0.81317    0.09432 34.30109  -8.622 4.18e-10 ***
-#   environmentlong    0.21466    0.11562 32.00828   1.857  0.07260 .  
-# environmentisland  0.46118    0.12490 26.44362   3.692  0.00102 ** 
-
-# *** 210324 english group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)       -0.75358    0.07887 31.02200  -9.555 9.33e-11 ***
-#   environmentlong    0.03585    0.08212 32.05004   0.437 0.665390    
-# environmentisland  0.33151    0.07879 29.12423   4.208 0.000225 ***
-
-is <- md %>%
-  filter(environment == 'island')
-
-model3 <- lmer(zscore ~ dependency + (dependency|participant) + (dependency|item), data = is)
-summary(model3)
-# fit not singular
-# Fixed effects:
-# Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)       -0.35564    0.08157 62.00954  -4.360 4.99e-05 ***
-# dependencypronoun -0.43230    0.08137 60.91007  -5.313 1.61e-06 ***
-
-# *** 210324 korean group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)       -0.31180    0.11339 31.86501   -2.75  0.00974 **
-#   dependencypronoun  0.05158    0.17168 32.08280    0.30  0.76579  
-
-# *** 210324 korean group on korean ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)  
-# (Intercept)        -0.1739     0.1008 32.4518  -1.725   0.0941 .
-# dependencypronoun  -0.1876     0.1458 35.6735  -1.287   0.2065  
-
-# *** 210324 english group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)        0.11310    0.09792 33.29438   1.155 0.256325    
-# dependencypronoun -0.53471    0.12655 31.91697  -4.225 0.000186 ***
-
-ga <- md %>%
-  filter(dependency == 'gap')
-
-model4 <- lmer(zscore ~ environment + (environment|participant) + (environment|item), data = ga)
-summary(model4)
-# singular fit
-# Fixed effects:
-# Estimate Std. Error        df t value Pr(>|t|)    
-# (Intercept)         0.85077    0.02260 173.72905  37.638  < 2e-16 ***
-# environmentlong    -0.22409    0.05165  55.85300  -4.339 6.07e-05 ***
-# environmentisland  -1.20636    0.09229  63.43687 -13.072  < 2e-16 ***
-
-# *** 210324 korean group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)        0.40726    0.08185 31.44499   4.976 2.22e-05 ***
-#   environmentlong   -0.41249    0.11205 31.49271  -3.681 0.000864 ***
-#   environmentisland -0.71803    0.14122 31.97708  -5.084 1.56e-05 ***
-
-# *** 210324 korean group on korean ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)    
-# (Intercept)         0.78125    0.04083 332.20184  19.132  < 2e-16 ***
-#   environmentlong    -0.73820    0.10027  42.92572  -7.362 3.90e-09 ***
-#   environmentisland  -0.95627    0.11292  44.22831  -8.468 8.31e-11 ***
-
-# *** 210324 english group on english ajt ***
-# singular fit
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)        0.81646    0.03511 80.68459  23.252  < 2e-16 ***
-#   environmentlong   -0.39160    0.09151 33.97185  -4.279 0.000145 ***
-#   environmentisland -0.70217    0.10705 34.85836  -6.559 1.45e-07 ***
-
-# source on different coding schemes
-# https://marissabarlaz.github.io/portfolio/contrastcoding/
 
 #------------------------------------------------------------------------------#
 # interaction plots for fillers ----
