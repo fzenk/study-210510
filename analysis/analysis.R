@@ -5565,6 +5565,10 @@ pairwise %>%
 
 # suenen = SRC study (su) + ENS group (en) + English AJT (en)
 
+# load package ...
+
+library(ordinal)
+
 # filter for analysis ...
 
 md <- temp %>% 
@@ -5580,7 +5584,7 @@ check <- md %>%
 # convert response to factor
 
 md <- md %>%
-  mutate(response = as.factor(response, ordered = TRUE))
+  mutate(response = ordered(response))
 
 # apply deviation coding ...
 
@@ -5629,7 +5633,7 @@ check <- md %>%
 # convert response to factor
 
 md <- md %>%
-  mutate(response = as.factor(response, ordered = TRUE))
+  mutate(response = ordered(response))
 
 # apply deviation coding ...
 
@@ -5678,7 +5682,7 @@ check <- md %>%
 # convert response to factor
 
 md <- md %>%
-  mutate(response = as.factor(response, ordered = TRUE))
+  mutate(response = ordered(response))
 
 # apply deviation coding ...
 
@@ -5727,7 +5731,7 @@ check <- md %>%
 # convert response to factor
 
 md <- md %>%
-  mutate(response = as.factor(response, ordered = TRUE))
+  mutate(response = ordered(response))
 
 # apply deviation coding ...
 
@@ -5776,7 +5780,7 @@ check <- md %>%
 # convert response to factor
 
 md <- md %>%
-  mutate(response = as.factor(response, ordered = TRUE))
+  mutate(response = ordered(response))
 
 # apply deviation coding ...
 
