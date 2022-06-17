@@ -4402,6 +4402,45 @@ plot <- crit %>%
                                           'KLE on Korean AJT', 
                                           'MLE on Mandarin AJT')))
 
+p1 <- ggplot(data = filter(plot, study == '210510_do'), 
+             aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency))
+
+s <- list(
+  annotate("rect", 
+           xmin = 0, xmax = 4, 
+           ymin = 1+(5/3), 
+           ymax = 1+(5/3)+(5/3), 
+           alpha = .15),
+  geom_hline(yintercept = 3.5),
+  geom_line(lwd = 1),
+  geom_point(size = 2),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), 
+                width=.2, lwd=1, linetype=1),
+  theme_classic(),
+  scale_x_discrete(name='environment', 
+                   limits = c('short', 'long', 'island'), 
+                   labels = c('short', 'long', 'island')),
+  scale_y_continuous(name='rating', 
+                     limits=c(1, 6), breaks = c(1, 2, 3, 4, 5, 6)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'bottom',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~panel, ncol = 5)
+)
+
+p1 + s
+
+
+
+# facet_grid2(vars(panel), axes = 'all', remove_labels = 'y'
+
 # define data
 
 p1 <- ggplot(data=filter(plot, study == '210510_do', group == 'english' & task == 'english_ajt'), 
@@ -5612,6 +5651,71 @@ summary(model1)
 toc()
 beep()
 
+model1 <- read_rds('models/ajt_suenen_clmm_md1.rds')
+
+# 8168.43 sec elapsed
+# In summary.clmm(model1) :
+#   Variance-covariance matrix of the parameters is not defined
+
+#------------------------------------------------------------------------------#
+# + + model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suenen_clmm_md5.rds')
+summary(model5)
+toc()
+beep()
+
+# 217.5 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -4.5563     0.2853 -15.970  < 2e-16 ***
+# environment2              -1.0206     0.2024  -5.042 4.61e-07 ***
+# environment3              -3.9052     0.3437 -11.362  < 2e-16 ***
+# dependency2:environment2   2.9390     0.3850   7.635 2.27e-14 ***
+# dependency2:environment3  10.1142     0.4660  21.704  < 2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- clmm(response ~ dependency * environment + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suenen_clmm_md6.rds')
+summary(model6)
+toc()
+beep()
+
+# 12.73 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -4.0739     0.1621  -25.14  < 2e-16 ***
+# environment2              -1.0084     0.1573   -6.41 1.46e-10 ***
+# environment3              -3.4756     0.1798  -19.33  < 2e-16 ***
+# dependency2:environment2   3.0050     0.3170    9.48  < 2e-16 ***
+# dependency2:environment3   9.7638     0.3899   25.04  < 2e-16 ***
+
+# compare models ...
+
+anova(model5, model6)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
+# model6     12 3307.8 -1641.9                          
+# model5     21 3206.1 -1582.0  119.74  9  < 2.2e-16 ***
+  
 #------------------------------------------------------------------------------#
 # + sukoen ----
 #------------------------------------------------------------------------------#
