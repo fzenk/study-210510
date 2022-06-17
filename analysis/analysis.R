@@ -4789,7 +4789,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1
+# + + model 1 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5109,6 +5109,70 @@ beep()
 # dependency2:environment3   6.7497     0.5432  12.425  < 2e-16 ***
 
 #------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dokoen_clmm_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 263.66 sec elapsed
+# Error: optimizer nlminb failed to converge
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dokoen_clmm_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 91.1 sec elapsed
+# Error: optimizer nlminb failed to converge
+
+#------------------------------------------------------------------------------#
+# + + model 4 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dokoen_clmm_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# 422.53 sec elapsed
+# no warnings?
+# Coefficients:
+# Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -3.1573     0.6242  -5.058 4.23e-07 ***
+# environment2              -0.2709     0.1937  -1.399    0.162    
+# environment3               0.1804     0.2380   0.758    0.448    
+# dependency2:environment2   1.0374     0.2507   4.138 3.50e-05 ***
+# dependency2:environment3   2.4998     0.2597   9.625  < 2e-16 ***
+
+#------------------------------------------------------------------------------#
 # + + model 5
 #------------------------------------------------------------------------------#
 
@@ -5123,6 +5187,22 @@ model5 <- clmm(response ~ dependency * environment +
 summary(model5)
 toc()
 beep()
+
+# 256.72 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -3.1415     0.6184  -5.080 3.78e-07 ***
+# environment2              -0.2640     0.1872  -1.411    0.158    
+# environment3               0.1792     0.2351   0.762    0.446    
+# dependency2:environment2   1.0262     0.2489   4.123 3.73e-05 ***
+# dependency2:environment3   2.4868     0.2578   9.647  < 2e-16 ***
+
+# compare models ...
+
+anova(model4, model5)
+
+# model5     21 4750.9 -2354.4                      
+# model4     30 4767.3 -2353.7  1.5345  9     0.9969
 
 #------------------------------------------------------------------------------#
 # + + model 6
@@ -5149,6 +5229,14 @@ beep()
 # environment3              0.18816    0.10602   1.775  0.07593 .  
 # dependency2:environment2  0.68207    0.21317   3.200  0.00138 ** 
 # dependency2:environment3  1.61348    0.21335   7.563 3.95e-14 *** 
+
+# compare models ...
+
+anova(model5, model6)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
+# model6     12 5744.0 -2860.0                          
+# model5     21 4750.9 -2354.4  1011.2  9  < 2.2e-16 ***
 
 #------------------------------------------------------------------------------#
 # + dozhen ----
@@ -5184,7 +5272,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1
+# + + model 1 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5242,7 +5330,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1
+# + + model 1 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5300,7 +5388,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1
+# + + model 1 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5323,6 +5411,251 @@ beep()
 # environment3              -0.7796     0.2396  -3.254 0.001137 ** 
 # dependency2:environment2   1.1921     0.3198   3.728 0.000193 ***
 # dependency2:environment3   2.1916     0.3269   6.704 2.02e-11 ***
+
+#------------------------------------------------------------------------------#
+# + suenen ----
+#------------------------------------------------------------------------------#
+
+# suenen = SRC study (su) + ENS group (en) + English AJT (en)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_su', 
+         group == 'english',
+         task == 'english_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = as.factor(response, ordered = TRUE))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suenen_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
+# + sukoen ----
+#------------------------------------------------------------------------------#
+
+# sukoen = SRC study (su) + KLE group (ko) + English AJT (en)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_su', 
+         group == 'korean',
+         task == 'english_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = as.factor(response, ordered = TRUE))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_sukoen_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
+# + suzhen ----
+#------------------------------------------------------------------------------#
+
+# suzhen = SRC study (su) + MLE group (zh) + English AJT (en)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_su', 
+         group == 'mandarin',
+         task == 'english_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = as.factor(response, ordered = TRUE))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suzhen_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
+# + sukoko ----
+#------------------------------------------------------------------------------#
+
+# sukoko = SRC study (su) + KLE group (ko) + Korean AJT (ko)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_su', 
+         group == 'korean',
+         task == 'korean_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = as.factor(response, ordered = TRUE))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_sukoko_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
+# + suzhzh ----
+#------------------------------------------------------------------------------#
+
+# suzhzh = SRC study (su) + MLE group (zh) + Mandarin AJT (zh)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_su', 
+         group == 'mandarin',
+         task == 'mandarin_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = as.factor(response, ordered = TRUE))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suzhzh_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
 
 #------------------------------------------------------------------------------#
 # modeling - glmer - critical ----
