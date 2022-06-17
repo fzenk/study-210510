@@ -4776,7 +4776,7 @@ check <- md %>%
 # convert response to factor
 
 md <- md %>%
-  mutate(response = as.factor(response))
+  mutate(response = as.factor(response, ordered = TRUE))
 
 # apply deviation coding ...
 
@@ -4803,6 +4803,8 @@ model1 <- clmm(response ~ dependency * environment +
 summary(model1)
 toc()
 beep()
+
+model1 <- read_rds('models/ajt_doenen_clmm_md1.rds')
 
 # 7096.41 sec elapsed
 # no warnings?
@@ -4843,13 +4845,11 @@ tic()
 model2 <- clmm(response ~ dependency * environment + 
                  (1 + dependency * environment | participant) + 
                  (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
   write_rds('models/ajt_doenen_clmm_md2.rds')
 summary(model2)
 toc()
 beep()
-
-model1 <- read_rds('models/ajt_doenen_clmm_md2.rds')
 
 # 3963.31 sec elapsed
 # no warnings?
@@ -4886,7 +4886,7 @@ tic()
 model3 <- clmm(response ~ dependency * environment + 
                  (1 + dependency * environment | participant) + 
                  (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
   write_rds('models/ajt_doenen_clmm_md3.rds')
 summary(model3)
 toc()
@@ -4895,6 +4895,7 @@ beep()
 class(model3)
 
 # 807.76 sec elapsed (13 min)
+# no warnings?
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
 # dependency2               -5.7936     0.3702 -15.650  < 2e-16 ***
@@ -4946,14 +4947,14 @@ tic()
 model4 <- clmm(response ~ dependency * environment + 
                  (1 + dependency + environment | participant) + 
                  (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
   write_rds('models/ajt_doenen_clmm_md4.rds')
 summary(model4)
 toc()
 beep()
 
 # 952.84 sec elapsed
-# no warnings
+# no warnings?
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
 # dependency2               -5.4166     0.3405 -15.907  < 2e-16 ***
@@ -4978,7 +4979,7 @@ tic()
 model5 <- clmm(response ~ dependency * environment + 
                  (1 + dependency + environment | participant) + 
                  (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
   write_rds('models/ajt_doenen_clmm_md5.rds')
 summary(model5)
 toc()
@@ -5004,7 +5005,7 @@ tic()
 model6 <- clmm(response ~ dependency * environment + 
                   (1 | participant) + 
                   (1 | item), 
-               data = md) %>%
+               data = md, Hess = TRUE) %>%
   write_rds('models/ajt_doenen_clmm_md6.rds')
 summary(model6)
 toc()
@@ -5048,6 +5049,280 @@ model6 %>%
 # visualize ...
 
 emmip(model6, dependency ~ environment)
+
+#------------------------------------------------------------------------------#
+# + dokoen ----
+#------------------------------------------------------------------------------#
+
+# doenen = ORC study (do) + KLE group (ko) + English AJT (en)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_do', 
+         group == 'korean',
+         task == 'english_ajt')
+
+check <- md %>% 
+  group_by(study, group, task, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = ordered(response))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dokoen_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# Error: optimizer nlminb failed to converge
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -5.8542     0.3791 -15.443  < 2e-16 ***
+# environment2              -0.5718     0.2566  -2.229 0.025834 *  
+# environment3              -2.1130     0.3543  -5.963 2.47e-09 ***
+# dependency2:environment2   1.6434     0.4507   3.646 0.000266 ***
+# dependency2:environment3   6.7497     0.5432  12.425  < 2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dokoen_clmm_md5.rds')
+summary(model5)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
+# + + model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- clmm(response ~ dependency * environment + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dokoen_clmm_md6.rds')
+summary(model6)
+toc()
+beep()
+
+# 21.58 sec elapsed
+# no warnings?
+#   Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2              -1.61107    0.09002 -17.897  < 2e-16 ***
+# environment2             -0.10419    0.10652  -0.978  0.32797    
+# environment3              0.18816    0.10602   1.775  0.07593 .  
+# dependency2:environment2  0.68207    0.21317   3.200  0.00138 ** 
+# dependency2:environment3  1.61348    0.21335   7.563 3.95e-14 *** 
+
+#------------------------------------------------------------------------------#
+# + dozhen ----
+#------------------------------------------------------------------------------#
+
+# doenen = ORC study (do) + MLE group (zh) + English AJT (en)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_do', 
+         group == 'mandarin',
+         task == 'english_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = ordered(response))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dozhen_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 3857.24 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -2.2364     0.4093  -5.464 4.66e-08 ***
+# environment2              -0.4381     0.2507  -1.747 0.080600 .  
+# environment3              -0.5533     0.2351  -2.354 0.018593 *  
+# dependency2:environment2   0.7095     0.3366   2.108 0.035060 *  
+# dependency2:environment3   1.4366     0.3980   3.610 0.000306 ***
+
+#------------------------------------------------------------------------------#
+# + dokoko ----
+#------------------------------------------------------------------------------#
+
+# doenen = ORC study (do) + KLE group (ko) + Korean AJT (ko)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_do', 
+         group == 'korean',
+         task == 'korean_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = ordered(response))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dokoko_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 5593.59 sec elapsed (93 min)
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -3.4746     0.3705  -9.377  < 2e-16 ***
+# environment2              -0.8452     0.2924  -2.890  0.00385 ** 
+# environment3              -0.3697     0.3025  -1.222  0.22172    
+# dependency2:environment2   5.5128     0.5947   9.270  < 2e-16 ***
+# dependency2:environment3   6.9773     0.6469  10.785  < 2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + dozhzh ----
+#------------------------------------------------------------------------------#
+
+# doenen = ORC study (do) + MLE group (zh) + Mandarin AJT (zh)
+
+# filter for analysis ...
+
+md <- temp %>% 
+  filter(study == '210510_do', 
+         group == 'mandarin',
+         task == 'mandarin_ajt')
+
+check <- md %>% 
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = ordered(response))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + model 1
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
+  write_rds('models/ajt_dozhzh_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 3246.32 sec elapsed (54 min)
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -1.1400     0.2311  -4.934 8.05e-07 ***
+# environment2               0.1582     0.2162   0.732 0.464400    
+# environment3              -0.7796     0.2396  -3.254 0.001137 ** 
+# dependency2:environment2   1.1921     0.3198   3.728 0.000193 ***
+# dependency2:environment3   2.1916     0.3269   6.704 2.02e-11 ***
 
 #------------------------------------------------------------------------------#
 # modeling - glmer - critical ----
