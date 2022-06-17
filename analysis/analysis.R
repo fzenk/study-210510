@@ -4245,6 +4245,56 @@ check <- ajt %>%
   ungroup()
 
 #------------------------------------------------------------------------------#
+# check for yes-bias and no-bias participants ----
+#------------------------------------------------------------------------------#
+
+# summarise ...
+
+plot <- ajt %>%
+  group_by(study, group, participant) %>%
+  summarise(mean = mean(response, na.rm = TRUE)) %>%
+  ungroup()
+
+# check outliers ...
+
+outliers_list <- check_outliers(plot$mean)
+
+outliers <- plot[!outliers_list, ]
+
+outliers_list
+
+check_outliers(plot)
+
+# define data for plots
+
+p <- ggplot(data=plot, aes(x=group, y=mean))
+
+# generate plot
+
+s <- list(
+  geom_hline(yintercept=mean(mean)),
+  geom_violin(),
+  geom_boxplot(width = .1, fill='white'),
+  geom_jitter(shape = 1, size = 1, position = position_jitter(seed = 2, width = .2)),
+  theme_classic(),
+  scale_x_discrete(name="group", 
+                   limits = c('english', 'korean', 'mandarin'),
+                   labels = c('ENS', 'KLE', 'MLE')),
+  scale_y_continuous(name="mean rating", 
+                     limits=c(0, 6)),
+  theme(text = element_text(size = 12), 
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "hide"),
+  facet_wrap(~study)
+)
+
+# write and save ...
+
+p + s
+ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
+
+
+#------------------------------------------------------------------------------#
 # interaction plots - critical trials - z-scores ----
 #------------------------------------------------------------------------------#
 
@@ -4402,45 +4452,6 @@ plot <- crit %>%
                                           'KLE on Korean AJT', 
                                           'MLE on Mandarin AJT')))
 
-p1 <- ggplot(data = filter(plot, study == '210510_do'), 
-             aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency))
-
-s <- list(
-  annotate("rect", 
-           xmin = 0, xmax = 4, 
-           ymin = 1+(5/3), 
-           ymax = 1+(5/3)+(5/3), 
-           alpha = .15),
-  geom_hline(yintercept = 3.5),
-  geom_line(lwd = 1),
-  geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), 
-                width=.2, lwd=1, linetype=1),
-  theme_classic(),
-  scale_x_discrete(name='environment', 
-                   limits = c('short', 'long', 'island'), 
-                   labels = c('short', 'long', 'island')),
-  scale_y_continuous(name='rating', 
-                     limits=c(1, 6), breaks = c(1, 2, 3, 4, 5, 6)),
-  scale_colour_manual(name='dependency', 
-                      values=c('#648fff', '#ffb000'), 
-                      labels=c('gap', 'resumption')),
-  scale_shape_manual(name='dependency', 
-                     values=c(16, 15), 
-                     labels=c('gap', 'resumption')),
-  theme(text = element_text(size = 12),
-        legend.position = 'bottom',
-        legend.margin = margin(t = -.4, unit = 'cm'),
-        plot.title = element_text(size = 12, hjust = .5)),
-  facet_wrap(~panel, ncol = 5)
-)
-
-p1 + s
-
-
-
-# facet_grid2(vars(panel), axes = 'all', remove_labels = 'y'
-
 # define data
 
 p1 <- ggplot(data=filter(plot, study == '210510_do', group == 'english' & task == 'english_ajt'), 
@@ -4515,23 +4526,7 @@ p1 + s + theme(legend.position = "none",
                  axis.title.x = element_blank(), 
                  axis.title.y = element_blank())
 
-# bucld plot
-
-p <- ggplot(data=filter(plot, study == '210510_do'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-
-p + s + facet_wrap(~panel, ncol = 5) +
-  labs(caption = 'glmer: acceptance ~ dependency * environment + (1 + dependency * environment | person) + (1 + dependency * environment | item)', hjust = .5) +
-  theme(plot.caption = element_text(hjust = .5))
-
-ggsave("plots/orc/ajt_crit_rating.png", width=6.5, height=3.5, dpi=600)
-
-ggsave("plots/orc/bucld_ajt.png", width=9.3, height=2.25, dpi=600)
-
-bucld1 + bucld2 +  plot_layout(widths = c(1, 1)) +
-  theme(plot.margin = margin(0, 0, 0, 0, "cm"))
-
-ggsave("plots/orc/bucld.png", width=9.3, height=2.5, dpi=600)
+ggsave("plots/orc/ajt_crit_rating.png", width=6.5, height=3, dpi=600)
 
 p6 + s + theme(legend.position = "none", 
                axis.title.x = element_blank(), 
@@ -5658,6 +5653,103 @@ model1 <- read_rds('models/ajt_suenen_clmm_md1.rds')
 #   Variance-covariance matrix of the parameters is not defined
 
 #------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suenen_clmm_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 3191.14 sec elapsed
+# Warning message:
+#   In summary.clmm(model2) :
+#   Variance-covariance matrix of the parameters is not defined
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suenen_clmm_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 381.79 sec elapsed
+# In summary.clmm(model3) :
+#   Variance-covariance matrix of the parameters is not defined
+
+#------------------------------------------------------------------------------#
+# + + model 4 (final?) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_suenen_clmm_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# 439.31 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -4.5712     0.2841 -16.092  < 2e-16 ***
+# environment2              -1.0337     0.2080  -4.969 6.73e-07 ***
+# environment3              -3.9264     0.3461 -11.345  < 2e-16 ***
+# dependency2:environment2   2.9205     0.3919   7.452 9.18e-14 ***
+# dependency2:environment3  10.1551     0.4700  21.604  < 2e-16 ***
+
+# post-hoc tests ...
+
+pairwise <- model4 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun     8.930 0.448 Inf  19.949  <.0001
+# long        .          gap - pronoun     6.009 0.343 Inf  17.496  <.0001
+# island      .          gap - pronoun    -1.225 0.301 Inf  -4.072  0.0002
+# .           gap        short - long      2.494 0.319 Inf   7.807  <.0001
+# .           gap        short - island    9.004 0.477 Inf  18.888  <.0001
+# .           gap        long - island     6.510 0.362 Inf  17.986  <.0001
+# .           pronoun    short - long     -0.426 0.248 Inf  -1.722  0.0850
+# .           pronoun    short - island   -1.151 0.350 Inf  -3.285  0.0031
+# .           pronoun    long - island    -0.725 0.309 Inf  -2.349  0.0377
+# P value adjustment: holm method for 9 tests
+
+# tables ...
+
+model4 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+#------------------------------------------------------------------------------#
 # + + model 5
 #------------------------------------------------------------------------------#
 
@@ -5681,6 +5773,14 @@ beep()
 # environment3              -3.9052     0.3437 -11.362  < 2e-16 ***
 # dependency2:environment2   2.9390     0.3850   7.635 2.27e-14 ***
 # dependency2:environment3  10.1142     0.4660  21.704  < 2e-16 ***
+
+# compare models ...
+
+anova(model4, model5)
+
+#        no.par    AIC  logLik LR.stat df Pr(>Chisq)
+# model5     21 3206.1 -1582.0                      
+# model4     30 3221.8 -1580.9  2.3157  9     0.9854
 
 #------------------------------------------------------------------------------#
 # + + model 6
@@ -5750,7 +5850,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1 
+# + + model 1 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5764,6 +5864,49 @@ model1 <- clmm(response ~ dependency * environment +
 summary(model1)
 toc()
 beep()
+
+model1 <- read_rds('models/ajt_sukoen_clmm_md1.rds')
+
+# 10246.95 sec elapsed (171 min)
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -2.0987     0.4301  -4.880 1.06e-06 ***
+#   environment2              -1.0019     0.3453  -2.901  0.00372 ** 
+#   environment3              -1.6287     0.3585  -4.544 5.53e-06 ***
+#   dependency2:environment2   5.2669     0.6599   7.981 1.45e-15 ***
+#   dependency2:environment3   9.1706     0.8962  10.232  < 2e-16 ***
+  
+# post-hoc tests ...
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun      6.91 0.756 Inf   9.143  <.0001
+# long        .          gap - pronoun      1.64 0.591 Inf   2.782  0.0054
+# island      .          gap - pronoun     -2.26 0.410 Inf  -5.505  <.0001
+# .           gap        short - long       3.64 0.553 Inf   6.580  <.0001
+# .           gap        short - island     6.21 0.650 Inf   9.565  <.0001
+# .           gap        long - island      2.58 0.459 Inf   5.617  <.0001
+# .           pronoun    short - long      -1.63 0.389 Inf  -4.199  0.0001
+# .           pronoun    short - island    -2.96 0.486 Inf  -6.079  <.0001
+# .           pronoun    long - island     -1.33 0.245 Inf  -5.416  <.0001
+# P value adjustment: holm method for 9 tests 
+
+# tables ...
+
+model1 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
 
 #------------------------------------------------------------------------------#
 # + suzhen ----
@@ -5799,7 +5942,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1 
+# + + model 1 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5813,6 +5956,36 @@ model1 <- clmm(response ~ dependency * environment +
 summary(model1)
 toc()
 beep()
+
+model1 <- read_rds('models/ajt_suzhen_clmm_md1.rds')
+
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2                0.7984     0.2491   3.205 0.001351 ** 
+# environment2              -1.0650     0.2870  -3.711 0.000206 ***
+# environment3              -2.1160     0.2853  -7.417 1.19e-13 ***
+# dependency2:environment2   4.3907     0.4721   9.300  < 2e-16 ***
+# dependency2:environment3   5.9950     0.7094   8.451  < 2e-16 ***
+
+# post-hoc tests ...
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun     2.663 0.403 Inf   6.611  <.0001
+# long        .          gap - pronoun    -1.727 0.395 Inf  -4.376  <.0001
+# island      .          gap - pronoun    -3.331 0.474 Inf  -7.030  <.0001
+# .           gap        short - long      3.260 0.411 Inf   7.927  <.0001
+# .           gap        short - island    5.114 0.498 Inf  10.265  <.0001
+# .           gap        long - island     1.853 0.380 Inf   4.878  <.0001
+# .           pronoun    short - long     -1.130 0.327 Inf  -3.455  0.0016
+# .           pronoun    short - island   -0.881 0.408 Inf  -2.162  0.0612
+# .           pronoun    long - island     0.249 0.387 Inf   0.643  0.5203
+# P value adjustment: holm method for 9 tests 
 
 #------------------------------------------------------------------------------#
 # + sukoko ----
@@ -5863,6 +6036,135 @@ summary(model1)
 toc()
 beep()
 
+# Error: optimizer nlminb failed to converge
+
+#------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_sukoko_clmm_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 339.42 sec elapsed
+# Error: optimizer nlminb failed to converge
+# Warning message:
+#   In summary.clmm(model2) :
+#   Variance-covariance matrix of the parameters is not defined
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_sukoko_clmm_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 114.56 sec elapsed
+# Warning message:
+#   In summary.clmm(model3) :
+#   Variance-covariance matrix of the parameters is not defined
+
+#------------------------------------------------------------------------------#
+# + + model 4 (final?) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_sukoko_clmm_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# Error: optimizer nlminb failed to converge
+# 277.03 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -4.5712     0.2841 -16.092  < 2e-16 ***
+# environment2              -1.0337     0.2080  -4.969 6.73e-07 ***
+# environment3              -3.9264     0.3461 -11.345  < 2e-16 ***
+# dependency2:environment2   2.9205     0.3919   7.452 9.18e-14 ***
+# dependency2:environment3  10.1551     0.4700  21.604  < 2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- clmm(response ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_sukoko_clmm_md5.rds')
+summary(model5)
+toc()
+beep()
+
+# 328.39 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2              -3.59565    0.32156 -11.182   <2e-16 ***
+# environment2             -0.08796    0.40177  -0.219    0.827    
+# environment3             -0.38573    0.41238  -0.935    0.350    
+# dependency2:environment2  5.62644    0.30213  18.623   <2e-16 ***
+# dependency2:environment3  5.76669    0.30450  18.938   <2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- clmm(response ~ dependency * environment + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_sukoko_clmm_md6.rds')
+summary(model6)
+toc()
+beep()
+
+# 12.78 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -2.6548     0.1107 -23.978  < 2e-16 ***
+# environment2              -0.3936     0.1298  -3.032 0.002431 ** 
+# environment3              -0.4908     0.1297  -3.783 0.000155 ***
+# dependency2:environment2   5.3694     0.2761  19.444  < 2e-16 ***
+# dependency2:environment3   5.4392     0.2761  19.703  < 2e-16 ***
+  
+# compare models ...
+
+anova(model5, model6)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
+# model6     12 5198.3 -2587.2                          
+# model5     21 4728.2 -2343.1  488.16  9  < 2.2e-16 ***
+
 #------------------------------------------------------------------------------#
 # + suzhzh ----
 #------------------------------------------------------------------------------#
@@ -5897,7 +6199,7 @@ contrasts(md$dependency)
 contrasts(md$environment)
 
 #------------------------------------------------------------------------------#
-# + + model 1 
+# + + model 1 (final?) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5911,6 +6213,48 @@ model1 <- clmm(response ~ dependency * environment +
 summary(model1)
 toc()
 beep()
+
+model1 <- read_rds('models/ajt_suzhzh_clmm_md1.rds')
+
+# 7180.05 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2               -1.3274     0.1853  -7.162 7.95e-13 ***
+# environment2              -0.6532     0.3016  -2.166   0.0303 *  
+# environment3              -1.5109     0.3393  -4.453 8.46e-06 ***
+# dependency2:environment2   3.5096     0.4161   8.434  < 2e-16 ***
+# dependency2:environment3   4.9257     0.4953   9.945  < 2e-16 ***
+
+# post-hoc tests ...
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun     4.139 0.420 Inf   9.857  <.0001
+# long        .          gap - pronoun     0.630 0.198 Inf   3.180  0.0059
+# island      .          gap - pronoun    -0.786 0.238 Inf  -3.300  0.0048
+# .           gap        short - long      2.408 0.361 Inf   6.665  <.0001
+# .           gap        short - island    3.974 0.430 Inf   9.243  <.0001
+# .           gap        long - island     1.566 0.379 Inf   4.136  0.0002
+# .           pronoun    short - long     -1.102 0.371 Inf  -2.966  0.0091
+# .           pronoun    short - island   -0.952 0.410 Inf  -2.322  0.0404
+# .           pronoun    long - island     0.150 0.284 Inf   0.527  0.5979
+# P value adjustment: holm method for 9 tests 
+
+# tables ...
+
+model1 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
 
 #------------------------------------------------------------------------------#
 # modeling - glmer - critical ----
