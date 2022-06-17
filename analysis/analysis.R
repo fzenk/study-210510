@@ -24,8 +24,11 @@ library(jsonlite) # for unpacking json
 library(beepr) # for notifications
 library(tictoc) # for timing operations
 library(ggh4x) # for plotting
-library(emmeans) #  for post-hoc tests; see https://marissabarlaz.github.io/portfolio/contrastcoding/
+library(emmeans) #  for post-hoc tests
 library(performance) # for checking model performance
+library(kableExtra) # for tables
+library(broom) # for tables
+library(ordinal) # for clmm models
 
 #==============================================================================#
 # ::::: data ::::: ----
@@ -4818,10 +4821,11 @@ model1 <- read_rds('models/ajt_doenen_clmm_md1.rds')
 
 # post-hoc tests ...
 
-model1 %>%
+pairwise <- model1 %>%
   emmeans(~ dependency * environment) %>%
   contrast('pairwise', simple = 'each', combine = TRUE) %>%
   summary(by = NULL, adjust = 'holm')
+pairwise
 
 # environment dependency contrast       estimate    SE  df z.ratio p.value
 # short       .          gap - pronoun      8.65 0.548 Inf  15.786  <.0001
@@ -4834,6 +4838,17 @@ model1 %>%
 # .           pronoun    short - island    -1.26 0.385 Inf  -3.276  0.0041
 # .           pronoun    long - island     -1.01 0.374 Inf  -2.707  0.0136
 # P value adjustment: holm method for 9 tests
+
+# tables ...
+
+model1 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 3)) %>%
+  remove_column(6)
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -5162,6 +5177,8 @@ summary(model4)
 toc()
 beep()
 
+model4 <- read_rds('models/ajt_dokoen_clmm_md4.rds')
+
 # 422.53 sec elapsed
 # no warnings?
 # Coefficients:
@@ -5171,6 +5188,36 @@ beep()
 # environment3               0.1804     0.2380   0.758    0.448    
 # dependency2:environment2   1.0374     0.2507   4.138 3.50e-05 ***
 # dependency2:environment3   2.4998     0.2597   9.625  < 2e-16 ***
+
+# post-hoc tests ...
+
+pairwise <- model4 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun     4.336 0.647 Inf   6.702  <.0001
+# long        .          gap - pronoun     3.299 0.639 Inf   5.163  <.0001
+# island      .          gap - pronoun     1.837 0.637 Inf   2.885  0.0117
+# .           gap        short - long      0.790 0.239 Inf   3.307  0.0038
+# .           gap        short - island    1.069 0.278 Inf   3.852  0.0006
+# .           gap        long - island     0.280 0.239 Inf   1.172  0.4826
+# .           pronoun    short - long     -0.248 0.222 Inf  -1.114  0.4826
+# .           pronoun    short - island   -1.430 0.264 Inf  -5.408  <.0001
+# .           pronoun    long - island    -1.183 0.236 Inf  -5.013  <.0001
+
+# tables ...
+
+model4 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -5287,6 +5334,8 @@ summary(model1)
 toc()
 beep()
 
+model1 <- read_rds('models/ajt_dozhen_clmm_md1.rds')
+
 # 3857.24 sec elapsed
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -5295,6 +5344,37 @@ beep()
 # environment3              -0.5533     0.2351  -2.354 0.018593 *  
 # dependency2:environment2   0.7095     0.3366   2.108 0.035060 *  
 # dependency2:environment3   1.4366     0.3980   3.610 0.000306 ***
+
+# post-hoc tests ...
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun    2.9517 0.506 Inf   5.837  <.0001
+# long        .          gap - pronoun    2.2423 0.437 Inf   5.135  <.0001
+# island      .          gap - pronoun    1.5151 0.426 Inf   3.556  0.0023
+# .           gap        short - long     0.7928 0.339 Inf   2.340  0.0965
+# .           gap        short - island   1.2716 0.346 Inf   3.670  0.0017
+# .           gap        long - island    0.4787 0.297 Inf   1.612  0.4283
+# .           pronoun    short - long     0.0834 0.260 Inf   0.321  1.0000
+# .           pronoun    short - island  -0.1651 0.264 Inf  -0.625  1.0000
+# .           pronoun    long - island   -0.2484 0.207 Inf  -1.199  0.6912
+# P value adjustment: holm method for 9 tests
+
+# tables ...
+
+model1 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
 
 #------------------------------------------------------------------------------#
 # + dokoko ----
@@ -5345,6 +5425,10 @@ summary(model1)
 toc()
 beep()
 
+model1 <- read_rds('models/ajt_dokoko_clmm_md1.rds')
+
+class(model1)
+
 # 5593.59 sec elapsed (93 min)
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -5353,6 +5437,37 @@ beep()
 # environment3              -0.3697     0.3025  -1.222  0.22172    
 # dependency2:environment2   5.5128     0.5947   9.270  < 2e-16 ***
 # dependency2:environment3   6.9773     0.6469  10.785  < 2e-16 ***
+
+# post-hoc tests ...
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun     7.638 0.683 Inf  11.187  <.0001
+# long        .          gap - pronoun     2.125 0.363 Inf   5.850  <.0001
+# island      .          gap - pronoun     0.661 0.322 Inf   2.049  0.0809
+# .           gap        short - long      3.602 0.460 Inf   7.831  <.0001
+# .           gap        short - island    3.858 0.476 Inf   8.108  <.0001
+# .           gap        long - island     0.257 0.249 Inf   1.033  0.3017
+# .           pronoun    short - long     -1.911 0.369 Inf  -5.176  <.0001
+# .           pronoun    short - island   -3.119 0.407 Inf  -7.658  <.0001
+# .           pronoun    long - island    -1.208 0.290 Inf  -4.162  0.0001
+# P value adjustment: holm method for 9 tests 
+
+# tables ...
+
+model1 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
 
 #------------------------------------------------------------------------------#
 # + dozhzh ----
@@ -5403,6 +5518,8 @@ summary(model1)
 toc()
 beep()
 
+model1 <- read_rds('models/ajt_dozhzh_clmm_md1.rds')
+
 # 3246.32 sec elapsed (54 min)
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -5411,6 +5528,36 @@ beep()
 # environment3              -0.7796     0.2396  -3.254 0.001137 ** 
 # dependency2:environment2   1.1921     0.3198   3.728 0.000193 ***
 # dependency2:environment3   2.1916     0.3269   6.704 2.02e-11 ***
+
+# post-hoc tests ...
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# environment dependency contrast       estimate    SE  df z.ratio p.value
+# short       .          gap - pronoun    2.2680 0.372 Inf   6.094  <.0001
+# long        .          gap - pronoun    1.0758 0.283 Inf   3.797  0.0009
+# island      .          gap - pronoun    0.0764 0.209 Inf   0.366  0.7146
+# .           gap        short - long     0.4379 0.305 Inf   1.434  0.4548
+# .           gap        short - island   1.8754 0.322 Inf   5.818  <.0001
+# .           gap        long - island    1.4376 0.256 Inf   5.607  <.0001
+# .           pronoun    short - long    -0.7543 0.227 Inf  -3.327  0.0044
+# .           pronoun    short - island  -0.3162 0.254 Inf  -1.247  0.4548
+# .           pronoun    long - island    0.4381 0.233 Inf   1.883  0.2387
+
+# tables ...
+
+model1 %>%
+  tidy() %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
 
 #------------------------------------------------------------------------------#
 # + suenen ----
