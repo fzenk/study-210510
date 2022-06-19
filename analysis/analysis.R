@@ -2715,6 +2715,8 @@ summary(model1)
 toc()
 beep()
 
+model1 <- read_rds('models/spr_doen_rrt_region3_md1.rds')
+
 # 246.92 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
@@ -2737,6 +2739,243 @@ beep()
 # environmentisland                    12.8944     7.7875  63.8697   1.656   0.1027  
 # environmentlong:dependencypronoun     0.6997    11.9051  38.2415   0.059   0.9534  
 # environmentisland:dependencypronoun -16.4919    12.7929  34.1701  -1.289   0.2060 
+
+#------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency + environment | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doen_rrt_region3_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 52.08 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)   
+# (Intercept)               23.0377     7.8870  85.0545   2.921  0.00447 **
+# dependency2                7.5110     4.6370  75.3213   1.620  0.10946   
+# environment2              -4.1894     5.6590  76.6316  -0.740  0.46138   
+# environment3               4.1723     5.5098  37.8782   0.757  0.45358   
+# dependency2:environment2   0.2098    10.5504 229.1755   0.020  0.98415   
+# dependency2:environment3 -16.5583    10.3624 293.4460  -1.598  0.11113 
+
+# compare models ...
+
+anova(model1, model2, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
+# model2   38 29872 30092 -14898    29796                    
+# model1   49 29885 30169 -14894    29787 8.901 11      0.631
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doen_rrt_region3_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 14.59 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)   
+# (Intercept)               23.01053    7.88478  85.28289   2.918   0.0045 **
+# dependency2                7.58828    4.61667  96.35785   1.644   0.1035   
+# environment2              -4.16175    5.55564 112.35751  -0.749   0.4554   
+# environment3               4.16811    5.38310 127.47759   0.774   0.4402   
+# dependency2:environment2   0.01598   10.56116 230.40827   0.002   0.9988   
+# dependency2:environment3 -16.77989   10.35566 297.44665  -1.620   0.1062
+
+# compare models ...
+
+anova(model2, model3, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
+# model3   31 29859 30039 -14899    29797                    
+# model2   38 29872 30092 -14898    29796 1.172  7     0.9916
+
+#------------------------------------------------------------------------------#
+# + + model 4
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doen_rrt_region3_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# 3.12 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)   
+# (Intercept)                22.9624     7.8898   85.3350   2.910   0.0046 **
+# dependency2                 7.4399     4.5714   88.8058   1.627   0.1072   
+# environment2               -4.2441     5.5662  103.7851  -0.762   0.4475   
+# environment3                4.1137     5.3104  108.2315   0.775   0.4402   
+# dependency2:environment2    0.2625    10.1901 2186.0509   0.026   0.9794   
+# dependency2:environment3  -17.2382    10.1056 2163.2540  -1.706   0.0882 .
+
+#------------------------------------------------------------------------------#
+# + + model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency | participant) + 
+                 (1 + dependency | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doen_rrt_region3_md5.rds')
+summary(model5)
+toc()
+beep()
+
+# 0.96 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)   
+# (Intercept)                22.9504     7.8813   85.3590   2.912  0.00458 **
+# dependency2                 7.2125     4.4799   77.2275   1.610  0.11148   
+# environment2               -4.5516     5.0801 2246.4780  -0.896  0.37037   
+# environment3                3.8969     5.0848 2250.4352   0.766  0.44353   
+# dependency2:environment2    0.3341    10.2404 2272.2180   0.033  0.97398   
+# dependency2:environment3  -17.2188    10.1572 2248.3213  -1.695  0.09017 . 
+
+# compare models ...
+
+anova(model4, model5, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model5   13 29832 29908 -14903    29806                     
+# model4   20 29842 29958 -14901    29802 4.1291  7     0.7648
+
+#------------------------------------------------------------------------------#
+# + + model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- lmer(rrt ~ dependency * environment + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doen_rrt_region3_md6.rds')
+summary(model6)
+toc()
+beep()
+
+# 0.7 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)   
+# (Intercept)                22.9031     7.8853   85.3382   2.905  0.00468 **
+# dependency2                 7.1470     4.1663 2328.4621   1.715  0.08640 . 
+# environment2               -4.5579     5.0926 2329.5734  -0.895  0.37088   
+# environment3                3.8827     5.0974 2329.0999   0.762  0.44631   
+# dependency2:environment2    0.1328    10.2638 2339.2031   0.013  0.98968   
+# dependency2:environment3  -17.2922    10.1823 2327.1878  -1.698  0.08959 . 
+
+# compare models ...
+
+anova(model5, model6)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model6    9 29859 29911 -14921    29841                     
+# model5   13 29866 29941 -14920    29840 1.6613  4     0.7977
+
+#------------------------------------------------------------------------------#
+# + + model 7 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model7 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency | participant) + 
+                 (1 | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doen_rrt_region3_md7.rds')
+summary(model7)
+toc()
+beep()
+
+# 0.7 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)   
+# (Intercept)                22.9262     7.8837   85.4043   2.908  0.00463 **
+# dependency2                 7.2026     4.4323   82.9701   1.625  0.10795   
+# environment2               -4.5278     5.0803 2246.5497  -0.891  0.37290   
+# environment3                3.9020     5.0855 2250.3916   0.767  0.44300   
+# dependency2:environment2    0.3245    10.2416 2272.1595   0.032  0.97472   
+# dependency2:environment3  -17.2573    10.1585 2248.2642  -1.699  0.08950 . 
+
+# compare models ...
+
+anova(model6, model7, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model6    9 29826 29878 -14904    29808                     
+# model7   11 29829 29893 -14903    29807 1.1094  2     0.5742
+
+#------------------------------------------------------------------------------#
+# + + model 8
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model8 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doen_rrt_region3_md8.rds')
+summary(model8)
+toc()
+beep()
+
+# boundary (singular) fit: see help('isSingular')
+
+anova(model7, model8, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model7   11 29829 29893 -14903    29807                     
+# model8   18 29839 29943 -14901    29803 4.1216  7     0.7657
 
 #------------------------------------------------------------------------------#
 # + doko - region 1 ----
@@ -2776,6 +3015,8 @@ summary(model1)
 toc()
 beep()
 
+model1 <- read_rds('models/spr_doko_rrt_region1_md1.rds')
+
 # 197.13 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
@@ -2798,6 +3039,179 @@ beep()
 # environmentisland                     -6.051     22.236  31.049  -0.272    0.787
 # environmentlong:dependencypronoun     12.442     25.884  90.654   0.481    0.632
 # environmentisland:dependencypronoun   31.638     31.099  31.953   1.017    0.317
+
+#------------------------------------------------------------------------------#
+# + + model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doko_rrt_region1_md5.rds')
+summary(model5)
+toc()
+beep()
+
+# 1.49 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)   
+# (Intercept)               -35.160     11.674   62.825  -3.012  0.00374 **
+# dependency2               -20.346     12.465   75.960  -1.632  0.10678   
+# environment2                6.477     13.751   64.635   0.471  0.63923   
+# environment3               11.339     13.245  104.736   0.856  0.39390   
+# dependency2:environment2   12.213     24.683 1709.374   0.495  0.62080   
+# dependency2:environment3   29.551     24.545 1695.812   1.204  0.22878
+
+anova(model5, model8, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model8   13 26081 26153 -13027    26055                     
+# model5   18 26084 26184 -13024    26048 6.6299  5     0.2496
+
+#------------------------------------------------------------------------------#
+# + + model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- lmer(rrt ~ dependency * environment + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doko_rrt_region1_md6.rds')
+summary(model6)
+toc()
+beep()
+
+# 0.76 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)   
+# (Intercept)               -35.280     11.701   62.718  -3.015  0.00371 **
+# dependency2               -19.662     10.222 1823.693  -1.923  0.05458 . 
+# environment2                6.222     12.540 1825.311   0.496  0.61982   
+# environment3               11.542     12.500 1825.019   0.923  0.35594   
+# dependency2:environment2   12.725     25.134 1830.808   0.506  0.61271   
+# dependency2:environment3   30.040     24.998 1815.869   1.202  0.22965 
+
+anova(model1, model6, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
+# model6    9 26086 26136 -13034    26068                    
+# model1   49 26127 26399 -13014    26029 38.93 40     0.5183
+
+#------------------------------------------------------------------------------#
+# + + model 7
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model7 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency | participant) + 
+                 (1 | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doko_rrt_region1_md7.rds')
+summary(model7)
+toc()
+beep()
+
+# 0.75 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)   
+# (Intercept)               -35.334     11.693   62.829  -3.022  0.00363 **
+# dependency2               -20.115     12.008   63.928  -1.675  0.09880 . 
+# environment2                5.977     12.456 1762.890   0.480  0.63139   
+# environment3               11.585     12.416 1762.828   0.933  0.35092   
+# dependency2:environment2   12.150     24.965 1768.577   0.487  0.62654   
+# dependency2:environment3   29.717     24.827 1751.635   1.197  0.23150 
+
+anova(model6, model7, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)  
+# model6    9 26086 26136 -13034    26068                       
+# model7   11 26082 26143 -13030    26060 7.9287  2    0.01898 *
+
+#------------------------------------------------------------------------------#
+# + + model 8 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model8 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency | participant) + 
+                 (1 + dependency | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doko_rrt_region1_md8.rds')
+summary(model8)
+toc()
+beep()
+
+# 0.75 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)   
+# (Intercept)                -35.06      11.89   67.14  -2.949  0.00438 **
+# dependency2                -20.61      13.58   40.24  -1.518  0.13687   
+# environment2                 5.10      12.44 1761.69   0.410  0.68193   
+# environment3                11.69      12.36 1753.33   0.945  0.34464   
+# dependency2:environment2    13.33      24.90 1763.64   0.535  0.59250   
+# dependency2:environment3    29.32      24.73 1751.26   1.185  0.23598
+
+anova(model7, model8, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)  
+# model7   11 26082 26143 -13030    26060                       
+# model8   13 26081 26153 -13027    26055 5.0919  2     0.0784 .
+
+#------------------------------------------------------------------------------#
+# + + model 9
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model9 <- lmer(rrt ~ dependency * environment + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doko_rrt_region1_md9.rds')
+summary(model9)
+toc()
+beep()
+
+# 2.84 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)   
+# (Intercept)               -35.033     11.434   65.227  -3.064  0.00317 **
+# dependency2               -20.289     12.913   34.862  -1.571  0.12517   
+# environment2                5.918     13.694   63.482   0.432  0.66710   
+# environment3               11.412     13.279  103.579   0.859  0.39209   
+# dependency2:environment2   11.686     24.659 1711.477   0.474  0.63563   
+# dependency2:environment3   29.328     24.572 1710.018   1.194  0.23282 
+
+anova(model8, model9, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model8   13 26081 26153 -13027    26055                     
+# model9   20 26089 26200 -13024    26049 6.2309  7     0.5131
 
 #------------------------------------------------------------------------------#
 # + doko - region 2 ----
@@ -5605,6 +6019,87 @@ temp <- ajt %>%
   filter(!condition %in% c('grammatical', 'ungrammatical')) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'),
          dependency = as.factor(dependency))
+
+#------------------------------------------------------------------------------#
+# + allen ----
+#------------------------------------------------------------------------------#
+
+md <- temp %>% 
+  filter(study == '210510_do',
+         task == 'english_ajt')
+
+# convert response to factor
+
+md <- md %>%
+  mutate(response = ordered(response)) %>%
+  mutate(group = factor(group))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+contrasts(md$group)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment * group + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_allen_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 79.03 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2                     -2.13847    0.05363 -39.874  < 2e-16 ***
+# environment2                    -0.33928    0.06154  -5.514 3.52e-08 ***
+# environment3                    -0.51053    0.06086  -8.388  < 2e-16 ***
+# group2                           0.20765    0.17816   1.166 0.243805    
+# group3                           0.59244    0.17388   3.407 0.000656 ***
+# dependency2:environment2         0.87851    0.12314   7.134 9.73e-13 ***
+# dependency2:environment3         2.31111    0.12332  18.741  < 2e-16 ***
+# dependency2:group2               1.31272    0.12393  10.593  < 2e-16 ***
+# dependency2:group3               1.79179    0.12050  14.870  < 2e-16 ***
+# environment2:group2              0.47927    0.15326   3.127 0.001766 ** 
+# environment3:group2              1.61083    0.15102  10.666  < 2e-16 ***
+# environment2:group3              0.29365    0.14835   1.980 0.047759 *  
+# environment3:group3              1.02722    0.14578   7.046 1.84e-12 ***
+# dependency2:environment2:group2 -0.52010    0.30647  -1.697 0.089685 .  
+# dependency2:environment3:group2 -2.24969    0.30220  -7.444 9.74e-14 ***
+# dependency2:environment2:group3 -0.75177    0.29667  -2.534 0.011277 *  
+# dependency2:environment3:group3 -3.13786    0.29317 -10.703  < 2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control=clmm.control(grtol=1e6)) %>%
+  write_rds('models/ajt_allen_clmm_md2.rds')
+summary(model2)
+toc()
+beep()
+
 
 #------------------------------------------------------------------------------#
 # + doenen ----
