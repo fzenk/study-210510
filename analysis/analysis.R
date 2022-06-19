@@ -6021,6 +6021,238 @@ temp <- ajt %>%
          dependency = as.factor(dependency))
 
 #------------------------------------------------------------------------------#
+# + all ----
+#------------------------------------------------------------------------------#
+
+md <- temp %>% 
+  mutate(panel = case_when(task == 'english_ajt' & group == 'english' ~ 'enen',
+                           task == 'english_ajt' & group == 'korean' ~ 'enko',
+                           task == 'english_ajt' & group == 'mandarin' ~ 'enzh',
+                           task == 'korean_ajt' & group == 'korean' ~ 'koko',
+                           task == 'mandarin_ajt' & group == 'mandarin' ~ 'zhzh')) %>%
+  filter(study == '210510_do')
+
+# convert response and panel to factors
+
+md <- md %>%
+  mutate(response = ordered(response)) %>%
+  mutate(panel = factor(panel))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol = 1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol = 2)
+contrasts(md$panel) <- contr.treatment(5) - matrix(rep(1/5, 20), ncol = 4)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+contrasts(md$panel)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_all_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 274.33 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2                     -1.81769    0.04010 -45.331  < 2e-16 ***
+# environment2                    -0.32292    0.04712  -6.853 7.25e-12 ***
+# environment3                    -0.49513    0.04686 -10.566  < 2e-16 ***
+# panel2                           0.23305    0.17484   1.333  0.18254    
+# panel3                           0.55941    0.17015   3.288  0.00101 ** 
+# panel4                           0.16746    0.17419   0.961  0.33636    
+# panel5                          -0.43686    0.16904  -2.584  0.00976 ** 
+# dependency2:environment2         1.29088    0.09451  13.658  < 2e-16 ***
+# dependency2:environment3         2.45558    0.09517  25.803  < 2e-16 ***
+# dependency2:panel2               1.33580    0.12468  10.714  < 2e-16 ***
+# dependency2:panel3               1.82873    0.12093  15.123  < 2e-16 ***
+# dependency2:panel4               1.40997    0.12151  11.604  < 2e-16 ***
+# dependency2:panel5               2.61988    0.11636  22.515  < 2e-16 ***
+# environment2:panel2              0.46848    0.15448   3.033  0.00242 ** 
+# environment3:panel2              1.63459    0.15194  10.758  < 2e-16 ***
+# environment2:panel3              0.29057    0.14963   1.942  0.05215 .  
+# environment3:panel3              1.05762    0.14693   7.198 6.10e-13 ***
+# environment2:panel4             -0.12568    0.15276  -0.823  0.41066    
+# environment3:panel4              0.92319    0.15044   6.137 8.43e-10 ***
+# environment2:panel5              0.78617    0.14299   5.498 3.84e-08 ***
+# environment3:panel5              1.01944    0.14042   7.260 3.87e-13 ***
+# dependency2:environment2:panel2 -0.50574    0.30881  -1.638  0.10149    
+# dependency2:environment3:panel2 -2.27970    0.30433  -7.491 6.84e-14 ***
+# dependency2:environment2:panel3 -0.77192    0.29893  -2.582  0.00981 ** 
+# dependency2:environment3:panel3 -3.22313    0.29507 -10.923  < 2e-16 ***
+# dependency2:environment2:panel4  1.77597    0.30628   5.799 6.69e-09 ***
+# dependency2:environment3:panel4 -0.34056    0.30183  -1.128  0.25918    
+# dependency2:environment2:panel5 -0.63643    0.28582  -2.227  0.02597 *  
+# dependency2:environment3:panel5 -2.93943    0.28203 -10.423  < 2e-16 ***
+
+# post-hoc tests ...
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment * panel) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+#------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment * panel | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_all_clmm_md2.rds')
+summary(model2)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency | participant) + 
+                 (1 | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_all_clmm_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 774.3 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2                     -2.22157    0.14395 -15.433  < 2e-16 ***
+# environment2                    -0.34752    0.04858  -7.154 8.42e-13 ***
+# environment3                    -0.53518    0.04881 -10.965  < 2e-16 ***
+# panel2                           0.28574    0.20001   1.429 0.153111    
+# panel3                           0.66475    0.19471   3.414 0.000640 ***
+# panel4                           0.20997    0.19991   1.050 0.293565    
+# panel5                          -0.42894    0.19392  -2.212 0.026971 *  
+# dependency2:environment2         1.42208    0.09748  14.589  < 2e-16 ***
+# dependency2:environment3         2.69486    0.09905  27.208  < 2e-16 ***
+# dependency2:panel2               1.55978    0.34216   4.559 5.15e-06 ***
+# dependency2:panel3               2.21698    0.33315   6.655 2.84e-11 ***
+# dependency2:panel4               1.71359    0.34198   5.011 5.42e-07 ***
+# dependency2:panel5               3.04635    0.33173   9.183  < 2e-16 ***
+# environment2:panel2              0.54230    0.15723   3.449 0.000562 ***
+# environment3:panel2              1.82834    0.15697  11.648  < 2e-16 ***
+# environment2:panel3              0.33418    0.15267   2.189 0.028608 *  
+# environment3:panel3              1.18105    0.15177   7.782 7.14e-15 ***
+# environment2:panel4             -0.16189    0.15980  -1.013 0.311011    
+# environment3:panel4              1.03200    0.15953   6.469 9.85e-11 ***
+# environment2:panel5              0.89238    0.14809   6.026 1.68e-09 ***
+# environment3:panel5              1.12342    0.14749   7.617 2.60e-14 ***
+# dependency2:environment2:panel2 -0.57626    0.31442  -1.833 0.066835 .  
+# dependency2:environment3:panel2 -2.60530    0.31341  -8.313  < 2e-16 ***
+# dependency2:environment2:panel3 -0.82914    0.30534  -2.715 0.006618 ** 
+# dependency2:environment3:panel3 -3.56386    0.30398 -11.724  < 2e-16 ***
+# dependency2:environment2:panel4  2.08331    0.31997   6.511 7.47e-11 ***
+# dependency2:environment3:panel4 -0.23844    0.31879  -0.748 0.454496    
+# dependency2:environment2:panel5 -0.68587    0.29598  -2.317 0.020487 *  
+# dependency2:environment3:panel5 -3.26738    0.29533 -11.063  < 2e-16 ***
+
+anova(model1, model3)
+
+# no.par   AIC logLik LR.stat df Pr(>Chisq)    
+# model1     36 31392 -15660                          
+# model3     38 29973 -14949  1422.4  2  < 2.2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 4
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency | participant) + 
+                 (1 + dependency | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_all_clmm_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# 1454.01 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2                     -2.22492    0.14667 -15.170  < 2e-16 ***
+# environment2                    -0.34846    0.04865  -7.162 7.96e-13 ***
+# environment3                    -0.53862    0.04890 -11.014  < 2e-16 ***
+# panel2                           0.28468    0.20039   1.421 0.155411    
+# panel3                           0.66182    0.19509   3.392 0.000693 ***
+# panel4                           0.21215    0.20029   1.059 0.289515    
+# panel5                          -0.42997    0.19429  -2.213 0.026895 *  
+# dependency2:environment2         1.42626    0.09767  14.603  < 2e-16 ***
+# dependency2:environment3         2.70093    0.09923  27.220  < 2e-16 ***
+# dependency2:panel2               1.56303    0.34247   4.564 5.02e-06 ***
+# dependency2:panel3               2.22429    0.33348   6.670 2.56e-11 ***
+# dependency2:panel4               1.71190    0.34230   5.001 5.70e-07 ***
+# dependency2:panel5               3.05033    0.33204   9.187  < 2e-16 ***
+# environment2:panel2              0.54070    0.15736   3.436 0.000590 ***
+# environment3:panel2              1.82478    0.15709  11.616  < 2e-16 ***
+# environment2:panel3              0.33973    0.15295   2.221 0.026337 *  
+# environment3:panel3              1.19387    0.15209   7.850 4.16e-15 ***
+# environment2:panel4             -0.17416    0.16033  -1.086 0.277369    
+# environment3:panel4              1.03850    0.15974   6.501 7.97e-11 ***
+# environment2:panel5              0.87437    0.14850   5.888 3.91e-09 ***
+# environment3:panel5              1.12416    0.14760   7.616 2.61e-14 ***
+# dependency2:environment2:panel2 -0.57518    0.31475  -1.827 0.067632 .  
+# dependency2:environment3:panel2 -2.59553    0.31367  -8.275  < 2e-16 ***
+# dependency2:environment2:panel3 -0.84612    0.30593  -2.766 0.005679 ** 
+# dependency2:environment3:panel3 -3.59358    0.30478 -11.791  < 2e-16 ***
+# dependency2:environment2:panel4  2.09743    0.32086   6.537 6.28e-11 ***
+# dependency2:environment3:panel4 -0.24936    0.31921  -0.781 0.434710    
+# dependency2:environment2:panel5 -0.65340    0.29670  -2.202 0.027651 *  
+# dependency2:environment3:panel5 -3.26539    0.29564 -11.045  < 2e-16 ***
+
+anova(model3, model4)
+
+# no.par   AIC logLik LR.stat df Pr(>Chisq)  
+# model3     38 29973 -14949                        
+# model4     40 29972 -14946  4.8397  2    0.08894 .
+
+#------------------------------------------------------------------------------#
+# + + model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_all_clmm_md5.rds')
+summary(model5)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
 # + allen ----
 #------------------------------------------------------------------------------#
 
@@ -6100,6 +6332,7 @@ summary(model2)
 toc()
 beep()
 
+# Error: optimizer nlminb failed to converge
 
 #------------------------------------------------------------------------------#
 # + doenen ----
