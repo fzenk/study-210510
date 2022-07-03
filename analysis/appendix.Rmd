@@ -1,0 +1,67 @@
+---
+title: 'Resumptive Relative Clause Dependencies in the Processing of Second Language English'
+author: 'Fred Zenker'
+date: 7/3/2022
+documentclass: book
+output:
+  bookdown::html_document2:
+    number_sections: TRUE
+    fig_caption: TRUE
+mainfont: Times New Roman
+appendix_name: "Appendix "
+---
+
+```{css, echo = FALSE}
+.header-section-number::after {
+  content: '.';
+}
+```
+
+# (APPENDIX) Appendices {-}
+
+# Results Tables from the ORC Study
+
+```{r setup, include = FALSE}
+
+library(tidyverse)
+library(emmeans)
+library(kableExtra)
+
+```
+
+## Elicited Production Task
+
+```{r table1, echo = FALSE}
+
+table <- read_rds('tables/ept_orc_glmmtmb_primary.rds')
+
+kable(table, caption = 'Summary of Negative Binomial Regression Model on Count Data') %>% 
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = 'Model formula: count ~ dependency * environment * group + (1 | participant).',
+           footnote_as_chunk = T)
+
+```
+
+```{r table2, echo = FALSE}
+
+table <- read_rds('tables/ept_orc_glmmtmb_pairwise.rds')
+
+kable(table, caption = 'Pairwise Comparisons for Binomial Regression Model on Count Data') %>% 
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = 'Estimate are log counts. *P*-value adjustment: multivariate *t* method for 126 tests. ', 
+           footnote_as_chunk = T)
+
+```
+
+# Results Tables from the SRC Study
+
+# Language Background Questionnaire
+
+```{r echo = FALSE, out.width="75%", fig.cap="English Version of the Language Background Questionnaire"}
+knitr::include_graphics('images/lbq.png')
+```
+
+```{r echo = FALSE}
+knitr::include_url('https://www.mozilla.org')
+```
+

@@ -1,5 +1,5 @@
 #==============================================================================#
-# ::::: script header ::::: ----
+# ::::: header :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # title: analysis for study no. 210510
@@ -8,7 +8,7 @@
 # updated: 2022-06-10
 
 #==============================================================================#
-# ::::: packages ::::: ----
+# ::::: packages :::::::::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # load packages ...
@@ -31,7 +31,7 @@ library(broom) # for tables
 library(ordinal) # for clmm models
 
 #==============================================================================#
-# ::::: data ::::: ----
+# ::::: data :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # load data ...
@@ -40,6 +40,11 @@ df <- read_csv('data/data.csv', col_types = cols(.default = 'c')) %>%
   select(-audio_data)
 
 ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'f', accuracy = 'l'))
+
+proficiency <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise(proficiency = sum(accuracy, na.rm=T)) %>%
+  ungroup()
 
 #------------------------------------------------------------------------------#
 # + plot number of participants in each task 
@@ -77,7 +82,7 @@ ggplot(data = plot, aes(x = task, y = n, group = group, col = group, shape = gro
 ggsave("plots/participant_counts.png", width=6.5, height=4.5, dpi=600)
 
 #==============================================================================#
-# ::::: exit survey ::::: ----
+# ::::: exit survey ::::::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # prep dataframe ...
@@ -88,7 +93,7 @@ exit <- df %>%
   select_if(function(x){!all(is.na(x))})
 
 #==============================================================================#
-# ::::: language survey ::::: ----
+# ::::: language survey ::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # prep dataframe ...
@@ -156,7 +161,7 @@ lor <- lor %>%
   ungroup()
 
 #==============================================================================#
-# ::::: c-test ::::: ----
+# ::::: c-test :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # prep dataframe ...
@@ -289,7 +294,7 @@ p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=group, y=accuracy*10
 
 s <- list(
   geom_hline(yintercept=50),
-  geom_violin(fill = 'lightblue'),
+  geom_violin(col = NA),
   geom_boxplot(width = .1, fill='white'),
   #geom_jitter(size=1, shape=1, alpha=.25, position = position_jitter(seed=2, width=.15)),
   #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)),
@@ -306,13 +311,31 @@ s <- list(
 # print and save plots ...
 
 p1 + s
-ggsave("plots/orc/ctest.png", width=6, height=2, dpi=600)
+ggsave("plots/orc/ctest.png", width=6.5, height=2, dpi=600)
 
 p2 + s
-ggsave("plots/src/ctest.png", width=6, height=2, dpi=600)
+ggsave("plots/src/ctest.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# dispersion ----
+#------------------------------------------------------------------------------#
+
+check <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise(accuracy = mean(accuracy)) %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(accuracy),
+            sd = sd(accuracy),
+            iqr = IQR(accuracy)) %>%
+  ungroup()
 
 #------------------------------------------------------------------------------#
 # modeling ----
+#------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------#
+# + orc w/ ref = ens ----
 #------------------------------------------------------------------------------#
 
 # filter for analysis ...
@@ -320,9 +343,37 @@ ggsave("plots/src/ctest.png", width=6, height=2, dpi=600)
 md <- ct %>%
   filter(study == '210510_do')
 
+# set contrasts for deviation coding ...
+
+contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
 # check contrasts ...
 
 contrasts(md$group)
+
+# fit model ...
+
+tic()
+model1 <- glmer(accuracy ~ group + (1 | participant) + (1 + group | item), 
+                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa")) %>%
+  write_rds('models/ctest_doall_glmer_refens_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 34.72 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)   1.3629     0.2464   5.531 3.18e-08 ***
+# group2       -2.4521     0.2881  -8.511  < 2e-16 ***
+# group3       -2.5051     0.2943  -8.513  < 2e-16 ***
+
+
+
+#------------------------------------------------------------------------------#
+# + orc w/ ref = kle ----
+#------------------------------------------------------------------------------#
 
 # relevel factor ...
 
@@ -331,27 +382,79 @@ md <- md %>%
 
 # fit model ...
 
+tic()
 model1 <- glmer(accuracy ~ group + (1 | participant) + (1 + group | item), 
-                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa")) %>%
+  write_rds('models/ctest_doall_glmer_refkle_md1.rds')
 summary(model1)
-beepr::beep(1)
+toc()
+beep()
 
-# reference level = english
+# reference level = korean 
+# 23.28 sec elapsed
+# no warnings
 # Fixed effects:
-#               Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)     3.0152     0.3248   9.282   <2e-16 ***
-# groupkorean    -2.4521     0.2881  -8.511   <2e-16 ***
-# groupmandarin  -2.5050     0.2942  -8.514   <2e-16 ***
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)  1.36277    0.24643   5.530  3.2e-08 ***
+# group2      -0.05295    0.18685  -0.283    0.777    
+# group3       2.45182    0.28810   8.510  < 2e-16 ***
 
-# reference level = korean
+#------------------------------------------------------------------------------#
+# + src w/ ref = ens ----
+#------------------------------------------------------------------------------#
+
+# filter for analysis ...
+
+md <- ct %>%
+  filter(study == '210510_su')
+
+# set contrasts for deviation coding ...
+
+contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# check contrasts ...
+
+contrasts(md$group)
+
+# fit model ...
+
+tic()
+model1 <- glmer(accuracy ~ group + (1 | participant) + (1 + group | item), 
+                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa")) %>%
+  write_rds('models/ctest_suall_glmer_refens_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 25.79 sec elapsed
+# no warnings
 # Fixed effects:
-#               Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)    0.56316    0.27606   2.040   0.0413 *  
-# groupmandarin -0.05295    0.18682  -0.283   0.7768    
-# groupenglish   2.45207    0.28810   8.511   <2e-16 ***
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)   1.5141     0.2463   6.147 7.91e-10 ***
+# group2       -2.1268     0.3072  -6.924 4.39e-12 ***
+# group3       -2.5014     0.3253  -7.689 1.49e-14 ***
+
+#------------------------------------------------------------------------------#
+# + src w/ ref = kle ----
+#------------------------------------------------------------------------------#
+
+# relevel factor ...
+
+md <- md %>%
+  mutate(group = fct_relevel(group, 'korean', 'mandarin', 'english'))
+
+# fit model ...
+
+tic()
+model1 <- glmer(accuracy ~ group + (1 | participant) + (1 + group | item), 
+                data = md, family = binomial, control = glmerControl(optimizer = "bobyqa")) %>%
+  write_rds('models/ctest_suall_glmer_refkle_md1.rds')
+summary(model1)
+toc()
+beep()
 
 #==============================================================================#
-# ::::: elicited production task (ept) ::::: ----
+# ::::: elicited production task (ept) :::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # prep dataframe ...
@@ -433,6 +536,11 @@ check <- temp %>%
 # 4 210510_su english  0.980
 # 5 210510_su korean   0.953
 # 6 210510_su mandarin 0.899
+
+check <- temp %>%
+  group_by(study) %>%
+  summarise(irr = mean(agree, na.rm = TRUE)) %>%
+  ungroup()
 
 #------------------------------------------------------------------------------#
 # bar plot critical ----
@@ -545,21 +653,32 @@ p2 + s
 ggsave("plots/src/ept_barplot_filler.png", width=6.5, height=2.5, dpi=600)
 
 #------------------------------------------------------------------------------#
-# bar plot critical nontarget ----
+# bar plot critical w/ nontarget ----
 #------------------------------------------------------------------------------#
 
-# list participants who only gave nontarget responses ...
+# list participants excluding those who only gave nontarget responses ...
 
-temp <- ep %>%
+temp1 <- ep %>%
   filter(type != 'nontarget') %>%
   group_by(study, group, participant) %>%
   summarise() %>%
   ungroup()
 
-# summarise for plotting ...
+# remove participants who only gave nontarget responses ...
 
-plot <- ep %>%
-  filter(participant %in% temp$participant) %>%
+temp2 <- ep %>%
+  filter(participant %in% temp1$participant)
+
+# check rate of passive responses ...
+
+check <- temp2 %>%
+  mutate(passive = case_when(str_detect(subtype, 'passive') == TRUE ~ TRUE, TRUE ~ FALSE)) %>%
+  group_by(group, environment) %>%
+  summarise(passive = mean(passive, na.rm = TRUE) * 100)
+  
+# summarise for plotting ...
+  
+plot <- temp %>%
   filter(is.na(condition) == FALSE) %>%
   mutate(type = as.character(type)) %>%
   group_by(study, group, condition) %>%
@@ -586,7 +705,7 @@ p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=condition, y=prop, g
 # add styling ...
 
 s <- list(
-  geom_bar(stat = "identity", col = "black", width = .5, alpha=.8),
+  geom_bar(stat = "identity", col = NA, width = .5, alpha=.8),
   geom_text(size = 3, col = "black", position = position_stack(vjust = 0.5)),
   theme_classic(),
   scale_x_discrete(name="environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('short', 'long', 'island')),
@@ -605,12 +724,476 @@ p2 + s
 ggsave("plots/src/ept_barplot_with_nontarget.png", width=6.5, height=2.75, dpi=600)
 
 #------------------------------------------------------------------------------#
-# scatter plot of proficiency effects ----
+# plot: 'pronoun' resumption vs. 'other' resumption ----
 #------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+ep2 <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- ep2 %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# recode responses ...
+
+ep3 <- ep2 %>%
+  mutate(pronoun = case_when(str_detect(subtype, 'pronoun') == TRUE ~ TRUE,
+                             TRUE ~ FALSE),
+         fullNP = case_when(str_detect(subtype, 'fullNP') == TRUE ~ TRUE,
+                            TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('pronoun', 'fullNP'), names_to = 'dependency', values_to = 'response2') %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check counts per variable
+
+check <- ep3 %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(response2)) %>%
+  ungroup()
+
+check <- check %>%
+  filter(study == '210510_do')
+
+# summarise to create count data ...
+
+ep4 <- ep3 %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, participant, environment, dependency) %>%
+  summarise(count = sum(response2))
+
+# plot total counts ...
+
+plot <- ep4 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count'),
+  scale_colour_manual(name='subtype', 
+                      values=c('#ffb000', 'darkorange'),
+                      breaks = c('pronoun', 'fullNP'),
+                      labels = c('pronoun', 'full NP')),
+  scale_shape_manual(name='subtype', 
+                     values=c(15, 17),
+                     breaks = c('pronoun', 'fullNP'),
+                     labels = c('pronoun', 'full NP')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+plot <- plot %>%
+  complete(study, nesting(group, environment, dependency), 
+           fill = list(mean = 0, ci = 0))
+
+p1 + s
+ggsave("plots/orc/ept_resumption_type_total.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_resumption_type_total.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- ep4 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+plot <- plot %>%
+  complete(study, nesting(group, environment, dependency), 
+           fill = list(mean = 0, ci = 0))
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="mean count"),
+  scale_colour_manual(name='subtype', 
+                      values=c('#ffb000', 'darkorange'),
+                      breaks = c('pronoun', 'fullNP'),
+                      labels = c('pronoun', 'full NP')),
+  scale_shape_manual(name='subtype', 
+                     values=c(15, 17),
+                     breaks = c('pronoun', 'fullNP'),
+                     labels = c('pronoun', 'full NP')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_resumption_type_count.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_resumption_type_count.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# plot: type == 'gap'/'resumption' vs. subtype == 'gap'/'resumption' ----
+#------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+ep2 <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- ep2 %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# recode responses ...
+
+ep3 <- ep2 %>%
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
+                                type == 'other' & str_detect(subtype, 'resumption') == TRUE ~ TRUE,
+                                TRUE ~ FALSE),
+         gap = case_when(type == 'gap' ~ TRUE,
+                        type == 'other' & str_detect(subtype, 'resumption') == FALSE ~ TRUE,
+                         TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('resumption', 'gap'), names_to = 'dependency', values_to = 'response2') %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  mutate(set = case_when(type %in% c('gap', 'resumption') ~ 'type',
+                         type == 'other' ~ 'subtype')) %>%
+  mutate(set = fct_relevel(set, 'type', 'subtype')) %>%
+  filter(set %in% c('type', 'subtype'))
+
+# check counts per variable
+
+check <- ep3 %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(response2)) %>%
+  ungroup()
+
+check <- check %>%
+  filter(study == '210510_do')
+
+# summarise to create count data ...
+
+ep4 <- ep3 %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, participant, environment, dependency, set) %>%
+  summarise(count = sum(response2))
+
+# plot total counts ...
+
+plot <- ep4 %>%
+  group_by(study, group, environment, dependency, set) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count'),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_grid2(vars(set), vars(group), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`type` = 'main', `subtype` = 'other', `english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+#ggsave("plots/orc/ept_total.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+#ggsave("plots/src/ept_total.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- ep4 %>%
+  group_by(study, group, environment, dependency, set) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="count", breaks = c(0, 1, 2, 3, 4, 5)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_grid2(vars(set), vars(group), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`type` = 'main', `subtype` = 'other', `english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+# ggsave("plots/orc/ept_count.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+# ggsave("plots/src/ept_count.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# plot: w/ 'other' gaps & 'other' resumption ----
+#------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+ep2 <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- ep2 %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# recode responses ...
+
+ep3 <- ep2 %>%
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
+                                type == 'other' & str_detect(subtype, 'resumption') == TRUE ~ TRUE,
+                                TRUE ~ FALSE),
+         gap = case_when(type == 'gap' ~ TRUE,
+                         type == 'other' & str_detect(subtype, 'resumption') == FALSE ~ TRUE,
+                         TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('resumption', 'gap'), names_to = 'dependency', values_to = 'response2') %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check counts per variable
+
+check <- ep3 %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(response2)) %>%
+  ungroup()
+
+check <- check %>%
+  filter(study == '210510_do')
+
+# summarise to create count data ...
+
+ep4 <- ep3 %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, participant, environment, dependency) %>%
+  summarise(count = sum(response2))
+
+# plot total counts ...
+
+plot <- ep4 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count'),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+#ggsave("plots/orc/ept_total.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+#ggsave("plots/src/ept_total.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- ep4 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="count", limits = c(-.05, 5), breaks = c(0, 1, 2, 3, 4, 5)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+# ggsave("plots/orc/ept_count.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+# ggsave("plots/src/ept_count.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# proficiency effects ----
+#------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------#
+# + scatter plot ~ overall ----
+#------------------------------------------------------------------------------#
+
+# list participants excluding those who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
 
 # summarise for plotting ...
 
 plot <- ep %>%
+  filter(participant %in% temp$participant) %>%
   filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
   mutate(type = case_when(type == 'gap' ~ 'gap',
                               type == 'resumption' ~ 'resumption',
@@ -643,18 +1226,19 @@ groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
 
 # define data for plots ...
 
-p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency*100, y=prop))
-p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency*100, y=prop))
+p1 <- ggplot(data=filter(plot, study == '210510_do', group %in% c('korean', 'mandarin')), aes(x=scale(proficiency, scale = FALSE), y=prop))
+p2 <- ggplot(data=filter(plot, study == '210510_su', group %in% c('korean', 'mandarin')), aes(x=scale(proficiency, scale = FALSE), y=prop))
 
 # generate plot ...
 
 s <- list(
-  geom_smooth(method=lm, col="#785ef0"), 
-  geom_point(shape = 1),
+  geom_hline(yintercept = 50),
+  geom_vline(xintercept = 0),
+  geom_smooth(method=lm, col='#ffb000', fill = alpha('#ffb000', .5)), 
+  geom_point(shape = 16, col = alpha('#ffb000', .5), size = 2),
   theme_classic(),
-  scale_x_continuous(name='proficiency'),
-  scale_y_continuous(name="% resumption", limits = c(-5, 100)),
-  scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")),
+  scale_x_continuous(name='mean-centered proficiency'),
+  scale_y_continuous(name="resumption rate", limits = c(-5, 100)),
   theme(text = element_text(size = 12),
         plot.title = element_text(size = 12, hjust = .5), 
         legend.position = "right"),
@@ -664,35 +1248,562 @@ s <- list(
 # print and save ...
 
 p1 + s
-ggsave("plots/orc/ept_proficiency.png", width=6.5, height=3, dpi=600)
+ggsave("plots/orc/ept_proficiency.png", width=6.5, height=2, dpi=600)
 
 p2 + s
-ggsave("plots/src/ept_proficiency.png", width=6.5, height=3, dpi=600)
+ggsave("plots/src/ept_proficiency.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
-# simple linear regression analysis ----
+# + scatter plot ~ by environment ----
 #------------------------------------------------------------------------------#
 
-# filter for analysis ...
+# exclude participants who gave only nontarget responses ...
 
-md <- plot %>% filter(group == 'korean' & study == '210510_do')
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
 
-# pearson correlation ...
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  filter(!participant %in% temp$participant)
 
-cor(md$proficiency, md$prop) 
+ep2 <- ep %>%
+  filter(participant %in% temp$participant)
+
+ep2 <- ep2 %>%
+  left_join(proficiency, by = c('study', 'group', 'participant'))
+
+check <- ep2 %>%
+  group_by(study, group, participant, proficiency) %>%
+  summarise() %>%
+  ungroup() %>%
+  filter(is.na(proficiency) == TRUE)
+
+ep_clean <- ep2 %>%
+  filter(is.na(proficiency) == FALSE)
+
+ep_clean <- ep_clean %>%
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE, TRUE ~ FALSE))
+
+ep_clean <- ep_clean %>%
+  mutate(environment = factor(environment)) %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+plot <- ep_clean %>%
+  group_by(study, group, environment, proficiency, participant) %>%
+  summarise(resumption = mean(resumption)) %>%
+  ungroup()
+
+summary(plot)
+
+# summarise for plotting ...
+
+plot <- plot %>%
+  filter(participant %in% temp$participant) %>%
+  filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
+  mutate(type = case_when(type == 'gap' ~ 'gap',
+                          type == 'resumption' ~ 'resumption',
+                          TRUE ~ 'other')) %>%
+  mutate(type = as.character(type)) %>%
+  group_by(study, group, condition, participant) %>%
+  count(type) %>%
+  ungroup() %>%
+  group_by(study, group, condition, participant) %>%
+  mutate(sum = sum(n)) %>%
+  ungroup() %>%
+  mutate(prop = (n/sum)*100) %>%
+  mutate(prc = as.character(round(prop))) %>%
+  mutate(prc = as.numeric(case_when(prc == '0' ~ NA_character_, TRUE ~ prc))) %>%
+  mutate(type = factor(type, levels = c('gap', 'other', 'resumption')))
+
+plot <- plot %>%
+  complete(type, nesting(study, group, participant), fill = list(prop = 0, n = 0)) %>%
+  select(study, group, participant, type, n, prop) %>%
+  arrange(study, group, participant, type, prop)
+
+plot <- plot %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  filter(proficiency != 'NA') %>%
+  filter(type == 'resumption')
+
+# facet labels ...
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE',
+            `short` = 'short', `long` = 'long', `island` = 'island')
+
+# define data for plots ...
+
+p1 <- ggplot(data=filter(plot, study == '210510_do', group %in% c('korean', 'mandarin')), aes(x=scale(proficiency, scale = FALSE), y=resumption*100))
+p2 <- ggplot(data=filter(plot, study == '210510_su', group %in% c('korean', 'mandarin')), aes(x=scale(proficiency, scale = FALSE), y=resumption*100))
+
+# generate plot ...
+
+s <- list(
+  geom_hline(yintercept = 50),
+  geom_vline(xintercept = 0),
+  geom_smooth(method=lm, col='#ffb000', fill = alpha('#ffb000', .5)), 
+  geom_point(shape = 16, col = alpha('#ffb000', .5), size = 2),
+  theme_classic(),
+  scale_x_continuous(name='mean-centered proficiency score'),
+  scale_y_continuous(name='resumption rate'),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right"),
+  facet_grid2(vars(group), vars(environment), labeller = as_labeller(groups),
+              axes = 'all', remove_labels = 'y')
+)
+
+# print and save ...
+
+p1 + s
+ggsave("plots/orc/ept_proficiency.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_proficiency.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + modeling: glmer ----
+#------------------------------------------------------------------------------#
+
+# adjust column classes ...
+
+md <- ep_clean %>%
+  filter(group %in% c('korean', 'mandarin')) %>%
+  mutate_at(c('study', 'group', 'environment', 'participant', 'item'), as.factor) %>%
+  mutate(resumption = as.logical(resumption)) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
+  filter(environment %in% c('short', 'long', 'island'))
+
+str(md)
+
+# apply deviation coding ...
+
+contrasts(md$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$group)
+contrasts(md$environment)
+
+#------------------------------------------------------------------------------#
+# + + orc ----
+#------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------#
+# + + + model 1
+#------------------------------------------------------------------------------#
 
 # fit model ...
 
-model <- lm(prop ~ proficiency, data = md)
+tic()
+model1 <- glmer(resumption ~ proficiency * group * environment + 
+                  (1 | participant) + 
+                  (1 | item),
+                data = filter(md, study == '210510_do'),
+                family = binomial,
+                control = glmerControl(optimizer = 'bobyqa', 
+                                       optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ept_orc_glmer_md1.rds')
+summary(model1)
+toc()
+beep()
 
+# 22.08 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                     -6.47696    0.82214  -7.878 3.32e-15 ***
+#  proficiency                     -0.16705    0.05374  -3.109  0.00188 ** 
+# group2                           0.27474    0.86192   0.319  0.74992    
+# environment2                     2.97083    0.65507   4.535 5.76e-06 ***
+# environment3                     4.16141    0.65923   6.313 2.75e-10 ***
+# proficiency:group2               0.08895    0.10650   0.835  0.40362    
+# proficiency:environment2         0.16713    0.07583   2.204  0.02753 *  
+# proficiency:environment3         0.18887    0.07341   2.573  0.01008 *  
+# group2:environment2             -0.48716    1.28739  -0.378  0.70513    
+# group2:environment3             -0.91777    1.29345  -0.710  0.47798    
+# proficiency:group2:environment2 -0.07179    0.15087  -0.476  0.63419    
+# proficiency:group2:environment3 -0.14570    0.14652  -0.994  0.32005 
+
+test(emtrends(model, ~ group * environment, var = 'proficiency', adjust = 'mvt'))
+
+#------------------------------------------------------------------------------#
+# + + + model 2 (final?) ----
+#------------------------------------------------------------------------------#
+
+tic()
+model2 <- glmer(resumption ~ proficiency * group * environment + 
+                (1 + environment | participant) + 
+                (1 | item),
+                data = filter(md, study == '210510_do'),
+                family = binomial,
+                control = glmerControl(optimizer = 'bobyqa', 
+                                       optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ept_orc_glmer_md2.rds')
+summary(model2)
+toc()
+beep()
+
+model2 <- read_rds('models/ept_orc_glmer_md2.rds')
+
+# 72.11 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#                                 Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                     -7.65066    1.09721  -6.973 3.11e-12 ***
+# proficiency                     -0.17807    0.06639  -2.682  0.00731 ** 
+# group2                           0.41869    0.99071   0.423  0.67257    
+# environment2                     6.24357    2.44611   2.552  0.01070 *  
+# environment3                     5.11054    2.60560   1.961  0.04984 *  
+# proficiency:group2               0.11250    0.12529   0.898  0.36925    
+# proficiency:environment2         0.24674    0.12137   2.033  0.04205 *  
+# proficiency:environment3         0.21772    0.12885   1.690  0.09107 .  
+# group2:environment2             -1.29077    1.70230  -0.758  0.44830    
+# group2:environment3             -1.96666    1.84681  -1.065  0.28692    
+# proficiency:group2:environment2 -0.14976    0.20754  -0.722  0.47055    
+# proficiency:group2:environment3 -0.19141    0.22265  -0.860  0.38994  
+
+lme.dscore(model2, data = filter(md, study == '210510_do'), type = 'lme4')
+
+#                                          t       df           d
+# proficiency                     -2.5952664 131.9977 -0.45178190 *
+# group2                          -0.8560837 131.9977 -0.14902636
+# environment2                     4.4350491 131.8542  0.77246965 **
+# environment3                     5.1738948 131.3253  0.90297000 **
+# proficiency:group2               1.4447159 131.9977  0.25149498 *
+# proficiency:environment2         0.2456786 132.3366  0.04271273
+# proficiency:environment3         0.3101656 131.7265  0.05404892
+# group2:environment2             -0.4795665 132.1954 -0.08342009
+# group2:environment3             -0.5601580 131.5764 -0.09766783
+# proficiency:group2:environment2 -0.6996357 131.9539 -0.12181221
+# proficiency:group2:environment3 -1.0488595 131.3894 -0.18300675
+
+trends <- emtrends(model2, ~ group * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# group    environment proficiency.trend     SE  df z.ratio p.value
+# korean   short                 -0.4460 0.1755 Inf  -2.541  0.0603 .
+# mandarin short                 -0.2198 0.1804 Inf  -1.219  0.7354
+# korean   long                  -0.1244 0.0698 Inf  -1.782  0.3393
+# mandarin long                  -0.0479 0.0637 Inf  -0.752  0.9608
+# korean   island                -0.1326 0.1004 Inf  -1.320  0.6632
+# mandarin island                -0.0978 0.0946 Inf  -1.034  0.8503
+# P value adjustment: mvt method for 6 tests 
+
+eff_size(trends, sigma = sigma(model2), edf = Inf, method = 'identity')
+
+# contrast        effect.size     SE  df asymp.LCL asymp.UCL
+# korean short        -0.4460 0.1755 Inf    -0.790   -0.1020 *
+# mandarin short      -0.2198 0.1804 Inf    -0.573    0.1337 *
+# korean long         -0.1244 0.0698 Inf    -0.261    0.0124
+# mandarin long       -0.0479 0.0637 Inf    -0.173    0.0769
+# korean island       -0.1326 0.1004 Inf    -0.329    0.0643
+# mandarin island     -0.0978 0.0946 Inf    -0.283    0.0876
+
+# plot ...
+
+plot <- emmip(model2, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = xvar, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='log odds ratio') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/ept_resumption_proficiency_emmeans.png", width=6.5, height=2, dpi=600)
+
+anova(model1, model2)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
+# model1   14 724.52 803.21 -348.26   696.52                         
+# model2   19 710.37 817.17 -336.19   672.37 24.144  5  0.0002037 ***
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+tic()
+model3 <- glmer(resumption ~ proficiency * group * environment + 
+                  (1 + environment | participant) + 
+                  (1 + environment | item),
+                data = filter(md, study == '210510_do'),
+                family = binomial,
+                control = glmerControl(optimizer = 'bobyqa', 
+                                       optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ept_orc_glmer_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 199.92 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                     -8.06685    1.25253  -6.440 1.19e-10 ***
+# proficiency                     -0.18206    0.07157  -2.544   0.0110 *  
+# group2                           0.44388    1.03547   0.429   0.6682    
+# environment2                     6.33516    3.13668   2.020   0.0434 *  
+# environment3                     5.53846    3.20392   1.729   0.0839 .  
+# proficiency:group2               0.11647    0.13245   0.879   0.3792    
+# proficiency:environment2         0.26048    0.13778   1.891   0.0587 .  
+# proficiency:environment3         0.23585    0.14539   1.622   0.1048    
+# group2:environment2             -1.21061    1.82450  -0.664   0.5070    
+# group2:environment3             -2.01777    1.97317  -1.023   0.3065    
+# proficiency:group2:environment2 -0.15261    0.23052  -0.662   0.5079    
+# proficiency:group2:environment3 -0.19865    0.24330  -0.816   0.4142 
+
+anova(model2, model3)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   19 710.37 817.17 -336.19   672.37                     
+# model3   24 715.65 850.55 -333.83   667.65 4.7211  5     0.4509
+
+#------------------------------------------------------------------------------#
+# + + model 4
+#------------------------------------------------------------------------------#
+
+tic()
+model4 <- glmer(resumption ~ proficiency * group * environment + 
+                  (1 + environment | participant) + 
+                  (1 + group | item),
+                data = filter(md, study == '210510_do'),
+                family = binomial,
+                control = glmerControl(optimizer = 'bobyqa', 
+                                       optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ept_orc_glmer_md4.rds')
+summary(model4)
+toc()
+beep()
+
+citation('emmeans')
+
+anova(model2, model4)
+
+
+
+#------------------------------------------------------------------------------#
+# + + src ----
+#------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------#
+# + + + model 1
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- glmer(resumption ~ proficiency * group * environment + 
+                  (1 | participant) + 
+                  (1 | item),
+                data = filter(md, study == '210510_su'),
+                family = binomial,
+                control = glmerControl(optimizer = 'bobyqa', 
+                                       optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ept_src_glmer_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 14.33 sec elapsed
+# Model failed to converge: degenerate  Hessian with 2 negative eigenvalues
+
+#------------------------------------------------------------------------------#
+# + + + model 2 ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- glmer(resumption ~ proficiency * group * environment + 
+                  (1 | participant) + 
+                  (1 | item),
+                data = filter(md, study == '210510_su', environment %in% c('long', 'island')),
+                family = binomial,
+                control = glmerControl(optimizer = 'bobyqa', 
+                                       optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ept_src_glmer_md2.rds')
+summary(model2)
+toc()
+beep
+
+# 5.88 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                          -1.54703    0.48481  -3.191 0.001418 ** 
+# proficiency                           0.05577    0.05671   0.983 0.325398    
+# group2                                3.03668    0.95603   3.176 0.001491 ** 
+# environmentisland                     0.76593    0.22809   3.358 0.000785 ***
+# proficiency:group2                    0.13745    0.11255   1.221 0.221983    
+# proficiency:environmentisland         0.09934    0.03049   3.258 0.001121 ** 
+# group2:environmentisland             -1.21704    0.45606  -2.669 0.007617 ** 
+# proficiency:group2:environmentisland -0.26094    0.06147  -4.245 2.19e-05 ***
+
+test(emtrends(model2, ~ group * environment, var = 'proficiency', adjust = 'mvt'))
+
+# group    environment proficiency.trend     SE  df z.ratio p.value
+# korean   long                  -0.0129 0.0817 Inf  -0.158  0.9990
+# mandarin long                   0.1245 0.0780 Inf   1.596  0.2882
+# korean   island                 0.2169 0.0851 Inf   2.547  0.0336 *
+# mandarin island                 0.0934 0.0778 Inf   1.200  0.5254
+# P value adjustment: mvt method for 4 tests 
+
+trend <- emtrends(model2, ~ group * environment, var = 'proficiency', adjust = 'mvt')
+eff_size(trend, sigma = sigma(model2), edf = df.residual(model2), method = 'identity')
+
+# contrast        effect.size     SE  df asymp.LCL asymp.UCL
+# korean long         -0.0129 0.0817 Inf   -0.1732     0.147
+# mandarin long        0.1245 0.0780 Inf   -0.0284     0.277
+# korean island        0.2169 0.0851 Inf    0.0500     0.384 *
+# mandarin island      0.0934 0.0778 Inf   -0.0592     0.246
+
+# plot ...
+
+plot <- emmip(model2, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = xvar, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='log odds ratio') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('solid', 'twodash')) +
+  scale_color_manual(values = c('#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/src/ept_resumption_proficiency_emmeans.png", width=6.5, height=2, dpi=600)
+
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+model3 <- lmer(resumption ~ proficiency * group * environment + 
+                 (1 + environment | participant) + 
+                 (1 + environment | item),
+               data = filter(md, study == '210510_su'))
+summary(model3)
+
+# optimizer (nloptwrap) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                       0.290711   0.025345 130.360764  11.470  < 2e-16 ***
+# proficiency                       0.005090   0.002978 126.710555   1.709   0.0899 .  
+# group2                            0.125192   0.049632 126.715680   2.522   0.0129 *  
+# environment2                      0.368794   0.039606 123.998812   9.312 5.84e-16 ***
+# environment3                      0.437093   0.041606 124.273558  10.506  < 2e-16 ***
+# proficiency:group2               -0.001231   0.005957 126.749247  -0.207   0.8366    
+# proficiency:environment2          0.006409   0.004658 126.354653   1.376   0.1713    
+# proficiency:environment3          0.012587   0.004900 126.360895   2.569   0.0114 *  
+# group2:environment2               0.176195   0.077624 126.368309   2.270   0.0249 *  
+# group2:environment3               0.066877   0.081657 126.371951   0.819   0.4143    
+# proficiency:group2:environment2   0.010859   0.009318 126.459266   1.165   0.2461    
+# proficiency:group2:environment3  -0.007086   0.009802 126.445757  -0.723   0.4710 
+
+anova(model2, model3, refit = FALSE)
+
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model2   20 366.50 478.16 -163.25   326.50                    
+# model3   25 370.55 510.13 -160.28   320.55 5.947  5     0.3114
+
+#------------------------------------------------------------------------------#
+# + + model 4
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+model4 <- lmer(resumption ~ proficiency * group * environment + 
+                 (1 + environment | participant) + 
+                 (1 + group | item),
+               data = filter(md, study == '210510_su'))
+summary(model4)
+
+# optimizer (nloptwrap) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                       0.290705   0.025270 130.237963  11.504   <2e-16 ***
+# proficiency                       0.005093   0.002979 126.996447   1.710   0.0898 .  
+# group2                            0.125148   0.050034 128.791116   2.501   0.0136 *  
+# environment2                      0.368858   0.038802 126.159076   9.506   <2e-16 ***
+# environment3                      0.437126   0.040838 126.232205  10.704   <2e-16 ***
+# proficiency:group2               -0.001214   0.005958 126.996447  -0.204   0.8389    
+# proficiency:environment2          0.006381   0.004658 126.243797   1.370   0.1731    
+# proficiency:environment3          0.012578   0.004902 126.311477   2.566   0.0115 *  
+# group2:environment2               0.176368   0.077605 126.166545   2.273   0.0247 *  
+# group2:environment3               0.066841   0.081678 126.239960   0.818   0.4147    
+# proficiency:group2:environment2   0.010771   0.009317 126.280149   1.156   0.2498    
+# proficiency:group2:environment3  -0.007070   0.009805 126.348956  -0.721   0.4722 
+
+anova(model2, model4, refit = FALSE)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   20 366.50 478.16 -163.25   326.50                     
+# model4   22 366.71 489.55 -161.36   322.71 3.7832  2     0.1508
+
+#------------------------------------------------------------------------------#
+# + lm ~ orc ~ overall ----
+#------------------------------------------------------------------------------#
+
+# adjust column classes ...
+
+md <- plot %>%
+  filter(group %in% c('korean', 'mandarin')) %>%
+  mutate(group = factor(group)) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+str(md)
+
+# apply deviation coding ...
+
+contrasts(md$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+
+# view contrasts ...
+
+contrasts(md$group)
+  
+# fit model ...
+
+model <- lm(prop ~ proficiency, data = filter(md, group == 'korean'))
 summary(model)
 
-# doen: ' ' (r-squared = 0.000434, F = 0.03778, p = 0.8463)
-# doko: '.' (r-squared = 0.05509, F = 3.848, p = 0.05402)
-# dozh: ' ' (r-squared = 0.006488, F = 0.4832, p = 0.4891)
-# suen: ' ' (r-squared = 0.005779, F = 0.343, p = 0.5604)
-# suko: ' ' (r-squared = 0.03603, F = 2.392, p = 0.1269)
-# suzh: ' ' (r-squared = 0.00, F = 0.00, p = 0.997)
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)  17.2932     2.2308   7.752 2.45e-12 ***
+# proficiency   0.0347     0.2757   0.126      0.9    
+# Residual standard error: 25.17 on 128 degrees of freedom
+# Multiple R-squared:  0.0001238,	Adjusted R-squared:  -0.007688 
+# F-statistic: 0.01585 on 1 and 128 DF,  p-value: 0.9
+
+model <- lm(prop ~ proficiency, data = filter(md, group == 'mandarin'))
+summary(model)
+
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) 20.53422    2.36000   8.701    1e-14 ***
+# proficiency -0.04527    0.28646  -0.158    0.875    
+# Residual standard error: 27.38 on 135 degrees of freedom
+# Multiple R-squared:  0.000185,	Adjusted R-squared:  -0.007221 
+# F-statistic: 0.02498 on 1 and 135 DF,  p-value: 0.8747
 
 #------------------------------------------------------------------------------#
 # bar plot critical by-item ----
@@ -737,8 +1848,18 @@ ggplot(data=plot, aes(x=condition, y=prop, group=category, fill=category, label=
 ggsave("plots/ept_plot_item.png", width=10, height=5, dpi=600)
 
 #------------------------------------------------------------------------------#
-# modeling ----
+# modeling: glmmTMB ~ all response types ----
 #------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
 
 # remove participants who only gave nontarget responses ...
 
@@ -751,6 +1872,939 @@ temp <- ep %>%
 md <- ep %>%
   filter(participant %in% temp$participant)
 
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# check response types ...
+
+check <- md %>%
+  mutate(type = factor(type))
+
+summary(check$type)
+
+# recode responses ...
+
+md <- md %>%
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
+                                TRUE ~ FALSE),
+         gap = case_when(type == 'gap' ~ TRUE,
+                         TRUE ~ FALSE),
+         modified = case_when(type == 'other' ~ TRUE,
+                              TRUE ~ FALSE),
+         nontarget = case_when(type == 'nontarget' ~ TRUE,
+                               TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('resumption', 'gap', 'modified', 'nontarget'), names_to = 'dependency', values_to = 'response2') %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check counts per variable
+
+check <- md %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(response2)) %>%
+  ungroup()
+
+# summarise to create count data ...
+
+md2 <- md %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, participant, environment, dependency) %>%
+  summarise(count = sum(response2))
+
+# plot total counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count', limits = c(0, 400)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', 'gray85', 'gray60', '#ffb000')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 18, 17, 15)),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_total_all.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_total_all.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="count", limits = c(-.05, 5), breaks = c(0, 1, 2, 3, 4, 5)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', 'gray85', 'gray60', '#ffb000')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 18, 17, 15)),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_count_all.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_count_all.png", width=6.5, height=2, dpi=600)
+
+# modeling ...
+
+md2 <- md2 %>%
+  mutate_at(c('study', 'group', 'participant', 'dependency', 'environment'), factor)
+
+summary(md2)
+
+# apply deviation coding ...
+
+contrasts(md2$dependency) <- contr.treatment(4) - matrix(rep(1/4, 12), ncol=3)
+contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md2$dependency)
+contrasts(md2$environment)
+contrasts(md2$group)
+
+# load package ...
+
+library(glmmTMB) # (https://fcorowe.github.io/countdata_modelling/)
+
+# fit poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+# fit zero-inflated poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# Model convergence problem
+
+# fit negative binomial regression model ...
+
+# + model 1 (final) ----
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+model1 %>% write_rds('models/ept_orc_count_all_glmmtmb.rds')
+
+model1 <- read_rds('models/ept_orc_count_all_glmmtmb.rds')
+
+# no errors
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                     -0.228739   0.036983  -6.185 6.21e-10 ***
+# dependency2                     -1.118095   0.082649 -13.528  < 2e-16 ***
+# dependency3                     -1.893907   0.092653 -20.441  < 2e-16 ***
+# dependency4                     -2.207199   0.110224 -20.025  < 2e-16 ***
+# environment2                     0.118230   0.096008   1.231 0.218152    
+# environment3                     0.399858   0.091585   4.366 1.27e-05 ***
+# group2                           0.381720   0.091642   4.165 3.11e-05 ***
+# group3                           0.278564   0.092227   3.020 0.002524 ** 
+# dependency2:environment2        -0.822963   0.200714  -4.100 4.13e-05 ***
+# dependency3:environment2        -0.088113   0.229356  -0.384 0.700850    
+# dependency4:environment2         0.702865   0.297398   2.363 0.018109 *  
+# dependency2:environment3        -0.530776   0.199803  -2.657 0.007896 ** 
+# dependency3:environment3         0.288344   0.227132   1.269 0.204263    
+# dependency4:environment3         2.104808   0.277818   7.576 3.56e-14 ***
+# dependency2:group2               0.930341   0.202944   4.584 4.56e-06 ***
+# dependency3:group2               0.502497   0.226151   2.222 0.026287 *  
+# dependency4:group2               0.902121   0.274591   3.285 0.001019 ** 
+# dependency2:group3               0.858407   0.198973   4.314 1.60e-05 ***
+# dependency3:group3               0.401533   0.221871   1.810 0.070334 .  
+# dependency4:group3               0.497112   0.280854   1.770 0.076727 .  
+# environment2:group2             -0.020728   0.240543  -0.086 0.931329    
+# environment3:group2             -0.518462   0.226144  -2.293 0.021870 *  
+# environment2:group3             -0.009302   0.242382  -0.038 0.969386    
+# environment3:group3             -0.557179   0.228998  -2.433 0.014969 *  
+# dependency2:environment2:group2  0.442226   0.493862   0.895 0.370550    
+# dependency3:environment2:group2 -0.499532   0.564326  -0.885 0.376057    
+# dependency4:environment2:group2 -0.107482   0.748704  -0.144 0.885850    
+# dependency2:environment3:group2 -0.624536   0.489071  -1.277 0.201608    
+# dependency3:environment3:group2 -0.796025   0.553404  -1.438 0.150317    
+# dependency4:environment3:group2 -2.517266   0.689355  -3.652 0.000261 ***
+# dependency2:environment2:group3 -0.245856   0.484333  -0.508 0.611722    
+# dependency3:environment2:group3 -0.673704   0.547620  -1.230 0.218607    
+# dependency4:environment2:group3 -0.187394   0.770365  -0.243 0.807809    
+# dependency2:environment3:group3 -1.259686   0.477474  -2.638 0.008334 ** 
+# dependency3:environment3:group3 -1.451034   0.547927  -2.648 0.008092 ** 
+# dependency4:environment3:group3 -2.598193   0.709425  -3.662 0.000250 ***
+
+table <- summary(model1)$coefficients$cond %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('SE' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
+  mutate_at(vars('p'), round, 3) %>%
+  mutate_at(vars('Estimate', 'SE', 'z'), round, 2) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('dependency2' = 'dependency(modified)', 'dependency3' = 'dependency(nontarget)', 'dependency4' = 'dependency(resumption)',
+              'environment2' = 'environment(long)', 'environment3' = 'environment(island)',
+              'group2' = 'group(KLE)', 'group3' = 'group(KLE)')) %>%
+  rename('*p*' = 'p', '*z*' = 'z')
+
+table %>% write_rds('tables/ept_orc_glmmtmb_primary.rds')
+
+# check for overdispersion ...
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+# pairwise comparisons ...
+
+pairs <- pairs(emmeans(model1, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+pairs
+
+tibble <- as_tibble(pairs)
+
+table <- tibble %>%
+  mutate_at(vars('p.value'), round, 3) %>%
+  mutate_at(vars('estimate':'t.ratio'), round, 2) %>%
+  rename('*p*' = 'p.value', '*t*' = 't.ratio',
+         'Environment' = 'environment', 'Group' = 'group', 'Dependency' = 'dependency', 
+         'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
+  mutate_if(is.character, str_replace_all, 
+            c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE'))
+
+table %>% write_rds('tables/ept_orc_glmmtmb_pairwise.rds')
+
+# tibble2 <- tibble %>%
+#   mutate(sig = case_when(p.value < .05 & p.value >= .01 ~ ' *', 
+#                          p.value < .01 & p.value >= .001 ~ ' **',
+#                          p.value < .001 ~ ' ***',
+#                          TRUE ~ '')) %>%
+#   mutate_at(vars('p.value'), sprintf, fmt = "%0.3f") %>%
+#   mutate_at(vars('estimate', 'SE', 't.ratio'), sprintf, fmt = "%0.2f") %>%
+#   rename(p = p.value, t = t.ratio) %>%
+#   mutate(p = str_c(p, sig)) %>%
+#   mutate_if(is.character, str_replace_all, 
+#             c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE')) %>%
+#   select(-sig) %>%
+#   mutate_all(as.character)
+
+pairs %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+# plot ...
+
+plot <- plot(emmeans(model1, ~ dependency * environment * group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log count", limits = c(-4, 2)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', 'gray85', 'gray60', '#ffb000')) +
+  scale_shape_manual(name="dependency", values=c(16, 18, 17, 15)) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/ept_count_all_emmeans.png", width=6.5, height=2, dpi=600)
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+model1 <- lmer(count ~ dependency * environment * group + (1 | participant),
+               data = filter(md2, study == '210510_su'))
+summary(model1)
+
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)                     -4.099e+00  2.452e+04   0.000    1.000
+# dependency2                     -3.491e+00  4.876e+04   0.000    1.000
+# environment2                     8.130e+00  7.240e+04   0.000    1.000
+# environment3                     4.006e+00  7.314e+04   0.000    1.000
+# group2                           2.941e+00  7.314e+04   0.000    1.000
+# group3                           7.750e+00  1.177e+04   0.001    0.999
+# dependency2:environment2         1.785e+01  1.448e+05   0.000    1.000
+# dependency2:environment3         2.951e+01  1.471e+05   0.000    1.000
+# dependency2:group2              -1.109e+01  1.471e+05   0.000    1.000
+# dependency2:group3              -2.697e-01  2.355e+04   0.000    1.000
+# environment2:group2              6.996e+00  2.172e+05   0.000    1.000
+# environment3:group2              1.842e+01  2.207e+05   0.000    1.000
+# environment2:group3             -8.030e+00  1.756e+03  -0.005    0.996
+# environment3:group3              3.071e+00  3.532e+04   0.000    1.000
+# dependency2:environment2:group2  1.566e+01  4.344e+05   0.000    1.000
+# dependency2:environment3:group2 -1.555e+01  4.388e+05   0.000    1.000
+# dependency2:environment2:group3 -1.338e+01  3.512e+03  -0.004    0.997
+# dependency2:environment3:group3 -4.477e+01  7.064e+04  -0.001    0.999
+
+# fit model with more complex random-effects structure ...
+
+tic()
+model2 <- glmmTMB(count ~ dependency * environment * group + 
+                    (1 + environment | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model2)
+toc()
+beep()
+
+# 38.34 sec elapsed
+# Model convergence problem
+
+
+#------------------------------------------------------------------------------#
+# modeling: glmmTMB ~ gap vs. resumption ----
+#------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+md <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# recode responses ...
+
+md <- md %>%
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
+                                TRUE ~ FALSE),
+         gap = case_when(type == 'gap' ~ TRUE,
+                         TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('resumption', 'gap'), names_to = 'dependency', values_to = 'response2') %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check counts per variable
+
+check <- md %>%
+  filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(response2)) %>%
+  ungroup()
+
+check <- check %>%
+  filter(study == '210510_do')
+
+kbl(check)
+
+# summarise to create count data ...
+
+md2 <- md %>%
+  filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
+  group_by(study, group, participant, environment, dependency) %>%
+  summarise(count = sum(response2))
+
+# plot total counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count', limits = c(0, 400)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_total.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_total.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="count", limits = c(-.05, 5), breaks = c(0, 1, 2, 3, 4, 5)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', '#ffb000'), 
+                      labels=c('gap', 'resumption')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 15), 
+                     labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_count.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_count.png", width=6.5, height=2, dpi=600)
+
+# modeling ...
+
+md2 <- md2 %>%
+  mutate_at(c('study', 'group', 'participant', 'dependency', 'environment'), factor)
+
+summary(md2)
+
+# apply deviation coding ...
+
+contrasts(md2$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md2$dependency)
+contrasts(md2$environment)
+contrasts(md2$group)
+
+# load package ...
+
+library(glmmTMB) # (https://fcorowe.github.io/countdata_modelling/)
+
+# fit poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# dispersion ratio = 1.615
+# Pearson's Chi-Squared = 2149.197
+# p-value = < 0.001
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# dispersion ratio =    1.430
+# Pearson's Chi-Squared = 1619.668
+#                 p-value =  < 0.001
+# Overdispersion detected.
+
+# fit zero-inflated poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# dispersion ratio =    1.454
+# Pearson's Chi-Squared = 1933.875
+#                 p-value =  < 0.001
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# Model convergence problem
+
+# fit negative binomial regression model ...
+
+# + model 1 (final) ----
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+model1 %>% write_rds('models/ept_orc_count_glmmtmb.rds')
+
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                     -0.15578    0.06344  -2.455 0.014071 *  
+# dependency2                     -2.26413    0.09652 -23.457  < 2e-16 ***
+# environment2                     0.53821    0.13104   4.107 4.01e-05 ***
+# environment3                     1.01351    0.11992   8.452  < 2e-16 ***
+# group2                           0.14149    0.14981   0.944 0.344943    
+# group3                           0.01186    0.15143   0.078 0.937551    
+# dependency2:environment2         0.67984    0.26207   2.594 0.009483 ** 
+# dependency2:environment3         2.11128    0.23989   8.801  < 2e-16 ***
+# dependency2:group2               0.88802    0.23925   3.712 0.000206 ***
+# dependency2:group3               0.47953    0.24790   1.934 0.053066 .  
+# environment2:group2             -0.01639    0.33301  -0.049 0.960736    
+# environment3:group2             -0.78280    0.29927  -2.616 0.008904 ** 
+# environment2:group3              0.20108    0.34721   0.579 0.562500    
+# environment3:group3             -0.50374    0.31309  -1.609 0.107624    
+# dependency2:environment2:group2 -0.11497    0.66611  -0.173 0.862970    
+# dependency2:environment3:group2 -2.55872    0.59928  -4.270 1.96e-05 ***
+# dependency2:environment2:group3 -0.20948    0.69438  -0.302 0.762891    
+# dependency2:environment3:group3 -2.64641    0.62675  -4.222 2.42e-05 *** 
+
+# table ...
+
+summary(model1)$coefficients$cond %>%
+  kbl(digits = c(2, 2, 2, 3)) 
+
+# check for overdispersion ...
+
+check_overdispersion(model1)
+
+# dispersion ratio =    1.008
+# Pearson's Chi-Squared = 1340.388
+#                 p-value =    0.415
+# No overdispersion detected.
+
+# pairwise comparisons ...
+
+pairs <- pairs(emmeans(model1, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+pairs
+
+# plot ...
+
+plot <- plot(emmeans(model1, ~ dependency * environment * group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log count", limits = c(-4, 2)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/ept_count_emmeans.png", width=6.5, height=2, dpi=600)
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+model1 <- lmer(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_su'))
+summary(model1)
+
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)                     -4.099e+00  2.452e+04   0.000    1.000
+# dependency2                     -3.491e+00  4.876e+04   0.000    1.000
+# environment2                     8.130e+00  7.240e+04   0.000    1.000
+# environment3                     4.006e+00  7.314e+04   0.000    1.000
+# group2                           2.941e+00  7.314e+04   0.000    1.000
+# group3                           7.750e+00  1.177e+04   0.001    0.999
+# dependency2:environment2         1.785e+01  1.448e+05   0.000    1.000
+# dependency2:environment3         2.951e+01  1.471e+05   0.000    1.000
+# dependency2:group2              -1.109e+01  1.471e+05   0.000    1.000
+# dependency2:group3              -2.697e-01  2.355e+04   0.000    1.000
+# environment2:group2              6.996e+00  2.172e+05   0.000    1.000
+# environment3:group2              1.842e+01  2.207e+05   0.000    1.000
+# environment2:group3             -8.030e+00  1.756e+03  -0.005    0.996
+# environment3:group3              3.071e+00  3.532e+04   0.000    1.000
+# dependency2:environment2:group2  1.566e+01  4.344e+05   0.000    1.000
+# dependency2:environment3:group2 -1.555e+01  4.388e+05   0.000    1.000
+# dependency2:environment2:group3 -1.338e+01  3.512e+03  -0.004    0.997
+# dependency2:environment3:group3 -4.477e+01  7.064e+04  -0.001    0.999
+
+# fit model with more complex random-effects structure ...
+
+model2 <- glmmTMB(count ~ dependency * environment * group + 
+                    (1 + dependency | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model2)
+
+# 38.34 sec elapsed
+# Model convergence problem; non-positive-definite Hessian matrix.
+
+#------------------------------------------------------------------------------#
+# modeling: mblogit ----
+#------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+md <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# recode responses ...
+
+md <- md %>%
+  mutate(outcome = factor(case_when(type == 'resumption' ~ 'resumption',
+                             type == 'gap' ~ 'gap',
+                             TRUE ~ 'other')))
+
+# plot total counts ...
+
+plot <- md %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, outcome) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = outcome, col = outcome, shape = outcome, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count', limits = c(0, 400)),
+  scale_x_discrete(limits = c('short', 'long', 'island')),
+  scale_colour_manual(name='outcome', 
+                      values=c('#648fff', 'gray', '#ffb000')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_total_mclogit.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_totalmclogit.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- md %>%
+  mutate(resumption = case_when(outcome == 'resumption' ~ TRUE, TRUE ~ FALSE),
+         gap = case_when(outcome == 'gap' ~ TRUE, TRUE ~ FALSE),
+         other = case_when(outcome == 'other' ~ TRUE, TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('resumption', 'gap', 'other'), names_to = 'category', values_to = 'value')
+
+plot <- plot %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, category) %>%
+  summarise(mean = mean(value, na.rm=T),
+            sd = sd(value, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = category, col = category, shape = category),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="proportion", limits = c(0, 1)),
+  scale_x_discrete(limits = c('short', 'long', 'island')),
+  scale_colour_manual(values=c('#648fff', 'gray', '#ffb000')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_prop.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_prop.png", width=6.5, height=2, dpi=600)
+
+s <- list(
+  aes(x = environment, y = mean*100, group = category, col = category, shape = category, label = round(mean*100, digits = 0)),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean*100 - ci*100, ymax = mean*100 + ci*100), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = 'black', hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="proportion", limits = c(0, 100)),
+  scale_x_discrete(limits = c('short', 'long', 'island')),
+  scale_colour_manual(values=c('#648fff', 'gray', '#ffb000')),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_prc.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_prc.png", width=6.5, height=2, dpi=600)
+
+# modeling ...
+
+md2 <- md %>%
+  filter(is.na(environment) == FALSE) %>%
+  select(study, group, participant, item, environment, outcome) %>%
+  mutate_at(c('study', 'group', 'participant', 'item', 'environment', 'outcome'), factor) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'),
+         outcome = fct_relevel(outcome, 'gap', 'resumption', 'other'))
+
+summary(md2)
+
+# apply deviation coding ...
+
+contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md2$environment)
+contrasts(md2$group)
+
+# load package ...
+
+library(mclogit)
+
+# fit mixed conditional logit model ...
+
+model1 <- mblogit(outcome ~ environment * group, 
+                  random = ~ 1 | participant,
+                  data = filter(md2, study == '210510_do'))
+summary(model1)
+
+dispersion(model1, method="Afroz")
+dispersion(model1, method="Deviance")
+
+pairs(emmeans(model1, ~ environment * group))
+
+pairs <- pairs(emmeans(model1, ~ environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+pairs
+
+# error
+
+warnings()
+
+#------------------------------------------------------------------------------#
+# modeling: glmer ~ resumption ----
+#------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+md <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
 # code responses as ±resumption ...
 
 md <- md %>%
@@ -758,171 +2812,386 @@ md <- md %>%
                                 TRUE ~ FALSE)) %>%
   filter(group %in% c('english', 'korean', 'mandarin')) %>%
   mutate(group = fct_drop(group)) %>%
-  mutate(environment = fct_relevel(environment, 'long', 'short', 'island'))
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
-md2 <- md %>%
-  filter(study == '210510_do' & group == 'mandarin' & is.na(condition) == FALSE) %>%
-  mutate(condition = fct_drop(condition))
+# plot count data ...
+
+plot <- md %>%
+  filter(condition %in% c('cond1', 'cond2', 'cond3')) %>%
+  group_by(study, group, participant, environment) %>%
+  summarise(count = sum(resumption))
+
+plot <- plot %>%
+  group_by(study, group, environment) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() %>%
+  mutate(dependency = 'resumption')
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = group, col = dependency),
+  geom_line(lwd=1),
+  geom_point(size=2, shape = 15),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1),
+  theme_classic(),
+  scale_y_continuous(name="count", breaks=c(0, 1, 2, 3, 4, 5)),
+  #scale_x_discrete(name="environment", limits=c('short', 'long', 'island')),
+  scale_colour_manual(name="dependency", values='#ffb000'),
+  #scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+  theme(text = element_text(size = 12),
+        legend.position = 'none',
+        #legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group)
+)
+
+p1 + s
+p2 + s
+
+# modeling ...
 
 md2 <- md2 %>%
-  filter(type %in% c('gap', 'resumption'))
+  mutate_at(c('study', 'group', 'participant', 'environment'), factor)
+
+summary(md2)
+
+# apply deviation coding ...
+
+contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
 
 # view contrasts ...
 
 contrasts(md2$environment)
+contrasts(md2$group)
 
-# fit model ...
-
-model1 <- glmer(resumption ~ environment + (environment|participant) + (environment|item), 
-                data = md2, family = binomial, control = glmerControl(optimizer = "bobyqa"))
-summary(model1)
-beepr::beep(1)
-
-# doen (reference level = cond2) singular fit
-# Fixed effects:
-#                     Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)       -10.424930   0.001255   -8309   <2e-16 ***
-# environmentshort  -31.971440   0.001296  -24673   <2e-16 ***
-# environmentisland   9.651172   0.001255    7692   <2e-16 ***
-
-# doko (reference level = cond2) failed to converge
-
-# dozh (reference level = cond2) failed to converge
-
-# alternative models ...
-
-model1 <- glmer(resumption ~ environment + (environment|participant) + (environment|item), 
-                data = md2, family = binomial, glmerControl(optimizer = "bobyqa"))
-summary(model1)
-
-model2 <- glmer(type ~ environment + (1|participant) + (1|item), 
-                data = md2, family = binomial, glmerControl(optimizer = "bobyqa"))
-summary(model2)
-
-model3 <- glmer(type ~ environment + (environment|item), 
-                data = md2, family = binomial, glmerControl(optimizer = "bobyqa"))
-summary(model3)
-
-# ::: filter to participants who used resumption at least once and try again :::
-
-# make list of participants who used resumption at least once ...
-
-check <- md %>%
-  filter(type == 'resumption') %>%
-  group_by(participant) %>%
-  summarise() %>%
-  ungroup() %>%
-  mutate(resumer = TRUE)
-
-# english resumers: 13/33 = 0.3939394 = 39%
-# korean resumers: 13/35 = 0.3428571 = 37%
-
-# add information about who used resumption to dataframe ...
-
-md <- md %>%
-  left_join(check, by = 'participant')
-
-# filter to participants who used resumption at least once ...
+#------------------------------------------------------------------------------#
+# + orc model 1 ----
+#------------------------------------------------------------------------------#
 
 md2 <- md %>%
-  filter(resumer == TRUE)
+  filter(is.na(condition) == FALSE) %>%
+  mutate(condition = fct_drop(condition))
 
-# summarise for plotting ...
+md2 <- md2 %>%
+  mutate_at(c('environment', 'group', 'participant', 'item'), as.factor)
 
-plot <- md2 %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  mutate(category = case_when(resumption == TRUE ~ 'resumption',
-                              resumption == FALSE ~ 'other')) %>%
-  mutate(category = as.character(category)) %>%
-  group_by(group, cond) %>%
-  count(category) %>%
-  ungroup() %>%
-  complete(category, nesting(cond), fill = list(n = 0)) %>%
-  group_by(group, cond) %>%
-  mutate(sum = sum(n)) %>%
-  ungroup() %>%
-  mutate(prop = (n/sum)*100) %>%
-  filter(group %in% c('english', 'korean')) %>%
-  mutate(prc = as.character(round(prop))) %>%
-  mutate(category = factor(category, levels = c('other', 'resumption')))
+summary(md2)
 
-# bar plot ...
+# md2 <- md2 %>%
+#   filter(type %in% c('gap', 'resumption'))
 
-ggplot(data=plot, aes(x=cond, y=prop, group=category, fill=category, label=prc)) +
-  geom_bar(stat = "identity", col = "black", width = .5) +
-  geom_text(size = 3.5, col = "black", position = position_stack(vjust = 0.5)) +
-  theme_classic() +
-  scale_x_discrete(name="environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('short', 'long', 'island')) +
-  scale_y_continuous(name="% responses", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)) +
-  scale_fill_manual(name="dependency", values=c("#9b82f3", "#00a78f")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, 1)) +
-  facet_wrap(~group)
+# apply deviation coding ...
 
-# save plot ...
-
-ggsave("data/plots/ept_binary_resumers.png", width=5.5, height=2.5, dpi=600)
-
-# filter for analysis ...
-
-md3 <- md2 %>%
-  filter(group == 'korean') %>%
-  #filter(environment != 'NA') %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  select(group, participant, item, type, resumption, cond, resumer) %>%
-  mutate(participant = as.factor(participant),
-         item = as.factor(item))
+contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
 
 # view contrasts ...
 
-contrasts(md3$environment)
+contrasts(md2$environment)
+contrasts(md2$group)
+
+#------------------------------------------------------------------------------#
+# + + model 2 - orc
+#------------------------------------------------------------------------------#
 
 # fit model ...
 
-model1 <- glmer(resumption ~ cond + (cond|participant) + (cond|item), 
-                data = md3, family = binomial, glmerControl(optimizer = "bobyqa"))
-summary(model1)
-
-model2 <- glmer(resumption ~ environment + (1|participant) + (1|item), 
-                data = md3, family = binomial, glmerControl(optimizer = "bobyqa"))
+tic()
+model2 <- glmer(resumption ~ environment * group +
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md2, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ajt_doall_glmer_md2.rds')
 summary(model2)
+toc()
+beep()
 
-model2 <- glm(resumption ~ environment, data = md3, family = binomial)
-summary(model2)
+model2 <- read_rds('models/ajt_doall_glmer_md2.rds')
 
-# *** attempt 3 ***
-
-md <- target %>%
-  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
-  mutate(cond = fct_drop(cond)) %>%
-  mutate(category = case_when(type == 'gap' ~ 'gap',
-                              type == 'resumption' ~ 'resumption',
-                              TRUE ~ 'other')) %>%
-  mutate(category = as.character(category)) %>%
-  group_by(group, cond, participant) %>%
-  count(category) %>%
-  ungroup() %>%
-  complete(category, nesting(group, cond, participant), fill = list(n = 0)) %>%
-  filter(category == 'resumption')
-
-md <- md %>%
-  mutate(cond = fct_relevel(cond, 'cond1', 'cond2', 'cond3'))
-
-# view contrasts
-contrasts(md$cond)
-
-model1 <- lmer(n ~ cond + (1|participant), data = md)
-summary(model1)
+# 6.91 sec elapsed
+# no warnings
 # Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)    
-# (Intercept) 7.944e-17  1.167e-01 1.777e+02   0.000    1.000    
-# condcond2   1.587e-01  1.533e-01 1.238e+02   1.036    0.302    
-# condcond3   9.543e-01  1.547e-01 1.249e+02   6.170 8.76e-09 ***
+# Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         -5.242666   0.394286 -13.297  < 2e-16 ***
+# environment2         1.711611   0.345890   4.948 7.48e-07 ***
+# environment3         3.966361   0.350131  11.328  < 2e-16 ***
+# group2              -0.002109   0.667432  -0.003  0.99748    
+# group3              -0.113479   0.650661  -0.174  0.86155    
+# environment2:group2  0.551321   0.830234   0.664  0.50666    
+# environment3:group2 -2.667690   0.821993  -3.245  0.00117 ** 
+# environment2:group3  0.743056   0.890715   0.834  0.40415    
+# environment3:group3 -2.709075   0.872339  -3.106  0.00190 ** 
+
+#------------------------------------------------------------------------------#
+# + + model 2 - src
+#------------------------------------------------------------------------------#
+
+# check ...
+
+check <- md2 %>%
+  group_by(study, group, environment) %>%
+  summarise(count = sum(resumption)) %>%
+  ungroup()
+
+# fit model ...
+
+tic()
+model2 <- glmer(resumption ~ environment * group +
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md2, study == '210510_su'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ajt_src_glmer_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 4.57 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)          -7.3868     5.1895  -1.423    0.155
+# environment2         14.7634    15.5440   0.950    0.342
+# environment3         18.8882    15.5421   1.215    0.224
+# group2                0.4982    14.0875   0.035    0.972
+# group3                7.7666     8.4076   0.924    0.356
+# environment2:group2   6.3650    42.2051   0.151    0.880
+# environment3:group2  -2.0430    42.2033  -0.048    0.961
+# environment2:group3 -10.9856    25.1419  -0.437    0.662
+# environment3:group3 -21.0977    25.1315  -0.839    0.401
+
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- glmer(resumption ~ environment * group +
+                  (1 + environment | participant) + 
+                  (1 + group | item), 
+                data = md2, family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ajt_doall_glmer_md3.rds')
+summary(model3)
+toc()
+beep()
+# 
+# 109.08 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         -7.18699    0.92807  -7.744 9.63e-15 ***
+# environment2         5.12139    2.02440   2.530 0.011412 *  
+# environment3         7.75504    2.16426   3.583 0.000339 ***
+# group2              -0.01080    0.93216  -0.012 0.990753    
+# group3               0.02393    0.92522   0.026 0.979366    
+# environment2:group2  0.85515    1.15822   0.738 0.460314    
+# environment3:group2 -3.04159    1.53828  -1.977 0.048012 *  
+# environment2:group3  0.53493    1.29338   0.414 0.679174    
+# environment3:group3 -4.00926    1.60311  -2.501 0.012387 * 
+
+anova(model3, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   16 1277.3 1375.3 -622.66   1245.3                     
+# model3   21 1286.4 1415.0 -622.20   1244.4 0.9046  5     0.9699
+
+#------------------------------------------------------------------------------#
+# + + model 4
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- glmer(resumption ~ environment * group +
+                  (1 + environment | participant) + 
+                  (1 + environment | item), 
+                data = md2, family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ajt_doall_glmer_md4.rds')
+summary(model4)
+toc()
+beep()
+
+model4 <- read_rds('models/ajt_doall_glmer_md4.rds')
+
+# old
+# 205.05 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)          -5.8201     1.1843  -4.914 8.90e-07 ***
+# environment2         -4.8788     3.4479  -1.415   0.1571    
+# environment3          1.7361     0.7991   2.173   0.0298 *  
+# group2                0.8271     1.0444   0.792   0.4284    
+# group3                0.5232     1.0301   0.508   0.6115    
+# environment2:group2   0.5897     1.6960   0.348   0.7281    
+# environment3:group2  -5.2938     0.9220  -5.741 9.39e-09 ***
+# environment2:group3   0.6738     1.8497   0.364   0.7157    
+# environment3:group3  -5.8088     0.9264  -6.270 3.60e-10 ***
+
+# post-hoc tests ...
+
+pairwise <- model4 %>%
+  emmeans(~ environment * group) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# 109.93 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         -7.63700    1.09097  -7.000 2.56e-12 ***
+# environment2         5.81498    2.72401   2.135  0.03278 *  
+# environment3         8.70456    2.76447   3.149  0.00164 ** 
+# group2               0.01286    1.00004   0.013  0.98974    
+# group3               0.15807    0.97815   0.162  0.87162    
+# environment2:group2  0.85524    1.42007   0.602  0.54701    
+# environment3:group2 -3.12660    1.76549  -1.771  0.07657 .  
+# environment2:group3  0.35462    1.52802   0.232  0.81648    
+# environment3:group3 -4.28170    1.81432  -2.360  0.01828 *
+
+anova(model4, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model5   16 1277.3 1375.3 -622.66   1245.3                     
+# model4   21 1282.4 1411.0 -620.21   1240.4 4.8943  5     0.4289
+
+#------------------------------------------------------------------------------#
+# + + model 5 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- glmer(resumption ~ environment * group +
+                  (1 + environment | participant) + 
+                  (1 | item), 
+                data = md2, family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl = list(maxfun = 1e6))) %>%
+  write_rds('models/ajt_doall_glmer_md5.rds')
+summary(model5)
+toc()
+beep()
+
+model5 <- read_rds('models/ajt_doall_glmer_md5.rds')
+
+tic()
+model5b <- glmer(resumption ~ environment * group +
+                   (1 + environment | participant) + 
+                   (1 | item), 
+                 data = md2, family = binomial, 
+                 control = glmerControl(optimizer = 'bobyqa', optCtrl = list(maxfun = 1e6)))
+summary(model5b)
+toc()
+beep()
+
+# 31.06 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         -7.10416    0.91103  -7.798 6.29e-15 ***
+# environment2         5.04945    2.22179   2.273 0.023045 *  
+# environment3         7.66577    2.23591   3.428 0.000607 ***
+# group2               0.02424    0.93761   0.026 0.979373    
+# group3               0.10818    0.91391   0.118 0.905770    
+# environment2:group2  0.80797    1.35736   0.595 0.551676    
+# environment3:group2 -3.08800    1.65422  -1.867 0.061938 .  
+# environment2:group3  0.45457    1.43478   0.317 0.751378    
+# environment3:group3 -4.04956    1.67972  -2.411 0.015915 *  
+
+anova(model2, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
+# model2   11 1312.5 1379.8 -645.23   1290.5                         
+# model5   16 1277.3 1375.3 -622.66   1245.3 45.153  5   1.35e-08 ***
+
+# post-hoc tests ...
+
+pairs <- pairs(emmeans(model5, ~ environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+pairs
+
+# group    environment contrast           estimate    SE  df z.ratio p.value
+# english  .           long - short          4.629 2.530 Inf   1.830  0.5173
+# english  .           island - short       10.045 2.568 Inf   3.911  0.0015 *
+# english  .           island - long         5.416 1.203 Inf   4.502  0.0001 *
+# korean   .           long - short          5.437 2.426 Inf   2.241  0.2538
+# korean   .           island - short        6.957 2.495 Inf   2.788  0.0675 .
+# korean   .           island - long         1.520 1.108 Inf   1.372  0.8268
+# mandarin .           long - short          5.083 2.089 Inf   2.433  0.1672
+# mandarin .           island - short        5.995 2.196 Inf   2.731  0.0794 .
+# mandarin .           island - long         0.912 1.015 Inf   0.898  0.9817
+# .        short       korean - english      0.784 1.753 Inf   0.447  0.9999
+# .        short       mandarin - english    1.307 1.759 Inf   0.743  0.9946
+# .        short       mandarin - korean     0.522 1.633 Inf   0.320  1.0000
+# .        long        korean - english      1.592 0.923 Inf   1.724  0.5934
+# .        long        mandarin - english    1.761 0.908 Inf   1.939  0.4387
+# .        long        mandarin - korean     0.169 0.833 Inf   0.203  1.0000
+# .        island      korean - english     -2.304 0.729 Inf  -3.159  0.0222 * 
+# .        island      mandarin - english   -2.743 0.717 Inf  -3.827  0.0021 *
+# .        island      mandarin - korean    -0.439 0.739 Inf  -0.594  0.9988
+# Results are given on the log odds ratio (not the response) scale. 
+# P value adjustment: mvt method for 18 tests 
+
+# effect sizes ...
+
+as_tibble(summary(model5)$coefficients) %>%
+  mutate(OR = exp(Estimate)) %>%
+  kbl(digits = c(2, 2, 2, 3, 2))
+
+pairs %>% as_tibble() %>%
+  mutate(OR = exp(estimate)) %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3))
+
+# tables ...
+
+summary(model5)$coefficients %>%
+  kbl(digits = c(2, 2, 2, 3))
+
+pairs %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+# plot ...
+
+plot <- plot(emmeans(model5, ~ environment | group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = group)) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, col = '#ffb000', alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, col = '#ffb000', position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, col = '#ffb000', position = position_dodge(width = .4)) +
+  geom_point(size = 3, col = '#ffb000', shape = 15, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log odds ratio", limits = c(-20, 0)) +
+  scale_x_discrete(limits = c('short', 'long', 'island')) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/ept_rate_emmeans.png", width=6.5, height=2, dpi=600)
+
+
 
 #------------------------------------------------------------------------------#
 # speaking time - plot - overall ----
 #------------------------------------------------------------------------------#
 
-st <- read_excel('data/ept_spoken_analysis.xlt')
+st <- read_excel('data/speaking_analysis.xlsx')
 
 # check participants
 
@@ -932,21 +3201,16 @@ check <- st %>%
   summarise(n = n()) %>%
   ungroup()
 
-# filter to doen
-
-st <- st %>%
-  filter(study == '210510_do', group == 'english')
-
 # summarise data for plotting by group
 
 plot <- st %>%
-  mutate(durations = as.numeric(durations) * 1000) %>%
+  mutate(duration = as.numeric(duration) * 1000) %>%
   rename(dependency = type) %>%
   mutate(environment = as.factor(environment)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
   group_by(study, group, dependency, environment) %>%
-  summarise(mean = mean(durations, na.rm=T),
-            sd = sd(durations, na.rm=T),
+  summarise(mean = mean(duration, na.rm=T),
+            sd = sd(duration, na.rm=T),
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
@@ -957,6 +3221,8 @@ plot <- st %>%
                            group == 'mandarin' ~ 'MLE')) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
   filter(is.na(mean) == 'FALSE')
+
+confint(lm(count ~ 1, md2), level = .95)
 
 # generate plot
 
@@ -969,7 +3235,7 @@ s <- list(
   geom_point(size=2),
   geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1),
   theme_classic(),
-  scale_y_continuous(name="speaking time (ms)", limits=c(500, 700)),
+  scale_y_continuous(name="speaking time (ms)", limits=c(500, 1000)),
   scale_x_discrete(name="environment", limits=c('short', 'long', 'island')),
   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
   scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
@@ -981,15 +3247,16 @@ s <- list(
 )
 
 p1 + s
-p2 + s
-
 ggsave('plots/orc/ept_time_overall.png', width=6.5, height=3.5, dpi=600)
+
+p2 + s
+ggsave('plots/src/ept_time_overall.png', width=6.5, height=3.5, dpi=600)
 
 #------------------------------------------------------------------------------#
 # speaking time - plot - by region ----
 #------------------------------------------------------------------------------#
 
-st <- read_excel('data/ept_spoken_analysis.xlt')
+st <- read_excel('data/speaking_analysis.xlsx')
 
 # check participants
 
@@ -999,21 +3266,16 @@ check <- st %>%
   summarise(n = n()) %>%
   ungroup()
 
-# filter to doen
-
-st <- st %>%
-  filter(study == '210510_do', group == 'english')
-
 # summarise data for plotting by group
 
 plot <- st %>%
-  mutate(durations = as.numeric(durations) * 1000) %>%
+  mutate(duration = as.numeric(duration) * 1000) %>%
   rename(dependency = type) %>%
   mutate(environment = as.factor(environment)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
   group_by(study, group, dependency, environment, region) %>%
-  summarise(mean = mean(durations, na.rm=T),
-            sd = sd(durations, na.rm=T),
+  summarise(mean = mean(duration, na.rm=T),
+            sd = sd(duration, na.rm=T),
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
@@ -1036,10 +3298,10 @@ s <- list(
   geom_point(size=2),
   geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1),
   theme_classic(),
-  scale_y_continuous(name="speaking time (ms)", limits=c(0, 1300)),
+  scale_y_continuous(name="speaking time (ms)", limits=c(0, 1600)),
   scale_x_discrete(name="region", 
-                   limits=c('region1', 'region2', 'region3', 'region4', 'region5', 'region6', 'region7'),
-                   labels=c('1', '2', '3', '4', '5', '6', '7')),
+                   limits=c('region0', 'region1', 'region2', 'region3', 'region4', 'region5', 'region6', 'region7'),
+                   labels=c('0', '1', '2', '3', '4', '5', '6', '7')),
   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
   scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
   theme(text = element_text(size = 12),
@@ -1050,12 +3312,13 @@ s <- list(
 )
 
 p1 + s
-p2 + s
-
 ggsave('plots/orc/ept_time_region.png', width=6.5, height=3.5, dpi=600)
 
+p2 + s
+ggsave('plots/src/ept_time_region.png', width=6.5, height=3.5, dpi=600)
+
 #==============================================================================#
-# ::::: self-paced reading task (sprt) :::::  ----
+# ::::: self-paced reading task (sprt) :::::::::::::::::::::::::::::::::::  ----
 #==============================================================================#
 
 # spr = self-paced reading task
@@ -1279,28 +3542,21 @@ p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=environment, y=mean,
 # create plot ...
 
 s <- list(
-  geom_line(lwd = 1),
-  geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=0, lwd=5, linetype=1, alpha = .5, position = position_dodge(width = .4)),
   theme_classic(),
   scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")),
-  scale_y_continuous(name="% accuracy", limits=c(68, 100)),
+  scale_y_continuous(name="% accuracy", limits=c(70, 100)),
   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")),
   scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")),
   theme(text = element_text(size = 12), 
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "none", 
         axis.title.y = element_text(margin=margin(r=-3)),
-        legend.margin=margin(0, 0, 0, 0),
-        legend.box.margin = margin(0, 0, 0, 0)),
+        legend.margin=margin(0, 0, 0, -5)),
   facet_wrap(~panel)
 )
 
 p1 + s
-bucld2 <- p1 + s + 
-  labs(caption = 'glmer: accuracy ~ dependency * environment +\n(1 + dependency * environment | person) +\n(1 + dependency * environment | item)', hjust = .5) +
-  theme(plot.caption = element_text(hjust = .5))
-bucld2
 ggsave("plots/orc/spr_accuracy.png", width=6.5, height=2, dpi=600)
 
 p2 + s
@@ -1535,241 +3791,6 @@ p2 + s +
 ggsave('plots/src/spr_rawrt.png', width=6.5, height=4.5, dpi=600)
 
 #------------------------------------------------------------------------------#
-# modeling for raw RTs ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis ...
-
-md <- spr_trim %>%
-  filter(region2 == 2,
-         study == '210510_do',
-         group == 'mandarin')
-
-# check distribution ...
-
-hist(md$rt)
-qqnorm(md$rt)
-
-md <- md %>%
-  mutate(dependency = as.factor(dependency),
-         environment = as.factor(environment)) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-# full model ...
-
-mod_spr_1 <- lmer(rt ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), data = md)
-summary(mod_spr_1)
-beep(1)
-
-# doen region 1
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)   
-# (Intercept)                           -6.094      8.216  37.583  -0.742  0.46288   
-# environmentlong                        6.518     12.629  40.439   0.516  0.60859   
-# environmentisland                     28.809     11.464  65.225   2.513  0.01446 * 
-# dependencypronoun                      2.508     11.716  93.254   0.214  0.83097   
-# environmentlong:dependencypronoun    -15.898     17.741  44.225  -0.896  0.37507   
-# environmentisland:dependencypronoun  -52.826     16.303 113.487  -3.240  0.00157 **
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region1_mod.rds')
-
-# doen region 2
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                          354.140     12.954  85.520  27.338   <2e-16 ***
-# environmentlong                       -2.863     12.105 128.014  -0.237   0.8134    
-# environmentisland                     29.335     15.576  37.188   1.883   0.0675 .  
-# dependencypronoun                     25.527     16.561  55.505   1.541   0.1289    
-# environmentlong:dependencypronoun    -19.319     21.131  45.512  -0.914   0.3654    
-# environmentisland:dependencypronoun  -54.305     24.577  50.547  -2.210   0.0317 *  
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region2_mod.rds') 
-
-# doen region 3
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                          353.289     11.332  94.850  31.177   <2e-16 ***
-# environmentlong                       -4.343      9.479 152.562  -0.458    0.648    
-# environmentisland                     15.606      9.585 113.045   1.628    0.106    
-# dependencypronoun                     13.880      9.159 198.322   1.516    0.131    
-# environmentlong:dependencypronoun      2.136     15.023  41.767   0.142    0.888    
-# environmentisland:dependencypronoun  -18.094     15.151  46.068  -1.194    0.238 
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region3_mod.rds') 
-
-# doko region 1
-# (skip for now)
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region1_mod.rds') 
-
-# doko region 2
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error     df t value Pr(>|t|)    
-# (Intercept)                           394.87      20.38  51.47  19.372   <2e-16 ***
-#   environmentlong                        38.87      24.93  34.48   1.559    0.128    
-# environmentisland                      38.41      33.69  48.11   1.140    0.260    
-# dependencypronoun                     -27.10      23.70 104.21  -1.143    0.255    
-# environmentlong:dependencypronoun     -55.22      35.00  46.51  -1.578    0.121    
-# environmentisland:dependencypronoun   -22.64      38.64  55.24  -0.586    0.560 
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region2_mod.rds') 
-
-# doko region 3
-# (skip for now)
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region3_mod.rds') 
-
-# dozh region 1
-# (skip for now)
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region1_mod.rds') 
-
-# dozh region 2
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error     df t value Pr(>|t|)    
-# (Intercept)                           439.15      19.76  56.21  22.221   <2e-16 ***
-# environmentlong                        37.46      29.64  36.78   1.264   0.2143    
-# environmentisland                      39.86      28.87  41.52   1.381   0.1747    
-# dependencypronoun                     -36.68      21.49  92.77  -1.707   0.0912 .  
-# environmentlong:dependencypronoun     -37.57      37.22  41.11  -1.009   0.3187    
-# environmentisland:dependencypronoun   -34.59      35.20  52.20  -0.983   0.3303 
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region2_mod.rds') 
-
-# dozh region 3
-# (skip for now)
-saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region3_mod.rds') 
-
-# suen region 1
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region1_mod.rds') 
-
-# suen region 2
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region2_mod.rds') 
-
-# suen region 3
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region3_mod.rds') 
-cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suen_region3_mod.txt', sep = ''), sep='\n')
-
-# suko region 1
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region1_mod.rds') 
-cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region1_mod.txt', sep = ''), sep='\n')
-
-# suko region 2
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region2_mod.rds') 
-cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region2_mod.txt', sep = ''), sep='\n')
-
-# suko region 3
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region3_mod.rds') 
-cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region3_mod.txt', sep = ''), sep='\n')
-
-# suzh region 1
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region1_mod.rds') 
-cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region1_mod.txt', sep = ''), sep='\n')
-
-# suzh region 2
-# boundary (singular) fit: see help('isSingular')
- 
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region2_mod.rds') 
-cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region2_mod.txt', sep = ''), sep='\n')
-
-# suzh region 3
-# boundary (singular) fit: see help('isSingular')
-
-saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region3_mod.rds') 
-cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region3_mod.txt', sep = ''), sep='\n')
-
-# https://marissabarlaz.github.io/portfolio/contrastcoding/
-
-# check assumptions: linearity, normality of the residuals, homogeneity of residual variance (homoscedasticity), no autoccorelation and no multicollinearity (only for models without interaction terms)
-
-performance::check_model(mod_spr_1) # perform checks
-ggsave('plots/check_model.png', width=10, height=10, dpi=600) # save output
-performance::model_performance(mod_spr_1) # check model performance
-lattice::qqmath(mod_spr_1, id = 0.05) # check for normality of residuals (identified outliers)
-car::leveneTest(residuals(mod_spr_1) ~ md$environment * md$dependency) # check homogeneity of residual variance (should not be significant)
-
-# https://easystats.github.io/performance/index.html
-# https://ademos.people.uic.edu/Chapter18.html
-# https://bookdown.org/animestina/phd_july_19/testing-the-assumptions.html
-
-# post-hoc tests: pairwise comparisons of estimated marginal means (see https://stats.stackexchange.com/questions/424304/when-to-correct-for-multiple-comparisons-with-specific-reference-to-emmeans-in)
-
-# pairs(emmeans(mod_spr_1, 'dependency', by = 'environment'))
-
-mod_spr_1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-beep(1)
-
-# doen region 1
-# contrast      environment estimate   SE   df t.ratio p.value
-# gap - pronoun short          -2.51 11.8 31.1  -0.213  0.8328
-# gap - pronoun long           13.39 11.9 26.9   1.122  0.5437
-# gap - pronoun island         50.32 11.8 29.2   4.247  0.0006 ***
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: holm method for 3 tests 
-
-# doen region 2
-# contrast      environment estimate   SE   df t.ratio p.value
-# gap - pronoun short         -25.53 16.6 46.0  -1.535  0.2630 (rrt: '*')
-# gap - pronoun long           -6.21 14.6 35.9  -0.425  0.6734
-# gap - pronoun island         28.78 16.3 36.4   1.769  0.2558 (rrt: '*')
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: holm method for 3 tests 
-
-# doko region 2
-# contrast      environment estimate   SE   df t.ratio p.value
-# gap - pronoun short           27.1 24.0 26.7   1.131  0.2680
-# gap - pronoun long            82.3 27.8 28.5   2.963  0.0183
-# gap - pronoun island          49.7 31.4 32.8   1.585  0.2452
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: holm method for 3 tests 
-
-# dozh region 1
-
-
-# dozh region 2
-
-
-# suen region 1
-
-
-# suen region 2
-
-
-# suen region 3
-
-
-# suko region 2
-
-
-# suko region 3
-
-
-# suzh region 1
-
-
-# suzh region 2
-
-
-#------------------------------------------------------------------------------#
 # plots of residual RTs ----
 #------------------------------------------------------------------------------#
 
@@ -1841,16 +3862,16 @@ p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=region2, y=mean_rrt,
 p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=region2, y=mean_rrt, group=dependency, col=dependency, shape=dependency))
 
 s <- list(
-  annotate('rect', xmin = 0.6, xmax = 1.4, ymin = -180, ymax = 180, alpha = .15),
-  annotate('rect', xmin = 1.6, xmax = 2.4, ymin = -180, ymax = 180, alpha = .15),
-  annotate('rect', xmin = 2.6, xmax = 3.4, ymin = -180, ymax = 180, alpha = .15),
+  annotate('rect', xmin = 0.6, xmax = 1.4, ymin = -150, ymax = 150, alpha = .1),
+  annotate('rect', xmin = 1.6, xmax = 2.4, ymin = -150, ymax = 150, alpha = .1),
+  annotate('rect', xmin = 2.6, xmax = 3.4, ymin = -150, ymax = 150, alpha = .1),
   geom_hline(yintercept = 0),
   geom_vline(xintercept = 0),
-  geom_line(lwd=1),
-  geom_point(size=2),
-  geom_errorbar(aes(ymin=mean_rrt-ci, ymax=mean_rrt+ci), width=.5, lwd=1, linetype=1),
+  geom_line(lwd=1, position = position_dodge(width = .4)),
+  geom_point(size=3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin=mean_rrt-ci, ymax=mean_rrt+ci), width=0, lwd=5, linetype=1, alpha = .5, position = position_dodge(width = .4)),
   theme_classic(),
-  scale_y_continuous(name="residual reading time (ms)", limits=c(-200, 200)),
+  scale_y_continuous(name="RRT (ms)", breaks = seq(-150, 150, by = 50), limits=c(-150, 150)),
   scale_x_continuous(name="region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
   scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
@@ -1861,29 +3882,75 @@ s <- list(
   facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
 )
 
-p1 + s + 
-  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'short', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'KLE'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'short', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black')
+# s <- list(
+#   annotate('rect', xmin = 0.6, xmax = 1.4, ymin = -150, ymax = 150, alpha = .1),
+#   annotate('rect', xmin = 1.6, xmax = 2.4, ymin = -150, ymax = 150, alpha = .1),
+#   annotate('rect', xmin = 2.6, xmax = 3.4, ymin = -150, ymax = 150, alpha = .1),
+#   geom_hline(yintercept = 0),
+#   geom_vline(xintercept = 0),
+#   geom_line(lwd=1, position = position_dodge(width = 0.2)),
+#   geom_point(size=2, position = position_dodge(width = 0.2)),
+#   geom_errorbar(aes(ymin=mean_rrt-ci, ymax=mean_rrt+ci), width=0, lwd=2, linetype=1, alpha=.5, position = position_dodge(width = 0.2)),
+#   theme_classic(),
+#   scale_y_continuous(name="residual reading time (ms)", limits=c(-150, 150)),
+#   scale_x_continuous(name="region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
+#   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
+#   scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+#   theme(text = element_text(size = 12),
+#         legend.position = 'bottom',
+#         legend.margin = margin(t = -.4, unit = 'cm'),
+#         plot.title = element_text(size = 12, hjust = .5)),
+#   facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
+# )
+
+# s <- list(
+#   annotate('rect', xmin = 0.6, xmax = 1.4, ymin = -180, ymax = 180, alpha = .15),
+#   annotate('rect', xmin = 1.6, xmax = 2.4, ymin = -180, ymax = 180, alpha = .15),
+#   annotate('rect', xmin = 2.6, xmax = 3.4, ymin = -180, ymax = 180, alpha = .15),
+#   geom_hline(yintercept = 0),
+#   geom_vline(xintercept = 0),
+#   geom_line(lwd=1),
+#   geom_point(size=2),
+#   geom_errorbar(aes(ymin=mean_rrt-ci, ymax=mean_rrt+ci), width=.5, lwd=1, linetype=1),
+#   theme_classic(),
+#   scale_y_continuous(name="residual reading time (ms)", limits=c(-200, 200)),
+#   scale_x_continuous(name="region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
+#   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
+#   scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+#   theme(text = element_text(size = 12),
+#         legend.position = 'bottom',
+#         legend.margin = margin(t = -.4, unit = 'cm'),
+#         plot.title = element_text(size = 12, hjust = .5)),
+#   facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
+# )
+
+p1 + s
+
+# p1 + s + 
+#   geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'short', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'KLE'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'short', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black')
 
 ggsave('plots/orc/spr_rrt.png', width=6.5, height=4.5, dpi=600)
 
-p2 + s +
-  geom_text(data = filter(plot, environment == 'short', panel == 'ENS'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'short', panel == 'KLE'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'KLE'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
-  geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black')
+p2 + s
+
+# p2 + s +
+#   geom_text(data = filter(plot, environment == 'short', panel == 'ENS'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'ENS'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'long', panel == 'KLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'short', panel == 'KLE'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'KLE'), mapping = aes(x = 3, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'long', panel == 'MLE'), mapping = aes(x = 2, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 1, y = 185, label = '*'), col = 'black') +
+#   geom_text(data = filter(plot, environment == 'island', panel == 'MLE'), mapping = aes(x = 2, y = 195, label = '·'), col = 'black')
 
 ggsave('plots/src/spr_rrt.png', width=6.5, height=4.5, dpi=600)
 
@@ -1891,21 +3958,32 @@ ggsave('plots/src/spr_rrt.png', width=6.5, height=4.5, dpi=600)
 # modeling for residual RTs ----
 #------------------------------------------------------------------------------#
 
-temp <- spr_trim %>%
-  mutate(dependency = as.factor(dependency),
-         environment = as.factor(environment),
-         group = as.factor(group)) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+spr_crit_clean <- spr_trim
+
+write_csv(spr_crit_clean, 'data/spr_crit_clean.csv')
 
 #------------------------------------------------------------------------------#
-# + all - region 1 ----
+# + doall - region 1 ----
 #------------------------------------------------------------------------------#
+
+# read in data
+
+spr_crit_clean <- read_csv('data/spr_crit_clean.csv')
 
 # filter data for analysis
 
-md <- temp %>%
+md <- spr_crit_clean %>%
   filter(region2 == 1,
          study == '210510_do')
+
+# set class of columns ...
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         rrt = as.numeric(rrt)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
 # apply deviation coding ...
 
@@ -1935,6 +4013,8 @@ model1 <- lmer(rrt ~ dependency * environment * group +
 summary(model1)
 toc()
 beep()
+
+model1 <- read_rds('models/spr_doall_rrt_region1_md1.rds')
 
 # 1 sec elapsed
 # no warnings
@@ -1968,7 +4048,7 @@ pairwise <- model1 %>%
 pairwise
 
 #------------------------------------------------------------------------------#
-# + + model 2 (final) ---
+# + + model 2
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -1983,6 +4063,8 @@ model2 <- lmer(rrt ~ dependency * environment * group +
 summary(model2)
 toc()
 beep()
+
+model2 <- read_rds('models/spr_doall_rrt_region1_md2.rds')
 
 # 3.03 sec elapsed
 # no warnings
@@ -2016,14 +4098,308 @@ anova(model1, model2, refit = FALSE)
 # model2   25 87168 87338 -43559    87118 17.704  4    0.00141 **
 
 #------------------------------------------------------------------------------#
-# + all - region 2 ----
+# + + model 4 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_rrt_region1_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# 11.75 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                      -22.27331    5.95732  122.41333  -3.739 0.000282 ***
+# dependency2                      -20.20437    6.68362   44.85961  -3.023 0.004128 ** 
+# environment2                       2.11902    7.18402  215.66039   0.295 0.768306    
+# environment3                       7.97642    6.41539  891.37897   1.243 0.214075    
+# group2                           -30.65197   12.72757  218.27176  -2.408 0.016857 *  
+# group3                           -22.50357   12.65648  217.22837  -1.778 0.076798 .  
+# dependency2:environment2          -0.05749   12.63585 5778.32169  -0.005 0.996370    
+# dependency2:environment3          11.35926   12.57894 5748.48777   0.903 0.366544    
+# dependency2:group2                 0.11742   14.82268  217.74771   0.008 0.993687    
+# dependency2:group3                 0.22161   14.70748  215.24626   0.015 0.987992    
+# environment2:group2                7.70045   17.25350  217.10657   0.446 0.655817    
+# environment3:group2                8.59094   15.42631  900.88394   0.557 0.577733    
+# environment2:group3                3.43070   17.11826  214.88696   0.200 0.841348    
+# environment3:group3                7.63578   15.30879  892.29922   0.499 0.618054    
+# dependency2:environment2:group2   28.25507   30.29113 5758.83051   0.933 0.350971    
+# dependency2:environment3:group2   84.28112   30.24429 5749.58925   2.787 0.005343 ** 
+# dependency2:environment2:group3   21.18052   30.02439 5769.43750   0.705 0.480563    
+# dependency2:environment3:group3  112.39878   29.99366 5745.79197   3.747 0.000180 ***
+
+anova(model2, model4, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model2   25 87168 87338 -43559    87118                     
+# model4   32 87172 87389 -43554    87108 9.9441  7     0.1918
+
+#------------------------------------------------------------------------------#
+# + + model 6 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency | participant) + 
+                 (1 + dependency + group | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_rrt_region1_md6.rds')
+summary(model6)
+toc()
+beep()
+
+model6 <- read_rds('models/spr_doall_rrt_region1_md6.rds')
+
+# 20.19 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                      -22.33544    6.02869  117.60814  -3.705 0.000324 ***
+# dependency2                      -20.25898    6.62276   70.57696  -3.059 0.003138 ** 
+# environment2                       3.50220    6.34489 5927.93823   0.552 0.580988    
+# environment3                       8.72143    6.33157 5945.09753   1.377 0.168424    
+# group2                           -30.71040   12.79927  210.55031  -2.399 0.017294 *  
+# group3                           -22.61648   14.04528  132.05722  -1.610 0.109730    
+# dependency2:environment2           0.51761   12.66737 5932.64736   0.041 0.967408    
+# dependency2:environment3          11.22891   12.61144 5945.35791   0.890 0.373301    
+# dependency2:group2                -0.03562   14.82360  215.86928  -0.002 0.998085    
+# dependency2:group3                 0.39592   14.71359  213.63638   0.027 0.978558    
+# environment2:group2                8.59093   15.18987 5954.09276   0.566 0.571708    
+# environment3:group2                9.55488   15.16586 5953.32428   0.630 0.528702    
+# environment2:group3                8.51149   15.14173 5942.23896   0.562 0.574055    
+# environment3:group3               10.42303   15.13515 5934.93980   0.689 0.491062    
+# dependency2:environment2:group2   28.45557   30.37533 5911.14284   0.937 0.348901    
+# dependency2:environment3:group2   83.91341   30.31764 5943.46915   2.768 0.005661 ** 
+# dependency2:environment2:group3   19.76364   30.10114 5941.65984   0.657 0.511480    
+# dependency2:environment3:group3  111.96606   30.07698 5940.44717   3.723 0.000199 ***
+
+anova(model2, model6, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)  
+# model2   25 87168 87338 -43559    87118                       
+# model6   32 87166 87383 -43551    87102 16.038  7    0.02478 *
+
+# post-hoc tests ...
+
+pairwise <- model6 %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairwise
+
+pairwise <- model6 %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairwise
+
+# tables ...
+
+summary(model6)$coefficients %>%
+  kbl(digits = c(2, 2, 2, 3)) %>%
+  remove_column(4)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 3)) %>%
+  remove_column(7)
+
+# plot ...
+
+plot <- plot(emmeans(model6, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="RRT (ms)", breaks = seq(-100, 75, by = 25), limits = c(-110, 85)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_rrt_region1_emmeans.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + model 7
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model7 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + group | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_rrt_region1_md7.rds')
+summary(model7)
+toc()
+beep()
+
+# 57.5 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                      -22.30030    6.02634  118.04770  -3.700 0.000328 ***
+# dependency2                      -20.29828    6.73532   45.88280  -3.014 0.004193 ** 
+# environment2                       3.64175    7.12934  218.24785   0.511 0.609999    
+# environment3                       8.77985    6.41616  964.56842   1.368 0.171507    
+# group2                           -30.67661   12.81140  208.32721  -2.394 0.017530 *  
+# group3                           -22.48016   14.01547  131.88038  -1.604 0.111116    
+# dependency2:environment2           0.47468   12.60320 5741.50920   0.038 0.969957    
+# dependency2:environment3          11.28829   12.54404 5724.34473   0.900 0.368215    
+# dependency2:group2                -0.06092   14.82250  216.98408  -0.004 0.996724    
+# dependency2:group3                 0.10288   14.71110  214.68511   0.007 0.994427    
+# environment2:group2                8.30201   17.06569  217.61706   0.486 0.627121    
+# environment3:group2                9.39448   15.36616  964.38714   0.611 0.541096    
+# environment2:group3                7.87359   17.00727  218.46046   0.463 0.643858    
+# environment3:group3               10.10557   15.33651  969.73027   0.659 0.510102    
+# dependency2:environment2:group2   28.40326   30.21900 5702.24450   0.940 0.347301    
+# dependency2:environment3:group2   83.90674   30.15694 5727.05547   2.782 0.005415 ** 
+# dependency2:environment2:group3   20.30941   29.94646 5737.10809   0.678 0.497678    
+# dependency2:environment3:group3  112.21615   29.91820 5726.07257   3.751 0.000178 ***
+
+# compare models ...
+
+anova(model6, model7, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model6   32 87166 87383 -43551    87102                     
+# model7   39 87171 87435 -43547    87093 9.1865  7     0.2395
+
+#------------------------------------------------------------------------------#
+# + + model 8
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model8 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency | participant) + 
+                 (1 + dependency + environment + group | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_rrt_region1_md8.rds')
+summary(model8)
+toc()
+beep()
+
+# 102.08 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                      -22.3409     6.0448  117.7827  -3.696 0.000334 ***
+# dependency2                      -19.7951     6.6713   66.3354  -2.967 0.004176 ** 
+# environment2                       3.3847     7.7985   34.6282   0.434 0.666968    
+# environment3                       8.9573     6.5850  115.2728   1.360 0.176403    
+# group2                           -30.9029    12.8034  210.3689  -2.414 0.016650 *  
+# group3                           -22.7150    14.0105  134.8037  -1.621 0.107293    
+# dependency2:environment2           1.1574    12.6428 5835.7043   0.092 0.927061    
+# dependency2:environment3          11.4053    12.5960 5895.3493   0.905 0.365253    
+# dependency2:group2                 0.1399    14.7857  215.2373   0.009 0.992460    
+# dependency2:group3                 0.2153    14.6761  213.0301   0.015 0.988309    
+# environment2:group2                7.7246    15.1644 5935.4009   0.509 0.610499    
+# environment3:group2                9.0324    15.1388 5923.7328   0.597 0.550770    
+# environment2:group3                8.1102    15.0988 5857.4071   0.537 0.591189    
+# environment3:group3               11.2934    15.1260 5904.0067   0.747 0.455321    
+# dependency2:environment2:group2   28.5497    30.3190 5890.3845   0.942 0.346413    
+# dependency2:environment3:group2   83.8724    30.2602 5918.2667   2.772 0.005594 ** 
+# dependency2:environment2:group3   19.9059    30.0476 5916.2259   0.662 0.507691    
+# dependency2:environment3:group3  112.8895    30.0247 5915.4994   3.760 0.000172 ***
+
+# compare models ...
+
+anova(model6, model8, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model6   32 87166 87383 -43551    87102                     
+# model8   43 87179 87470 -43546    87093 9.7023 11     0.5573
+
+#------------------------------------------------------------------------------#
+# + + model 9
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model9 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency | participant) + 
+                 (1 + dependency * group | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_rrt_region1_md9.rds')
+summary(model9)
+toc()
+beep()
+
+# 116.18 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                      -22.2688     6.0464  118.6968  -3.683 0.000348 ***
+# dependency2                      -20.4751     7.3592   49.2578  -2.782 0.007632 ** 
+# environment2                       3.4020     6.3337 5901.5785   0.537 0.591198    
+# environment3                       8.7533     6.3171 5927.3382   1.386 0.165909    
+# group2                           -30.3764    12.8636  205.6623  -2.361 0.019139 *  
+# group3                           -22.5484    14.0620  131.6989  -1.603 0.111220    
+# dependency2:environment2           0.9292    12.6669 5883.4660   0.073 0.941523    
+# dependency2:environment3          10.5722    12.6133 5881.9970   0.838 0.401961    
+# dependency2:group2                -0.2481    16.8966   57.1078  -0.015 0.988334    
+# dependency2:group3                 0.6713    15.8275   81.9044   0.042 0.966271    
+# environment2:group2                7.1850    15.1872 5847.4650   0.473 0.636161    
+# environment3:group2                9.6447    15.1254 5921.5300   0.638 0.523727    
+# environment2:group3                8.3668    15.1026 5914.9613   0.554 0.579604    
+# environment3:group3               10.3548    15.1000 5917.4898   0.686 0.492898    
+# dependency2:environment2:group2   28.7381    30.3100 5882.3199   0.948 0.343097    
+# dependency2:environment3:group2   83.8021    30.2444 5913.0977   2.771 0.005609 ** 
+# dependency2:environment2:group3   19.6360    30.1284 5830.4441   0.652 0.514591    
+# dependency2:environment3:group3  110.4031    30.1106 5822.3346   3.667 0.000248 ***
+
+anova(model6, model9, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model6   32 87166 87383 -43551    87102                     
+# model9   43 87177 87468 -43546    87091 11.062 11     0.4381
+
+#------------------------------------------------------------------------------#
+# + doall - region 2 ----
 #------------------------------------------------------------------------------#
 
 # filter data for analysis
 
-md <- temp %>%
+md <- spr_crit_clean %>%
   filter(region2 == 2,
          study == '210510_do')
+
+# set class of columns ...
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         rrt = as.numeric(rrt)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
 # apply deviation coding ...
 
@@ -2054,24 +4430,26 @@ summary(model1)
 toc()
 beep()
 
+model1 <- read_rds('models/spr_doall_rrt_region2_md1.rds')
+
 # 1.86 sec elapsed
 # no warnings
 # Fixed effects:
 #   Estimate Std. Error       df t value Pr(>|t|)    
 # (Intercept)                      -19.446      6.739  210.335  -2.886  0.00431 ** 
-#   dependency2                      -30.991      3.967 6097.384  -7.811 6.62e-15 ***
-#   environment2                       5.116      4.851 6093.508   1.055  0.29167    
+#  dependency2                      -30.991      3.967 6097.384  -7.811 6.62e-15 ***
+# environment2                       5.116      4.851 6093.508   1.055  0.29167    
 # environment3                      13.896      4.855 6093.301   2.862  0.00422 ** 
-#   group2                           -68.419     16.006  220.376  -4.275 2.85e-05 ***
-#   group3                           -74.490     15.922  219.571  -4.678 5.05e-06 ***
-#   dependency2:environment2         -30.423      9.713 6044.043  -3.132  0.00174 ** 
-#   dependency2:environment3         -31.274      9.711 6083.990  -3.220  0.00129 ** 
-#   dependency2:group2               -43.602      9.568 6075.866  -4.557 5.29e-06 ***
-#   dependency2:group3               -55.437      9.437 6081.473  -5.874 4.47e-09 ***
-#   environment2:group2               22.612     11.702 6097.071   1.932  0.05337 .  
+# group2                           -68.419     16.006  220.376  -4.275 2.85e-05 ***
+# group3                           -74.490     15.922  219.571  -4.678 5.05e-06 ***
+# dependency2:environment2         -30.423      9.713 6044.043  -3.132  0.00174 ** 
+# dependency2:environment3         -31.274      9.711 6083.990  -3.220  0.00129 ** 
+# dependency2:group2               -43.602      9.568 6075.866  -4.557 5.29e-06 ***
+# dependency2:group3               -55.437      9.437 6081.473  -5.874 4.47e-09 ***
+# environment2:group2               22.612     11.702 6097.071   1.932  0.05337 .  
 # environment3:group2               16.350     11.713 6095.064   1.396  0.16281    
 # environment2:group3               24.202     11.547 6098.566   2.096  0.03613 *  
-#   environment3:group3               20.645     11.559 6098.439   1.786  0.07413 .  
+# environment3:group3               20.645     11.559 6098.439   1.786  0.07413 .  
 # dependency2:environment2:group2  -29.496     23.401 6075.904  -1.260  0.20756    
 # dependency2:environment3:group2   29.160     23.431 6077.209   1.245  0.21336    
 # dependency2:environment2:group3  -10.872     23.088 6087.761  -0.471  0.63773    
@@ -2093,6 +4471,8 @@ model2 <- lmer(rrt ~ dependency * environment * group +
 summary(model2)
 toc()
 beep()
+
+model2 <- read_rds('models/spr_doall_rrt_region2_md2.rds')
 
 # 2.61 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
@@ -2138,42 +4518,45 @@ model3 <- lmer(rrt ~ dependency * environment * group +
                  (1 + dependency | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doall_rrt_region1_md3.rds')
+  write_rds('models/spr_doall_rrt_region2_md3.rds')
 summary(model3)
 toc()
 beep()
 
-# 12.59 sec elapsed
+model3 <- read_rds('models/spr_doall_rrt_region2_md3.rds')
+
+# 10.68 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
-#   Estimate Std. Error         df t value Pr(>|t|)    
-# (Intercept)                      -22.27331    5.95732  122.41323  -3.739 0.000282 ***
-# dependency2                      -20.20437    6.68362   44.85955  -3.023 0.004128 ** 
-# environment2                       2.11902    7.18402  215.66040   0.295 0.768306    
-# environment3                       7.97642    6.41539  891.37219   1.243 0.214075    
-# group2                           -30.65197   12.72758  218.27164  -2.408 0.016857 *  
-# group3                           -22.50357   12.65648  217.22826  -1.778 0.076798 .  
-# dependency2:environment2          -0.05749   12.63585 5778.32152  -0.005 0.996370    
-# dependency2:environment3          11.35926   12.57894 5748.48764   0.903 0.366544    
-# dependency2:group2                 0.11742   14.82268  217.74769   0.008 0.993687    
-# dependency2:group3                 0.22161   14.70748  215.24625   0.015 0.987992    
-# environment2:group2                7.70045   17.25350  217.10658   0.446 0.655817    
-# environment3:group2                8.59094   15.42631  900.87710   0.557 0.577733    
-# environment2:group3                3.43070   17.11826  214.88697   0.200 0.841348    
-# environment3:group3                7.63578   15.30879  892.29245   0.499 0.618055    
-# dependency2:environment2:group2   28.25507   30.29113 5758.83037   0.933 0.350971    
-# dependency2:environment3:group2   84.28112   30.24429 5749.58913   2.787 0.005343 ** 
-# dependency2:environment2:group3   21.18051   30.02439 5769.43739   0.705 0.480563    
-# dependency2:environment3:group3  112.39879   29.99366 5745.79186   3.747 0.000180 ***
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                      -19.527      6.780  213.789  -2.880 0.004381 ** 
+# dependency2                      -30.941      4.988   90.351  -6.204 1.63e-08 ***
+# environment2                       4.969      4.928  751.354   1.008 0.313619    
+# environment3                      13.849      5.512  301.286   2.513 0.012508 *  
+# group2                           -68.729     16.029  220.160  -4.288 2.70e-05 ***
+# group3                           -74.572     15.946  219.384  -4.677 5.10e-06 ***
+# dependency2:environment2         -30.497      9.555 5657.588  -3.192 0.001422 ** 
+# dependency2:environment3         -31.375      9.550 5681.232  -3.285 0.001024 ** 
+# dependency2:group2               -43.717     11.563  234.723  -3.781 0.000198 ***
+# dependency2:group3               -55.300     11.438  229.044  -4.835 2.44e-06 ***
+# environment2:group2               22.092     11.879  766.302   1.860 0.063308 .  
+# environment3:group2               15.820     13.280  306.793   1.191 0.234472    
+# environment2:group3               24.272     11.724  743.984   2.070 0.038773 *  
+# environment3:group3               21.417     13.126  299.631   1.632 0.103793    
+# dependency2:environment2:group2  -30.178     23.016 5668.306  -1.311 0.189843    
+# dependency2:environment3:group2   29.580     23.044 5685.275   1.284 0.199315    
+# dependency2:environment2:group3  -11.119     22.701 5665.971  -0.490 0.624288    
+# dependency2:environment3:group3   26.598     22.721 5669.404   1.171 0.241801
 
 # compare models ...
 
-anova(model2, model3, refit = FALSE)
+anova(model1, model2, model3, refit = FALSE)
 
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model2   25 87168 87338 -43559    87118                     
-# model3   32 87172 87389 -43554    87108 9.9441  7     0.1918
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)    
+# model1   21 82435 82576 -41196    82393                         
+# model2   25 82425 82594 -41187    82375 17.972  4  0.0012498 ** 
+# model3   32 82411 82627 -41174    82347 27.334  7  0.0002902 ***
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -2187,10 +4570,12 @@ model4 <- lmer(rrt ~ dependency * environment * group +
                  (1 + dependency * environment | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doall_rrt_region1_md4.rds')
+  write_rds('models/spr_doall_rrt_region2_md4.rds')
 summary(model4)
 toc()
 beep()
+
+model4 <- read_rds('models/spr_doall_rrt_region2_md4.rds')
 
 # 786.3 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
@@ -2198,16 +4583,16 @@ beep()
 # Fixed effects:
 #   Estimate Std. Error      df t value Pr(>|t|)    
 # (Intercept)                      -19.535      6.814 217.327  -2.867 0.004555 ** 
-#   dependency2                      -30.792      5.053  86.605  -6.094 2.96e-08 ***
-#   environment2                       4.800      5.517  41.330   0.870 0.389338    
+# dependency2                      -30.792      5.053  86.605  -6.094 2.96e-08 ***
+# environment2                       4.800      5.517  41.330   0.870 0.389338    
 # environment3                      14.052      5.651  85.852   2.487 0.014835 *  
-#   group2                           -68.753     16.032 220.161  -4.288 2.69e-05 ***
-#   group3                           -74.458     15.949 219.417  -4.668 5.29e-06 ***
-#   dependency2:environment2         -29.704     11.085  62.015  -2.680 0.009428 ** 
-#   dependency2:environment3         -31.623     11.801  83.305  -2.680 0.008879 ** 
-#   dependency2:group2               -43.571     11.544 233.876  -3.774 0.000203 ***
-#   dependency2:group3               -55.113     11.422 228.527  -4.825 2.56e-06 ***
-#   environment2:group2               22.388     12.338 386.246   1.815 0.070369 .  
+# group2                           -68.753     16.032 220.161  -4.288 2.69e-05 ***
+# group3                           -74.458     15.949 219.417  -4.668 5.29e-06 ***
+# dependency2:environment2         -29.704     11.085  62.015  -2.680 0.009428 ** 
+# dependency2:environment3         -31.623     11.801  83.305  -2.680 0.008879 ** 
+# dependency2:group2               -43.571     11.544 233.876  -3.774 0.000203 ***
+# dependency2:group3               -55.113     11.422 228.527  -4.825 2.56e-06 ***
+# environment2:group2               22.388     12.338 386.246   1.815 0.070369 .  
 # environment3:group2               16.198     12.890 317.708   1.257 0.209822    
 # environment2:group3               23.646     12.192 374.876   1.940 0.053184 .  
 # environment3:group3               20.990     12.741 309.990   1.647 0.100486    
@@ -2230,132 +4615,12 @@ model5 <- lmer(rrt ~ dependency * environment * group +
                  (1 + dependency * environment * group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doall_rrt_region1_md5.rds')
+  write_rds('models/spr_doall_rrt_region2_md5.rds')
 summary(model5)
 toc()
 beep()
 
 # took too long; run overnight
-
-#------------------------------------------------------------------------------#
-# + doen - region 1 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 1,
-         study == '210510_do',
-         group == 'english')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region1_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 458.82 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                -4.554      5.400  61.043  -0.843  0.40232    
-# environment2               -1.330      8.006  47.834  -0.166  0.86871    
-# environment3                2.495      7.542  65.795   0.331  0.74184    
-# dependency2               -20.398      6.434  34.017  -3.170  0.00322 ** 
-# environment2:dependency2  -15.922     16.526  36.885  -0.963  0.34159    
-# environment3:dependency2  -52.934     15.530  89.659  -3.408  0.00098 ***
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region1_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 20.61 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                -4.540      5.385   60.762  -0.843 0.402529    
-# environment2               -1.627      7.955   47.956  -0.205 0.838783    
-# environment3                2.235      7.410  117.755   0.302 0.763445    
-# dependency2               -20.399      6.231   60.674  -3.274 0.001755 ** 
-# environment2:dependency2  -16.102     14.086 2261.507  -1.143 0.253103    
-# environment3:dependency2  -53.650     14.039 2248.594  -3.822 0.000136 ***
-
-anova(model1, model4, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model4   27 33020 33178 -16483    32966                     
-# model1   49 33050 33337 -16476    32952 14.468 22     0.8841
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region1_md5.rds')
-summary(model5)
-toc()
-beep()
-
-# 1.77 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                -4.606      5.381   60.788  -0.856 0.395372    
-# environment2               -1.590      7.569  113.184  -0.210 0.833964    
-# environment3                2.287      7.284  341.029   0.314 0.753784    
-# dependency2               -20.548      6.078   84.402  -3.381 0.001096 ** 
-# environment2:dependency2  -16.125     14.119 2310.146  -1.142 0.253553    
-# environment3:dependency2  -53.735     14.065 2277.614  -3.820 0.000137 ***
-
-anova(model4, model5, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model5   18 33004 33109 -16484    32968                     
-# model4   27 33020 33178 -16483    32966 1.6611  9     0.9958
 
 #------------------------------------------------------------------------------#
 # + + model 6
@@ -2364,100 +4629,142 @@ anova(model4, model5, refit = FALSE)
 # fit model ...
 
 tic()
-model6 <- lmer(rrt ~ dependency * environment + 
-                 (1 | participant) + 
-                 (1 | item), 
+model6 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment + group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region1_md6.rds')
+  write_rds('models/spr_doall_rrt_region2_md6.rds')
 summary(model6)
 toc()
 beep()
 
-# 0.93 sec elapsed
-# no warnings
+# 1378.64 sec elapsed
+# boundary (singular) fit: see help('isSingular')
+# Warning message:
+#   Model failed to converge with 2 negative eigenvalues: -2.9e+01 -2.9e+02 
 # Fixed effects:
 #   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                -4.587      5.345   60.588  -0.858 0.394184    
-# environment2               -1.842      7.089 2456.482  -0.260 0.795014    
-# environment3                2.283      7.094 2455.299   0.322 0.747656    
-# dependency2               -20.595      5.790 2459.133  -3.557 0.000382 ***
-# environment2:dependency2  -15.901     14.232 2477.292  -1.117 0.263974    
-# environment3:dependency2  -53.630     14.182 2450.991  -3.781 0.000160 ***
-  
-anova(model5, model6, refit = FALSE)
+# (Intercept)                      -19.486      6.853  216.286  -2.843 0.004892 ** 
+# dependency2                      -30.838      5.012  102.414  -6.153 1.49e-08 ***
+# environment2                       4.739      5.294   35.756   0.895 0.376657    
+# environment3                      14.328      5.620  160.939   2.550 0.011721 *  
+# group2                           -68.595     16.480  217.664  -4.162 4.54e-05 ***
+# group3                           -74.475     16.183  219.410  -4.602 7.08e-06 ***
+# dependency2:environment2         -30.852      9.519 5544.586  -3.241 0.001197 ** 
+# dependency2:environment3         -31.540      9.513 5619.082  -3.316 0.000921 ***
+# dependency2:group2               -43.637     11.586  233.004  -3.766 0.000210 ***
+# dependency2:group3               -55.568     11.457  227.231  -4.850 2.29e-06 ***
+# environment2:group2               21.636     11.833  775.287   1.828 0.067874 .  
+# environment3:group2               15.925     13.285  300.363   1.199 0.231580    
+# environment2:group3               24.220     11.722  758.134   2.066 0.039146 *  
+# environment3:group3               22.749     13.158  294.874   1.729 0.084876 .  
+# dependency2:environment2:group2  -31.981     23.018 5532.792  -1.389 0.164770    
+# dependency2:environment3:group2   29.680     22.951 5633.159   1.293 0.196004    
+# dependency2:environment2:group3  -10.794     22.604 5604.471  -0.478 0.633011    
+# dependency2:environment3:group3   26.805     22.631 5622.948   1.184 0.236283 
 
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model6    9 32993 33046 -16488    32975                     
-# model5   18 33004 33109 -16484    32968 7.2218  9      0.614
+anova(model1, model2, model3, model6, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)    
+# model1   21 82435 82576 -41196    82393                         
+# model2   25 82425 82594 -41187    82375 17.972  4  0.0012498 ** 
+# model3   32 82411 82627 -41174    82347 27.334  7  0.0002902 ***
+# model6   50 82431 82768 -41165    82331 16.517 18  0.5565197  
 
 #------------------------------------------------------------------------------#
-# + + model 7
+# + + model 7 
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model7 <- lmer(rrt ~ dependency * environment + 
+model7 <- lmer(rrt ~ dependency * environment * group + 
                  (1 + dependency | participant) + 
-                 (1 | item), 
+                 (1 + dependency + group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region1_md7.rds')
+  write_rds('models/spr_doall_rrt_region2_md7.rds')
 summary(model7)
 toc()
 beep()
 
-# 1.28 sec elapsed
+model7 <- read_rds('models/spr_doall_rrt_region2_md7.rds')
+
+# 21.94 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                -4.592      5.350   60.676  -0.858 0.394114    
-# environment2               -1.861      7.076 2371.340  -0.263 0.792524    
-# environment3                2.299      7.081 2371.155   0.325 0.745453    
-# dependency2               -20.599      6.073   86.110  -3.392 0.001051 ** 
-# environment2:dependency2  -15.879     14.206 2394.489  -1.118 0.263793    
-# environment3:dependency2  -53.589     14.156 2364.211  -3.786 0.000157 ***
+# (Intercept)                      -19.506      6.855  216.132  -2.845 0.004861 ** 
+#   dependency2                      -31.102      4.960   99.163  -6.270 9.45e-09 ***
+#   environment2                       4.990      4.816 5844.350   1.036 0.300143    
+# environment3                      14.284      4.818 5849.567   2.965 0.003044 ** 
+#   group2                           -68.471     16.460  217.389  -4.160 4.58e-05 ***
+#   group3                           -74.440     16.186  219.515  -4.599 7.17e-06 ***
+#   dependency2:environment2         -30.846      9.610 5820.025  -3.210 0.001336 ** 
+#   dependency2:environment3         -31.297      9.600 5849.201  -3.260 0.001120 ** 
+#   dependency2:group2               -43.812     11.460  222.320  -3.823 0.000171 ***
+#   dependency2:group3               -55.387     11.332  216.575  -4.888 1.98e-06 ***
+#   environment2:group2               21.940     11.572 5855.365   1.896 0.058021 .  
+# environment3:group2               15.871     11.584 5854.401   1.370 0.170701    
+# environment2:group3               24.239     11.459 5776.200   2.115 0.034449 *  
+#   environment3:group3               22.331     11.473 5760.980   1.946 0.051666 .  
+# dependency2:environment2:group2  -31.425     23.229 5758.703  -1.353 0.176153    
+# dependency2:environment3:group2   29.589     23.162 5845.846   1.277 0.201481    
+# dependency2:environment2:group3  -11.013     22.816 5833.438  -0.483 0.629337    
+# dependency2:environment3:group3   27.393     22.844 5841.920   1.199 0.230517 
 
-anova(model6, model7, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model6    9 32993 33046 -16488    32975                     
-# model7   11 32996 33061 -16487    32974 0.8463  2      0.655
+anova(model1, model2, model3, model6, model7, refit = FALSE)
 
 #------------------------------------------------------------------------------#
-# + + model 8
+# + + model 8 
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model8 <- lmer(rrt ~ dependency * environment + 
-                 (1 + environment | participant) + 
-                 (1 | item), 
+model8 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region1_md8.rds')
+  write_rds('models/spr_doall_rrt_region2_md8.rds')
 summary(model8)
 toc()
 beep()
 
-# 0.91 sec elapsed
+model8 <- read_rds('models/spr_doall_rrt_region2_md8.rds')
+
+# 48.49 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                -4.602      5.373   60.668  -0.856  0.39515    
-# environment2               -1.569      7.585  117.078  -0.207  0.83652    
-# environment3                2.272      7.294  357.364   0.312  0.75558    
-# dependency2               -20.565      5.756 2375.724  -3.573  0.00036 ***
-# environment2:dependency2  -16.141     14.150 2393.763  -1.141  0.25410    
-# environment3:dependency2  -53.770     14.096 2364.992  -3.815  0.00014 ***
+# (Intercept)                      -19.481      6.857  216.228  -2.841  0.00493 ** 
+# dependency2                      -31.039      4.996  102.572  -6.213 1.13e-08 ***
+# environment2                       4.808      5.056  456.146   0.951  0.34211    
+# environment3                      14.407      5.360  306.205   2.688  0.00759 ** 
+# group2                           -68.627     16.483  217.857  -4.163 4.52e-05 ***
+# group3                           -74.467     16.196  219.590  -4.598 7.20e-06 ***
+# dependency2:environment2         -30.939      9.515 5631.597  -3.252  0.00115 ** 
+# dependency2:environment3         -31.213      9.502 5651.793  -3.285  0.00103 ** 
+# dependency2:group2               -43.743     11.576  232.569  -3.779  0.00020 ***
+# dependency2:group3               -55.500     11.447  226.695  -4.849 2.31e-06 ***
+# environment2:group2               21.347     12.145  460.127   1.758  0.07946 .  
+# environment3:group2               16.001     12.877  309.246   1.243  0.21495    
+# environment2:group3               24.137     12.031  451.799   2.006  0.04543 *  
+# environment3:group3               22.932     12.764  304.411   1.797  0.07338 .  
+# dependency2:environment2:group2  -32.373     23.001 5570.358  -1.407  0.15934    
+# dependency2:environment3:group2   29.895     22.929 5654.948   1.304  0.19235    
+# dependency2:environment2:group3  -10.752     22.584 5634.385  -0.476  0.63402    
+# dependency2:environment3:group3   26.978     22.609 5641.709   1.193  0.23283  
 
-anova(model6, model8, refit = FALSE)
+anova(model3, model8, refit = FALSE)
 
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model6    9 32993 33046 -16488    32975                     
-# model8   14 32997 33079 -16485    32969 6.2291  5     0.2846
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)   
+# model3   32 82411 82627 -41174    82347                        
+# model8   39 82406 82670 -41164    82328 18.904  7   0.008494 **
 
 #------------------------------------------------------------------------------#
 # + + model 9 (final) ----
@@ -2466,87 +4773,221 @@ anova(model6, model8, refit = FALSE)
 # fit model ...
 
 tic()
-model9 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency | participant) + 
-                 (1 + dependency | item), 
+model9 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency + group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region1_md9.rds')
+  write_rds('models/spr_doall_rrt_region2_md9.rds')
 summary(model9)
 toc()
 beep()
 
-# 1.12 sec elapsed
-# no warnings
+model9 <- read_rds('models/spr_doall_rrt_region2_md9.rds')
+
+# 191.29 sec elapsed
+# boundary (singular) fit: see help('isSingular')
+# Warning message:
+#   Model failed to converge with 1 negative eigenvalue: -3.9e+01 # but did it really fail to converge?
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
 # Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                -4.576      5.353   60.619  -0.855 0.395971    
-# environment2               -1.887      7.075 2359.733  -0.267 0.789731    
-# environment3                2.255      7.079 2348.568   0.319 0.750102    
-# dependency2               -20.601      6.160   24.744  -3.344 0.002628 ** 
-# environment2:dependency2  -15.852     14.202 2380.120  -1.116 0.264462    
-# environment3:dependency2  -53.597     14.154 2350.774  -3.787 0.000156 ***
+# Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                      -19.533      6.842 216.524  -2.855 0.004726 ** 
+# dependency2                      -30.966      4.981 109.495  -6.217 9.42e-09 ***
+# environment2                       4.672      5.125 389.177   0.912 0.362542    
+# environment3                      14.147      5.362 314.761   2.638 0.008748 ** 
+# group2                           -68.616     16.451 218.507  -4.171 4.38e-05 ***
+# group3                           -74.408     16.206 219.740  -4.592 7.40e-06 ***
+# dependency2:environment2         -30.518      9.976 320.728  -3.059 0.002406 ** 
+# dependency2:environment3         -31.115     11.037 279.021  -2.819 0.005161 ** 
+# dependency2:group2               -43.483     11.574 231.843  -3.757 0.000218 ***
+# dependency2:group3               -55.470     11.446 226.171  -4.846 2.34e-06 ***
+# environment2:group2               21.573     12.304 392.890   1.753 0.080334 .  
+# environment3:group2               15.783     12.877 317.713   1.226 0.221236    
+# environment2:group3               23.697     12.201 385.225   1.942 0.052849 .  
+# environment3:group3               22.488     12.770 312.858   1.761 0.079220 .  
+# dependency2:environment2:group2  -32.409     24.090 328.920  -1.345 0.179441    
+# dependency2:environment3:group2   29.243     26.586 284.076   1.100 0.272278    
+# dependency2:environment2:group3  -10.829     23.696 316.112  -0.457 0.647984    
+# dependency2:environment3:group3   27.156     26.273 277.430   1.034 0.302216  
 
-# compare models ...
+anova(model8, model9, refit = FALSE)
 
-anova(model6, model9, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model6    9 32993 33046 -16488    32975                     
-# model9   13 33000 33076 -16487    32974 1.2587  4     0.8683
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)    
+# model8   39 82406 82670 -41164    82328                         
+# model9   50 82380 82718 -41140    82280 48.379 11  1.222e-06 ***
 
 # post-hoc tests ...
 
 pairwise <- model9 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
   summary(by = NULL, adjust = 'holm')
 pairwise
 
-# environment dependency contrast       estimate    SE   df t.ratio p.value
-# short       .          gap - pronoun     -2.55 10.27  188  -0.248  1.0000
-# long        .          gap - pronoun     13.30 10.24  185   1.299  0.7823
-# island      .          gap - pronoun     51.05 10.26  186   4.977  <.0001
-# .           gap        short - long      -6.04 10.03 2365  -0.602  1.0000
-# .           gap        short - island   -29.05  9.99 2347  -2.908  0.0294
-# .           gap        long - island    -23.01 10.04 2365  -2.292  0.1319
-# .           pronoun    short - long       9.81 10.05 2353   0.976  0.9871
-# .           pronoun    short - island    24.54 10.04 2350   2.446  0.1017
-# .           pronoun    long - island     14.73 10.03 2359   1.468  0.7108
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: holm method for 9 tests
+# pairwise <- model9 %>%
+#   emmeans(~ dependency * environment * group) %>%
+#   contrast('pairwise', simple = 'each', combine = TRUE) %>%
+#   summary(by = NULL, adjust = 'holm')
+# pairwise
 
 # tables ...
 
-model9 %>%
-  tidy() %>%
+summary(model9)$coefficients %>%
   kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
+  remove_column(4)
 
 pairwise %>%
-  kbl(digits = c(2, 2, 2, 3)) %>%
-  remove_column(6)
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(7)
+
+# plot ...
+
+plot <- plot(emmeans(model9, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="RRT (ms)", breaks = seq(-100, 100, by = 25), limits = c(-110, 85)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_rrt_region2_emmeans.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
-# + doen - region 2 ----
+# + + model 10
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model10 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * group | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_rrt_region2_md10.rds')
+summary(model10)
+toc()
+beep()
+
+model10 <- read_rds('models/spr_doall_rrt_region2_md10.rds')
+
+# 855.9 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                      -19.527      6.839 217.573  -2.855  0.00472 ** 
+# dependency2                      -31.027      5.310  68.289  -5.843 1.58e-07 ***
+# environment2                       4.819      5.104 392.891   0.944  0.34562    
+# environment3                      14.366      5.362 311.051   2.679  0.00777 ** 
+# group2                           -68.471     16.503 220.080  -4.149 4.77e-05 ***
+# group3                           -74.545     16.185 219.581  -4.606 6.96e-06 ***
+# dependency2:environment2         -31.195      9.978 321.051  -3.126  0.00193 ** 
+# dependency2:environment3         -32.422     11.028 282.862  -2.940  0.00355 ** 
+# dependency2:group2               -43.914     12.987  70.605  -3.382  0.00118 ** 
+# dependency2:group3               -55.420     12.951  59.417  -4.279 6.92e-05 ***
+# environment2:group2               21.800     12.267 397.763   1.777  0.07631 .  
+# environment3:group2               16.110     12.871 313.683   1.252  0.21165    
+# environment2:group3               24.028     12.148 389.113   1.978  0.04865 *  
+# environment3:group3               22.668     12.772 309.600   1.775  0.07692 .  
+# dependency2:environment2:group2  -30.820     24.021 326.045  -1.283  0.20039    
+# dependency2:environment3:group2   28.990     26.493 285.442   1.094  0.27477    
+# dependency2:environment2:group3  -13.831     23.732 317.316  -0.583  0.56044    
+# dependency2:environment3:group3   23.732     26.277 282.000   0.903  0.36722 
+
+anova(model9, model10, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model9    50 82380 82718 -41140    82280                     
+# model10   61 82386 82798 -41132    82264 15.593 11     0.1569
+
+#------------------------------------------------------------------------------#
+# + + model 11
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model11 <- lmer(rrt ~ dependency * environment * group + 
+                  (1 + dependency * environment | participant) + 
+                  (1 + dependency + environment + group | item), 
+                data = md,
+                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_rrt_region2_md11.rds')
+summary(model11)
+toc()
+beep()
+
+# 1093.7 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                      -19.529      6.840 216.589  -2.855 0.004719 ** 
+# dependency2                      -30.760      4.989 106.480  -6.165 1.28e-08 ***
+# environment2                       4.648      5.495  39.982   0.846 0.402651    
+# environment3                      14.108      5.417 192.240   2.605 0.009920 ** 
+# group2                           -68.565     16.450 218.436  -4.168 4.43e-05 ***
+# group3                           -74.396     16.199 219.749  -4.593 7.37e-06 ***
+# dependency2:environment2         -30.381      9.970 321.318  -3.047 0.002500 ** 
+# dependency2:environment3         -31.354     11.036 278.141  -2.841 0.004829 ** 
+# dependency2:group2               -43.367     11.565 231.779  -3.750 0.000223 ***
+# dependency2:group3               -55.593     11.438 226.213  -4.860 2.19e-06 ***
+# environment2:group2               21.597     12.306 389.931   1.755 0.080047 .  
+# environment3:group2               15.785     12.873 316.534   1.226 0.221037    
+# environment2:group3               23.684     12.207 382.462   1.940 0.053086 .  
+# environment3:group3               22.319     12.755 310.726   1.750 0.081141 .  
+# dependency2:environment2:group2  -31.993     24.078 329.817  -1.329 0.184852    
+# dependency2:environment3:group2   29.172     26.582 283.000   1.097 0.273379    
+# dependency2:environment2:group3  -10.803     23.686 316.925  -0.456 0.648647    
+# dependency2:environment3:group3   27.167     26.268 276.356   1.034 0.301931 
+
+anova(model9, model11, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model9    50 82380 82718 -41140    82280                     
+# model11   61 82400 82812 -41139    82278 1.5788 11     0.9995
+
+#------------------------------------------------------------------------------#
+# + doall - region 3 ----
 #------------------------------------------------------------------------------#
 
 # filter data for analysis
 
-md <- temp %>%
-  filter(region2 == 2,
-         study == '210510_do',
-         group == 'english')
+md <- spr_crit_clean %>%
+  filter(region2 == 3,
+         study == '210510_do')
+
+# set class of columns ...
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         rrt = as.numeric(rrt)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
 # apply deviation coding ...
 
 contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
 contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
 
 # view contrasts ...
 
 contrasts(md$dependency)
 contrasts(md$environment)
+contrasts(md$group)
 
 #------------------------------------------------------------------------------#
 # + + model 1
@@ -2555,190 +4996,38 @@ contrasts(md$environment)
 # fit model ...
 
 tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region2_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 198.35 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                28.380      5.720  89.445   4.961 3.32e-06 ***
-# dependency2                 2.320      4.956  36.598   0.468 0.642489    
-# environment2              -10.263      7.007  42.335  -1.465 0.150402    
-# environment3                2.007      6.890  35.534   0.291 0.772513    
-# dependency2:environment2  -16.575     12.875  43.034  -1.287 0.204864    
-# dependency2:environment3  -50.503     14.281  55.670  -3.536 0.000826 ***
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#                                     Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                           18.909      7.447  82.527   2.539 0.012985 *  
-# dependencypronoun                     24.560      9.479  68.194   2.591 0.011697 *  
-# environmentlong                       -1.983      7.723 814.992  -0.257 0.797429    
-# environmentisland                     26.983      9.589  47.803   2.814 0.007086 ** 
-# environmentlong:dependencypronoun    -16.569     13.173  36.622  -1.258 0.216433    
-# environmentisland:dependencypronoun  -50.294     14.149  73.771  -3.555 0.000665 ***
-
-#------------------------------------------------------------------------------#
-# + + model 6 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- lmer(rrt ~ dependency * environment + 
+model1 <- lmer(rrt ~ dependency * environment * group + 
                  (1 | participant) + 
                  (1 | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region2_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 0.94 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                28.211      5.705   89.248   4.945 3.55e-06 ***
-# dependency2                 2.098      4.527 2422.007   0.463   0.6431    
-# environment2              -10.443      5.536 2419.827  -1.886   0.0594 .  
-# environment3                1.584      5.547 2419.695   0.286   0.7752    
-# dependency2:environment2  -17.188     11.073 2419.815  -1.552   0.1207    
-# dependency2:environment3  -50.268     11.095 2420.125  -4.531 6.16e-06 ***
-
-# compare models ...
-
-anova(model1, model6, refit = FALSE)
-
-# post-hoc tests ...
-
-pairwise <- model6 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate   SE   df t.ratio p.value
-# short       .          gap - pronoun    -24.58 7.85 2420  -3.131  0.0106 *
-# long        .          gap - pronoun     -7.40 7.82 2420  -0.945  1.0000
-# island      .          gap - pronoun     25.68 7.86 2421   3.270  0.0076 **
-# .           gap        short - long       1.85 7.84 2420   0.236  1.0000
-# .           gap        short - island   -26.72 7.81 2401  -3.423  0.0050 **
-# .           gap        long - island    -28.57 7.80 2420  -3.661  0.0023 **
-# .           pronoun    short - long      19.04 7.83 2419   2.430  0.0607 .
-# .           pronoun    short - island    23.55 7.89 2398   2.986  0.0143 *
-# .           pronoun    long - island      4.51 7.87 2420   0.573  1.0000
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: holm method for 9 tests 
-
-#------------------------------------------------------------------------------#
-# + + model 9
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model9 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency | participant) + 
-                 (1 + dependency | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region2_md9.rds')
-summary(model9)
-toc()
-beep()
-
-# 1.22 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                28.199      5.706   89.209   4.942 3.59e-06 ***
-# dependency2                 2.060      4.571 1096.704   0.451   0.6523    
-# environment2              -10.434      5.534 2419.797  -1.885   0.0595 .  
-# environment3                1.584      5.545 2419.694   0.286   0.7751    
-# dependency2:environment2  -17.149     11.069 2419.791  -1.549   0.1214    
-# dependency2:environment3  -50.313     11.091 2420.110  -4.536 6.00e-06 ***
-
-anova(model6, model9, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model6    9 31049 31101 -15515    31031                     
-# model9   13 31055 31131 -15514    31029 1.5229  4     0.8226
-
-#------------------------------------------------------------------------------#
-# + doen - region 3 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 3,
-         study == '210510_do',
-         group == 'english')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md1.rds')
+  write_rds('models/spr_doall_rrt_region3_md1.rds')
 summary(model1)
 toc()
 beep()
 
-model1 <- read_rds('models/spr_doen_rrt_region3_md1.rds')
-
-# 246.92 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
+# 1.66 sec elapsed
+# no warnings
 # Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)               22.9638     7.9107  84.6076   2.903  0.00471 **
-# dependency2                7.7857     4.8435  58.1534   1.607  0.11337   
-# environment2              -4.1610     5.7386  74.5713  -0.725  0.47067   
-# environment3               4.6485     5.7947  52.6953   0.802  0.42604   
-# dependency2:environment2   0.6994    11.9057  38.2059   0.059  0.95346   
-# dependency2:environment3 -16.4908    12.7946  34.1513  -1.289  0.20610 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)  
-# (Intercept)                          16.2765     8.8078  68.0970   1.848   0.0690 .
-# dependencypronoun                    13.0496     7.5429  86.1457   1.730   0.0872 .
-# environmentlong                      -4.5110     7.6742  67.6572  -0.588   0.5586  
-# environmentisland                    12.8944     7.7875  63.8697   1.656   0.1027  
-# environmentlong:dependencypronoun     0.6997    11.9051  38.2415   0.059   0.9534  
-# environmentisland:dependencypronoun -16.4919    12.7929  34.1701  -1.289   0.2060 
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                      -17.96669    6.95651  167.29061  -2.583 0.010658 *  
+# dependency2                      -12.90109    4.20085 5821.66445  -3.071 0.002143 ** 
+# environment2                     -11.39543    5.14979 5826.60051  -2.213 0.026950 *  
+# environment3                       3.55052    5.14878 5823.88475   0.690 0.490483    
+# group2                           -67.51487   14.82302  220.98039  -4.555 8.67e-06 ***
+# group3                           -55.18508   14.68992  217.17601  -3.757 0.000221 ***
+# dependency2:environment2           6.99024   10.32401 5837.98272   0.677 0.498379    
+# dependency2:environment3          -0.02287   10.29104 5818.19175  -0.002 0.998227    
+# dependency2:group2               -33.73824   10.20178 5818.44876  -3.307 0.000948 ***
+# dependency2:group3               -25.42901    9.86670 5814.96074  -2.577 0.009983 ** 
+# environment2:group2              -12.08862   12.48534 5824.81932  -0.968 0.332972    
+# environment3:group2                4.29578   12.50524 5824.50759   0.344 0.731221    
+# environment2:group3               -8.37503   12.11960 5829.05326  -0.691 0.489573    
+# environment3:group3               -5.27878   12.10482 5827.65790  -0.436 0.662788    
+# dependency2:environment2:group2    2.32425   24.94538 5815.51617   0.093 0.925769    
+# dependency2:environment3:group2   23.33136   25.00058 5820.22038   0.933 0.350738    
+# dependency2:environment2:group3   13.46667   24.19955 5819.48786   0.556 0.577901    
+# dependency2:environment3:group3   27.21359   24.16396 5813.31036   1.126 0.260125 
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -2747,35 +5036,45 @@ model1 <- read_rds('models/spr_doen_rrt_region3_md1.rds')
 # fit model ...
 
 tic()
-model2 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency + environment | item), 
+model2 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency | participant) + 
+                 (1 | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md2.rds')
+  write_rds('models/spr_doall_rrt_region3_md2.rds')
 summary(model2)
 toc()
 beep()
 
-# 52.08 sec elapsed
+# 1.38 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)               23.0377     7.8870  85.0545   2.921  0.00447 **
-# dependency2                7.5110     4.6370  75.3213   1.620  0.10946   
-# environment2              -4.1894     5.6590  76.6316  -0.740  0.46138   
-# environment3               4.1723     5.5098  37.8782   0.757  0.45358   
-# dependency2:environment2   0.2098    10.5504 229.1755   0.020  0.98415   
-# dependency2:environment3 -16.5583    10.3624 293.4460  -1.598  0.11113 
-
-# compare models ...
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                     -1.798e+01  6.957e+00  1.675e+02  -2.584 0.010630 *  
+# dependency2                     -1.280e+01  4.210e+00  4.620e+03  -3.040 0.002375 ** 
+# environment2                    -1.138e+01  5.149e+00  5.826e+03  -2.211 0.027102 *  
+# environment3                     3.571e+00  5.148e+00  5.823e+03   0.694 0.487933    
+# group2                          -6.749e+01  1.483e+01  2.209e+02  -4.551  8.8e-06 ***
+# group3                          -5.520e+01  1.470e+01  2.171e+02  -3.756 0.000222 ***
+# dependency2:environment2         6.934e+00  1.032e+01  5.838e+03   0.672 0.501760    
+# dependency2:environment3        -5.947e-03  1.029e+01  5.818e+03  -0.001 0.999539    
+# dependency2:group2              -3.369e+01  1.022e+01  4.681e+03  -3.296 0.000988 ***
+# dependency2:group3              -2.533e+01  9.889e+00  4.528e+03  -2.561 0.010461 *  
+# environment2:group2             -1.206e+01  1.248e+01  5.824e+03  -0.966 0.333995    
+# environment3:group2              4.302e+00  1.250e+01  5.824e+03   0.344 0.730799    
+# environment2:group3             -8.365e+00  1.212e+01  5.829e+03  -0.690 0.490047    
+# environment3:group3             -5.297e+00  1.210e+01  5.827e+03  -0.438 0.661647    
+# dependency2:environment2:group2  2.312e+00  2.494e+01  5.815e+03   0.093 0.926135    
+# dependency2:environment3:group2  2.336e+01  2.500e+01  5.820e+03   0.934 0.350093    
+# dependency2:environment2:group3  1.344e+01  2.420e+01  5.819e+03   0.556 0.578491    
+# dependency2:environment3:group3  2.718e+01  2.416e+01  5.813e+03   1.125 0.260723
 
 anova(model1, model2, refit = FALSE)
 
-# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
-# model2   38 29872 30092 -14898    29796                    
-# model1   49 29885 30169 -14894    29787 8.901 11      0.631
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model1   21 79401 79542 -39680    79359                     
+# model2   23 79405 79559 -39679    79359 0.9138  2     0.6332
 
 #------------------------------------------------------------------------------#
 # + + model 3
@@ -2784,35 +5083,45 @@ anova(model1, model2, refit = FALSE)
 # fit model ...
 
 tic()
-model3 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency | item), 
+model3 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + environment | participant) + 
+                 (1 | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md3.rds')
+  write_rds('models/spr_doall_rrt_region3_md3.rds')
 summary(model3)
 toc()
 beep()
 
-# 14.59 sec elapsed
+# 2.38 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)   
-# (Intercept)               23.01053    7.88478  85.28289   2.918   0.0045 **
-# dependency2                7.58828    4.61667  96.35785   1.644   0.1035   
-# environment2              -4.16175    5.55564 112.35751  -0.749   0.4554   
-# environment3               4.16811    5.38310 127.47759   0.774   0.4402   
-# dependency2:environment2   0.01598   10.56116 230.40827   0.002   0.9988   
-# dependency2:environment3 -16.77989   10.35566 297.44665  -1.620   0.1062
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                     -1.789e+01  6.952e+00  1.671e+02  -2.573 0.010963 *  
+# dependency2                     -1.286e+01  4.192e+00  5.644e+03  -3.067 0.002172 ** 
+# environment2                    -1.147e+01  5.280e+00  4.601e+02  -2.172 0.030369 *  
+# environment3                     3.752e+00  5.364e+00  2.463e+02   0.699 0.484972    
+# group2                          -6.749e+01  1.481e+01  2.210e+02  -4.559 8.53e-06 ***
+# group3                          -5.522e+01  1.467e+01  2.172e+02  -3.763 0.000216 ***
+# dependency2:environment2         6.936e+00  1.030e+01  5.667e+03   0.673 0.500866    
+# dependency2:environment3        -7.197e-03  1.027e+01  5.655e+03  -0.001 0.999441    
+# dependency2:group2              -3.376e+01  1.018e+01  5.648e+03  -3.316 0.000919 ***
+# dependency2:group3              -2.545e+01  9.846e+00  5.628e+03  -2.585 0.009765 ** 
+# environment2:group2             -1.216e+01  1.279e+01  4.738e+02  -0.950 0.342357    
+# environment3:group2              4.260e+00  1.302e+01  2.547e+02   0.327 0.743726    
+# environment2:group3             -8.527e+00  1.243e+01  4.439e+02  -0.686 0.493143    
+# environment3:group3             -5.219e+00  1.262e+01  2.368e+02  -0.413 0.679652    
+# dependency2:environment2:group2  2.086e+00  2.490e+01  5.655e+03   0.084 0.933238    
+# dependency2:environment3:group2  2.311e+01  2.495e+01  5.669e+03   0.926 0.354293    
+# dependency2:environment2:group3  1.351e+01  2.415e+01  5.635e+03   0.559 0.575923    
+# dependency2:environment3:group3  2.710e+01  2.411e+01  5.633e+03   1.124 0.261094 
 
-# compare models ...
+anova(model1, model3, refit = FALSE)
 
-anova(model2, model3, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
-# model3   31 29859 30039 -14899    29797                    
-# model2   38 29872 30092 -14898    29796 1.172  7     0.9916
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model1   21 79401 79542 -39680    79359                     
+# model3   26 79405 79579 -39676    79353 6.7489  5       0.24
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -2821,27 +5130,43 @@ anova(model2, model3, refit = FALSE)
 # fit model ...
 
 tic()
-model4 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
+model4 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 | participant) + 
                  (1 + dependency | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md4.rds')
+  write_rds('models/spr_doall_rrt_region3_md4.rds')
 summary(model4)
 toc()
 beep()
 
-# 3.12 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
+# 1.45 sec elapsed
 # Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)   
-# (Intercept)                22.9624     7.8898   85.3350   2.910   0.0046 **
-# dependency2                 7.4399     4.5714   88.8058   1.627   0.1072   
-# environment2               -4.2441     5.5662  103.7851  -0.762   0.4475   
-# environment3                4.1137     5.3104  108.2315   0.775   0.4402   
-# dependency2:environment2    0.2625    10.1901 2186.0509   0.026   0.9794   
-# dependency2:environment3  -17.2382    10.1056 2163.2540  -1.706   0.0882 .
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                      -17.96817    6.95729  167.23098  -2.583 0.010661 *  
+# dependency2                      -12.89983    4.21126   28.67833  -3.063 0.004728 ** 
+# environment2                     -11.39854    5.14985 5750.57821  -2.213 0.026911 *  
+# environment3                       3.54651    5.14876 5807.91892   0.689 0.490971    
+# group2                           -67.51455   14.82333  220.98114  -4.555 8.67e-06 ***
+# group3                           -55.18681   14.69025  217.17767  -3.757 0.000221 ***
+# dependency2:environment2           7.00347   10.32401 5837.80965   0.678 0.497566    
+# dependency2:environment3          -0.01124   10.29107 5817.72669  -0.001 0.999128    
+# dependency2:group2               -33.72515   10.20164 5796.15470  -3.306 0.000953 ***
+# dependency2:group3               -25.43155    9.86658 5790.37907  -2.578 0.009975 ** 
+# environment2:group2              -12.07239   12.48519 5804.01389  -0.967 0.333616    
+# environment3:group2                4.30535   12.50513 5804.88193   0.344 0.730643    
+# environment2:group3               -8.35941   12.11959 5825.99932  -0.690 0.490383    
+# environment3:group3               -5.25045   12.10473 5811.00262  -0.434 0.664485    
+# dependency2:environment2:group2    2.28679   24.94519 5812.82230   0.092 0.926961    
+# dependency2:environment3:group2   23.26252   25.00041 5818.97376   0.930 0.352158    
+# dependency2:environment2:group3   13.49760   24.19964 5818.31364   0.558 0.577029    
+# dependency2:environment3:group3   27.25428   24.16400 5811.62121   1.128 0.259414  
+
+anova(model1, model4, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model1   21 79401 79542 -39680    79359                     
+# model4   23 79405 79560 -39680    79359 0.0494  2     0.9756
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -2850,264 +5175,137 @@ beep()
 # fit model ...
 
 tic()
-model5 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency | participant) + 
-                 (1 + dependency | item), 
+model5 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 | participant) + 
+                 (1 + environment | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md5.rds')
+  write_rds('models/spr_doall_rrt_region3_md5.rds')
 summary(model5)
 toc()
 beep()
 
-# 0.96 sec elapsed
+# 4.91 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)   
-# (Intercept)                22.9504     7.8813   85.3590   2.912  0.00458 **
-# dependency2                 7.2125     4.4799   77.2275   1.610  0.11148   
-# environment2               -4.5516     5.0801 2246.4780  -0.896  0.37037   
-# environment3                3.8969     5.0848 2250.4352   0.766  0.44353   
-# dependency2:environment2    0.3341    10.2404 2272.2180   0.033  0.97398   
-# dependency2:environment3  -17.2188    10.1572 2248.3213  -1.695  0.09017 . 
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                      -17.9809     6.9676  166.5656  -2.581 0.010724 *  
+# dependency2                      -12.9448     4.1977 5785.4267  -3.084 0.002053 ** 
+# environment2                     -11.3320     5.5601   39.5108  -2.038 0.048276 *  
+# environment3                       3.6445     6.1175   29.3047   0.596 0.555917    
+# group2                           -67.4114    14.8261  221.0193  -4.547 8.97e-06 ***
+# group3                           -55.2685    14.6935  217.2450  -3.761 0.000217 ***
+# dependency2:environment2           7.2346    10.3180 5777.5451   0.701 0.483229    
+# dependency2:environment3           0.5463    10.3056 5752.7024   0.053 0.957725    
+# dependency2:group2               -33.7263    10.1924 5796.8966  -3.309 0.000942 ***
+# dependency2:group3               -25.3970     9.8579 5792.1996  -2.576 0.010011 *  
+# environment2:group2              -12.2311    12.4757 5809.1796  -0.980 0.326931    
+# environment3:group2                4.3845    12.4962 5808.1672   0.351 0.725700    
+# environment2:group3               -8.2013    12.1121 5812.9600  -0.677 0.498361    
+# environment3:group3               -5.0763    12.1004 5814.6284  -0.420 0.674855    
+# dependency2:environment2:group2    2.4029    24.9215 5792.0788   0.096 0.923190    
+# dependency2:environment3:group2   23.5333    24.9769 5796.8184   0.942 0.346128    
+# dependency2:environment2:group3   13.2354    24.1792 5799.2809   0.547 0.584135    
+# dependency2:environment3:group3   26.5362    24.1569 5810.1093   1.098 0.272034 
 
-# compare models ...
-
-anova(model4, model5, refit = FALSE)
+anova(model1, model5, refit = FALSE)
 
 # npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model5   13 29832 29908 -14903    29806                     
-# model4   20 29842 29958 -14901    29802 4.1291  7     0.7648
+# model1   21 79401 79542 -39680    79359                     
+# model5   26 79409 79584 -39679    79357 2.0877  5     0.8369
 
 #------------------------------------------------------------------------------#
-# + + model 6
+# + + model 6 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model6 <- lmer(rrt ~ dependency * environment + 
+model6 <- lmer(rrt ~ dependency * environment * group + 
                  (1 | participant) + 
-                 (1 | item), 
+                 (1 + group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md6.rds')
+  write_rds('models/spr_doall_rrt_region3_md6.rds')
 summary(model6)
 toc()
 beep()
 
-# 0.7 sec elapsed
+model6 <- read_rds('models/spr_doall_rrt_region3_md6.rds')
+
+# 7.9 sec elapsed
 # no warnings
 # Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)   
-# (Intercept)                22.9031     7.8853   85.3382   2.905  0.00468 **
-# dependency2                 7.1470     4.1663 2328.4621   1.715  0.08640 . 
-# environment2               -4.5579     5.0926 2329.5734  -0.895  0.37088   
-# environment3                3.8827     5.0974 2329.0999   0.762  0.44631   
-# dependency2:environment2    0.1328    10.2638 2339.2031   0.013  0.98968   
-# dependency2:environment3  -17.2922    10.1823 2327.1878  -1.698  0.08959 . 
-
-# compare models ...
-
-anova(model5, model6)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model6    9 29859 29911 -14921    29841                     
-# model5   13 29866 29941 -14920    29840 1.6613  4     0.7977
-
-#------------------------------------------------------------------------------#
-# + + model 7 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model7 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency | participant) + 
-                 (1 | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md7.rds')
-summary(model7)
-toc()
-beep()
-
-# 0.7 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)   
-# (Intercept)                22.9262     7.8837   85.4043   2.908  0.00463 **
-# dependency2                 7.2026     4.4323   82.9701   1.625  0.10795   
-# environment2               -4.5278     5.0803 2246.5497  -0.891  0.37290   
-# environment3                3.9020     5.0855 2250.3916   0.767  0.44300   
-# dependency2:environment2    0.3245    10.2416 2272.1595   0.032  0.97472   
-# dependency2:environment3  -17.2573    10.1585 2248.2642  -1.699  0.08950 . 
-
-# compare models ...
-
-anova(model6, model7, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model6    9 29826 29878 -14904    29808                     
-# model7   11 29829 29893 -14903    29807 1.1094  2     0.5742
-
-#------------------------------------------------------------------------------#
-# + + model 8
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model8 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_rrt_region3_md8.rds')
-summary(model8)
-toc()
-beep()
-
-# boundary (singular) fit: see help('isSingular')
-
-anova(model7, model8, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model7   11 29829 29893 -14903    29807                     
-# model8   18 29839 29943 -14901    29803 4.1216  7     0.7657
-
-#------------------------------------------------------------------------------#
-# + doko - region 1 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 1,
-         study == '210510_do',
-         group == 'korean')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region1_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/spr_doko_rrt_region1_md1.rds')
-
-# 197.13 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)   
-# (Intercept)               -35.009     11.997  68.162  -2.918  0.00477 **
-# dependency2               -19.048     14.226  45.860  -1.339  0.18718   
-# environment2                3.917     15.431  33.101   0.254  0.80119   
-# environment3                9.767     13.660  54.713   0.715  0.47766   
-# dependency2:environment2   12.443     25.882  90.725   0.481  0.63185   
-# dependency2:environment3   31.640     31.101  31.951   1.017  0.31665 
-
-# old anlaysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)
-# (Intercept)                          -22.700     17.960  46.022  -1.264    0.213
-# dependencypronoun                    -33.742     22.493  36.054  -1.500    0.142
-# environmentlong                       -2.302     20.502  42.972  -0.112    0.911
-# environmentisland                     -6.051     22.236  31.049  -0.272    0.787
-# environmentlong:dependencypronoun     12.442     25.884  90.654   0.481    0.632
-# environmentisland:dependencypronoun   31.638     31.099  31.953   1.017    0.317
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region1_md5.rds')
-summary(model5)
-toc()
-beep()
-
-# 1.49 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)               -35.160     11.674   62.825  -3.012  0.00374 **
-# dependency2               -20.346     12.465   75.960  -1.632  0.10678   
-# environment2                6.477     13.751   64.635   0.471  0.63923   
-# environment3               11.339     13.245  104.736   0.856  0.39390   
-# dependency2:environment2   12.213     24.683 1709.374   0.495  0.62080   
-# dependency2:environment3   29.551     24.545 1695.812   1.204  0.22878
-
-anova(model5, model8, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model8   13 26081 26153 -13027    26055                     
-# model5   18 26084 26184 -13024    26048 6.6299  5     0.2496
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- lmer(rrt ~ dependency * environment + 
-                 (1 | participant) + 
-                 (1 | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region1_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 0.76 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)               -35.280     11.701   62.718  -3.015  0.00371 **
-# dependency2               -19.662     10.222 1823.693  -1.923  0.05458 . 
-# environment2                6.222     12.540 1825.311   0.496  0.61982   
-# environment3               11.542     12.500 1825.019   0.923  0.35594   
-# dependency2:environment2   12.725     25.134 1830.808   0.506  0.61271   
-# dependency2:environment3   30.040     24.998 1815.869   1.202  0.22965 
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                      -17.9530     6.9296  167.9486  -2.591 0.010418 *  
+# dependency2                      -12.8432     4.1914 5806.2099  -3.064 0.002193 ** 
+# environment2                     -11.6817     5.1336 5708.5843  -2.276 0.022909 *  
+# environment3                       3.2519     5.1337 5704.8465   0.633 0.526470    
+# group2                           -67.4056    14.8135  220.9881  -4.550 8.84e-06 ***
+# group3                           -55.1383    15.3253  201.0850  -3.598 0.000404 ***
+# dependency2:environment2           6.3165    10.3149 5814.8962   0.612 0.540317    
+# dependency2:environment3          -0.3549    10.2633 5801.5191  -0.035 0.972420    
+# dependency2:group2               -33.9668    10.1772 5790.7296  -3.338 0.000851 ***
+# dependency2:group3               -25.3831     9.8414 5804.0411  -2.579 0.009927 ** 
+# environment2:group2              -12.0754    12.4626 5796.9142  -0.969 0.332618    
+# environment3:group2                4.5777    12.4835 5795.7124   0.367 0.713858    
+# environment2:group3               -8.9257    12.0830 5473.3605  -0.739 0.460123    
+# environment3:group3               -5.7003    12.0681 5479.6322  -0.472 0.636702    
+# dependency2:environment2:group2    2.3069    24.8860 5787.1201   0.093 0.926145    
+# dependency2:environment3:group2   23.5703    24.9418 5792.5291   0.945 0.344691    
+# dependency2:environment2:group3   13.9834    24.1627 5794.0354   0.579 0.562802    
+# dependency2:environment3:group3   27.0650    24.0995 5803.9102   1.123 0.261460 
 
 anova(model1, model6, refit = FALSE)
 
-# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
-# model6    9 26086 26136 -13034    26068                    
-# model1   49 26127 26399 -13014    26029 38.93 40     0.5183
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)   
+# model1   21 79401 79542 -39680    79359                        
+# model6   26 79392 79566 -39670    79340 19.863  5   0.001326 **
+
+# post-hoc tests ...
+
+pairwise <- model6 %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# pairwise <- model6 %>%
+#   emmeans(~ dependency * environment * group) %>%
+#   contrast('pairwise', simple = 'each', combine = TRUE) %>%
+#   summary(by = NULL, adjust = 'holm')
+# pairwise
+
+# tables ...
+
+summary(model6)$coefficients %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(4)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(7)
+
+# plot ...
+
+plot <- plot(emmeans(model6, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="RRT (ms)", breaks = seq(-100, 100, by = 25), limits = c(-110, 85)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_rrt_region3_emmeans.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
 # + + model 7
@@ -3116,930 +5314,398 @@ anova(model1, model6, refit = FALSE)
 # fit model ...
 
 tic()
-model7 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency | participant) + 
-                 (1 | item), 
+model7 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment + group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region1_md7.rds')
+  write_rds('models/spr_doall_rrt_region3_md7.rds')
 summary(model7)
 toc()
 beep()
 
-# 0.75 sec elapsed
-# no warnings
+# 226.36 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
 # Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)               -35.334     11.693   62.829  -3.022  0.00363 **
-# dependency2               -20.115     12.008   63.928  -1.675  0.09880 . 
-# environment2                5.977     12.456 1762.890   0.480  0.63139   
-# environment3               11.585     12.416 1762.828   0.933  0.35092   
-# dependency2:environment2   12.150     24.965 1768.577   0.487  0.62654   
-# dependency2:environment3   29.717     24.827 1751.635   1.197  0.23150 
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                      -17.8704     6.9345  167.9071  -2.577 0.010825 *  
+# dependency2                      -12.7331     4.4638   46.3692  -2.853 0.006459 ** 
+# environment2                     -11.8557     5.7232   34.6225  -2.072 0.045827 *  
+# environment3                       3.4629     6.2773   35.8673   0.552 0.584611    
+# group2                           -67.4237    14.9106  216.6751  -4.522 1.01e-05 ***
+# group3                           -55.1574    15.3415  202.7968  -3.595 0.000407 ***
+# dependency2:environment2           6.3637    10.2771 5536.9765   0.619 0.535803    
+# dependency2:environment3           0.0508    10.2421 5515.6154   0.005 0.996043    
+# dependency2:group2               -33.9451    10.1571 4585.5024  -3.342 0.000838 ***
+# dependency2:group3               -25.3356     9.8221 4446.0063  -2.579 0.009928 ** 
+# environment2:group2              -11.8883    12.8198  291.0068  -0.927 0.354519    
+# environment3:group2                4.6697    13.0702  228.5533   0.357 0.721215    
+# environment2:group3               -9.0003    12.4389  272.4772  -0.724 0.469956    
+# environment3:group3               -5.7610    12.6633  212.3148  -0.455 0.649621    
+# dependency2:environment2:group2    2.9237    24.8159 5499.6713   0.118 0.906218    
+# dependency2:environment3:group2   23.7068    24.8428 5565.6638   0.954 0.339988    
+# dependency2:environment2:group3   14.4981    24.0725 5531.3383   0.602 0.547021    
+# dependency2:environment3:group3   26.6954    24.0147 5535.5414   1.112 0.266345  
 
 anova(model6, model7, refit = FALSE)
 
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)  
-# model6    9 26086 26136 -13034    26068                       
-# model7   11 26082 26143 -13030    26060 7.9287  2    0.01898 *
+# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
+# model6   26 79392 79566 -39670    79340                    
+# model7   50 79427 79763 -39664    79327  12.5 24     0.9737
 
 #------------------------------------------------------------------------------#
-# + + model 8 (final) ----
+# + + model 8
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model8 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency | participant) + 
-                 (1 + dependency | item), 
+model8 <- lmer(rrt ~ dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment * group | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region1_md8.rds')
+  write_rds('models/spr_doall_rrt_region3_md8.rds')
 summary(model8)
 toc()
 beep()
 
-# 0.75 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)   
-# (Intercept)                -35.06      11.89   67.14  -2.949  0.00438 **
-# dependency2                -20.61      13.58   40.24  -1.518  0.13687   
-# environment2                 5.10      12.44 1761.69   0.410  0.68193   
-# environment3                11.69      12.36 1753.33   0.945  0.34464   
-# dependency2:environment2    13.33      24.90 1763.64   0.535  0.59250   
-# dependency2:environment3    29.32      24.73 1751.26   1.185  0.23598
-
-anova(model7, model8, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)  
-# model7   11 26082 26143 -13030    26060                       
-# model8   13 26081 26153 -13027    26055 5.0919  2     0.0784 .
+# skip for now
 
 #------------------------------------------------------------------------------#
-# + + model 9
+# proficiency - rrt - region 2 ----
 #------------------------------------------------------------------------------#
 
-# fit model ...
-
-tic()
-model9 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 + dependency | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region1_md9.rds')
-summary(model9)
-toc()
-beep()
-
-# 2.84 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)               -35.033     11.434   65.227  -3.064  0.00317 **
-# dependency2               -20.289     12.913   34.862  -1.571  0.12517   
-# environment2                5.918     13.694   63.482   0.432  0.66710   
-# environment3               11.412     13.279  103.579   0.859  0.39209   
-# dependency2:environment2   11.686     24.659 1711.477   0.474  0.63563   
-# dependency2:environment3   29.328     24.572 1710.018   1.194  0.23282 
-
-anova(model8, model9, refit = FALSE)
-
-# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
-# model8   13 26081 26153 -13027    26055                     
-# model9   20 26089 26200 -13024    26049 6.2309  7     0.5131
-
 #------------------------------------------------------------------------------#
-# + doko - region 2 ----
+# + d-score ----
 #------------------------------------------------------------------------------#
 
-# filter data for analysis
+# read in data ...
 
-md <- temp %>%
-  filter(region2 == 2,
-         study == '210510_do',
-         group == 'korean')
+spr2 <- read_csv('data/spr_crit_clean.csv')
+
+# filter for analysis ...
+
+spr2 <- spr2 %>%
+  filter(region2 == '2',
+         group %in% c('korean', 'mandarin'))
+
+# select columns ...
+
+spr2 <- spr2 %>%
+  select(study, group, participant, item, dependency, environment, rrt)
+
+# add proficiency scores
+
+spr2 <- spr2 %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+# set column classes ...
+
+spr2 <- spr2 %>%
+  mutate_at(c('study', 'dependency', 'environment', 'group', 'participant', 'item'), as.factor) %>%
+  mutate_at(c('proficiency', 'rrt'), as.numeric) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+         
+summary(spr_prof)
+
+# summarise ...
+
+spr3 <- spr2 %>%
+  group_by(study, group, participant, dependency, environment, proficiency) %>%
+  summarise(rrt = mean(rrt)) %>%
+  ungroup() %>%
+  group_by(study, group, participant, environment, proficiency) %>%
+  summarise(dif = rrt[dependency == 'gap'] - rrt[dependency == 'pronoun']) %>%
+  ungroup()
+
+#------------------------------------------------------------------------------#
+# + + plot - type 1 ----
+#------------------------------------------------------------------------------#
+
+# plot ...
+
+p1 <- ggplot(data=filter(spr3, study == '210510_do'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(spr3, study == '210510_su'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  geom_smooth(method=lm, lwd = 1, alpha = .2), 
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name='RP advantage (ms)'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/spr_rrt_dscore_proficiency_effect_type1.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_rrt_dscore_proficiency_effect_type1.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + plot - type 2 ----
+#------------------------------------------------------------------------------#
+
+# plot ...
+
+p1 <- ggplot(data=filter(spr3, study == '210510_do'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(spr3, study == '210510_su'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  geom_point(alpha = .3, shape = 16),
+  geom_smooth(method=lm, lwd = .75, alpha = .1), 
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name='RP advantage (ms)'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'none'),
+  facet_grid2(vars(group), vars(environment), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`short` = 'short', `long` = 'long', `island` = 'island', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/spr_rrt_dscore_proficiency_effect_type2.png", width=6.5, height=3, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_rrt_dscore_proficiency_effect_type2.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + modeling: orc ----
+#------------------------------------------------------------------------------#
 
 # apply deviation coding ...
 
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(spr3$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(spr3$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
 
 # view contrasts ...
 
-contrasts(md$dependency)
 contrasts(md$environment)
+contrasts(md$group)
 
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
+# fit models ...
 
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region2_md1.rds')
+model1 <- lmer(dif ~ proficiency * environment * group + 
+                 (1 | participant),
+               data = filter(spr3, study == '210510_do')) 
 summary(model1)
-toc()
-beep()
 
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 2 negative eigenvalues: -5.8e+00 -6.8e+02 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
 # Fixed effects:
-#   Estimate Std. Error     df t value Pr(>|t|)  
-# (Intercept)                           -40.71      17.18  68.23  -2.370   0.0206 *
-# dependencypronoun                     -19.45      14.52  95.38  -1.340   0.1834  
-# environmentlong                        35.00      17.41  50.39   2.010   0.0498 *
-# environmentisland                      28.40      20.58  61.53   1.380   0.1726  
-# environmentlong:dependencypronoun     -46.21      23.52  47.88  -1.965   0.0553 .
-# environmentisland:dependencypronoun   -20.75      25.09  55.81  -0.827   0.4118  
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                      45.5634     7.3950 129.0000   6.161 8.53e-09 ***
+# proficiency                      -1.1095     0.9564 129.0000  -1.160   0.2482    
+# environment2                     37.5107    15.0685 258.0000   2.489   0.0134 *  
+# environment3                     22.3705    15.0685 258.0000   1.485   0.1389    
+# group2                           11.0272    14.7900 129.0000   0.746   0.4573    
+# proficiency:environment2         -0.4581     1.9489 258.0000  -0.235   0.8143    
+# proficiency:environment3         -0.5832     1.9489 258.0000  -0.299   0.7650    
+# proficiency:group2                2.1756     1.9129 129.0000   1.137   0.2575    
+# environment2:group2             -20.9343    30.1371 258.0000  -0.695   0.4879    
+# environment3:group2              -0.4185    30.1371 258.0000  -0.014   0.9889    
+# proficiency:environment2:group2  -1.4538     3.8978 258.0000  -0.373   0.7095    
+# proficiency:environment3:group2  -5.4659     3.8978 258.0000  -1.402   0.1620  
+
+model2 <- lmer(dif ~ proficiency * environment * group + 
+                 (1 + environment | participant),
+               data = filter(spr3, study == '210510_do')) 
+summary(model2)
+
+# does not converge
+
+trends <- emtrends(model1, ~ group * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# group    environment proficiency.trend   SE  df t.ratio p.value
+# korean   short                  -3.004 2.11 374  -1.425  0.6299
+# mandarin short                   1.479 2.07 374   0.715  0.9781
+# korean   long                   -2.735 2.11 374  -1.298  0.7226
+# mandarin long                    0.294 2.07 374   0.142  1.0000
+# korean   island                 -0.854 2.11 374  -0.405  0.9990
+# mandarin island                 -1.837 2.07 374  -0.888  0.9381
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 6 tests 
+
+# plot ...
+
+plot <- emmip(model1, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='RP advantage (ms)') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_rrt_dscore_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
 
 #------------------------------------------------------------------------------#
-# + doko - region 3 ----
+# + + modeling: src ----
 #------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 3,
-         study == '210510_do',
-         group == 'korean')
 
 # apply deviation coding ...
 
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(spr3$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(spr3$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
 
 # view contrasts ...
 
-contrasts(md$dependency)
 contrasts(md$environment)
+contrasts(md$group)
 
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
+# fit models ...
 
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_rrt_region3_md1.rds')
+model1 <- lmer(dif ~ proficiency * environment * group + 
+                 (1 | participant),
+               data = filter(spr3, study == '210510_su')) 
 summary(model1)
-toc()
-beep()
 
-# 190.71 sec elapsed
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 1 negative eigenvalue: -5.2e-02 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)
-# (Intercept)                          -25.335     18.481  57.836  -1.371    0.176
-# dependencypronoun                    -30.901     18.613  43.521  -1.660    0.104
-# environmentlong                      -20.596     16.682  50.175  -1.235    0.223
-# environmentisland                      3.596     18.830  29.555   0.191    0.850
-# environmentlong:dependencypronoun      5.751     23.048  96.870   0.250    0.803
-# environmentisland:dependencypronoun    8.417     25.537  30.334   0.330    0.744
-
-#------------------------------------------------------------------------------#
-# + dozh - region 1 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 1,
-         study == '210510_do',
-         group == 'mandarin')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_rrt_region1_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 1 negative eigenvalue: -8.2e+00 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)  
-# (Intercept)                          -12.773     21.019  50.146  -0.608   0.5461  
-# dependencypronoun                    -39.771     23.848  45.319  -1.668   0.1023  
-# environmentlong                        4.094     24.508  36.950   0.167   0.8683  
-# environmentisland                    -15.724     20.665  89.120  -0.761   0.4487  
-# environmentlong:dependencypronoun      4.434     29.625  80.336   0.150   0.8814  
-# environmentisland:dependencypronoun   54.108     30.646  39.095   1.766   0.0853 .
-
-#------------------------------------------------------------------------------#
-# + dozh - region 2 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 2,
-         study == '210510_do',
-         group == 'mandarin')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_rrt_region2_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 187.42 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error     df t value Pr(>|t|)    
-# (Intercept)                -46.93      14.40  67.49  -3.260 0.001749 ** 
-# dependency2                -52.25      12.96  48.90  -4.030 0.000194 ***
-# environment2                12.13      13.10  32.55   0.925 0.361552    
-# environment3                22.37      12.72  40.69   1.759 0.086076 .  
-# dependency2:environment2   -26.83      24.06  48.99  -1.115 0.270198    
-# dependency2:environment3   -22.34      25.85  46.81  -0.864 0.391900 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error     df t value Pr(>|t|)  
-# (Intercept)                           -40.50      17.77  58.03  -2.279   0.0264 *
-# dependencypronoun                     -35.86      14.94  65.28  -2.400   0.0193 *
-# environmentlong                        25.54      20.19  36.88   1.265   0.2138  
-# environmentisland                      33.54      21.17  42.22   1.585   0.1205  
-# environmentlong:dependencypronoun     -26.83      24.06  48.97  -1.115   0.2702  
-# environmentisland:dependencypronoun   -22.34      25.85  47.17  -0.864   0.3919
-
-#------------------------------------------------------------------------------#
-# + dozh - region 3 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 3,
-         study == '210510_do',
-         group == 'mandarin')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_rrt_region3_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 240.9 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)   
-# (Intercept)               -32.899     12.360  64.257  -2.662  0.00981 **
-# dependency2               -17.326     11.271  32.598  -1.537  0.13388   
-# environment2              -11.864     14.313  32.641  -0.829  0.41319   
-# environment3               -1.535     15.010  41.403  -0.102  0.91902   
-# dependency2:environment2   10.051     25.457  57.165   0.395  0.69444   
-# dependency2:environment3    8.030     29.332  39.325   0.274  0.78570 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)
-# (Intercept)                          -16.755     19.898  53.210  -0.842    0.404
-# dependencypronoun                    -23.355     20.605  45.019  -1.133    0.263
-# environmentlong                      -16.891     21.333  32.707  -0.792    0.434
-# environmentisland                     -5.552     24.676  35.726  -0.225    0.823
-# environmentlong:dependencypronoun     10.054     25.456  57.158   0.395    0.694
-# environmentisland:dependencypronoun    8.032     29.335  39.327   0.274    0.786
-
-#------------------------------------------------------------------------------#
-# + suen - region 1 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 1,
-         study == '210510_su',
-         group == 'english')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_rrt_region1_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 614.65 sec elapsed
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 1 negative eigenvalue: -9.7e-01 
-
-
-# old analysis ...
+# optimizer (nloptwrap) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                         -94.4957    11.5507  52.3598  -8.181 6.28e-11 ***
-# dependencypronoun                    35.7479    15.8883  35.0287   2.250   0.0308 *  
-# environmentlong                       0.4633    15.2077  68.2516   0.030   0.9758    
-# environmentisland                    35.4499    17.8622  44.7862   1.985   0.0533 .  
-# environmentlong:dependencypronoun    -5.9114    26.0650  33.3015  -0.227   0.8220    
-# environmentisland:dependencypronoun -54.1687    27.3279  28.7903  -1.982   0.0571 . 
+# (Intercept)                      63.6215    10.3792 380.0000   6.130 2.21e-09 ***
+# proficiency                       0.3824     1.2144 380.0000   0.315   0.7530    
+# environment2                    122.6877    25.4503 380.0000   4.821 2.07e-06 ***
+# environment3                     17.7967    25.4503 380.0000   0.699   0.4848    
+# group2                           25.1412    20.7584 380.0000   1.211   0.2266    
+# proficiency:environment2          3.9876     2.9763 380.0000   1.340   0.1811    
+# proficiency:environment3          7.6532     2.9763 380.0000   2.571   0.0105 *  
+# proficiency:group2                0.4140     2.4289 380.0000   0.170   0.8647    
+# environment2:group2              93.5430    50.9006 380.0000   1.838   0.0669 .  
+# environment3:group2              95.7858    50.9006 380.0000   1.882   0.0606 .  
+# proficiency:environment2:group2 -11.2422     5.9526 380.0000  -1.889   0.0597 .  
+# proficiency:environment3:group2  -4.3285     5.9526 380.0000  -0.727   0.4676  
+
+trends <- emtrends(model1, ~ group * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# group    environment proficiency.trend   SE  df t.ratio p.value
+# korean   short                  -6.300 3.16 380  -1.994  0.2494
+# mandarin short                  -0.696 2.79 380  -0.249  0.9999
+# korean   long                    3.309 3.14 380   1.053  0.8739
+# mandarin long                   -2.329 2.79 380  -0.835  0.9549
+# korean   island                  3.517 3.14 380   1.120  0.8393
+# mandarin island                  4.793 2.79 380   1.717  0.4184
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 6 tests 
+
+# plot ...
+
+plot <- emmip(model1, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='RP advantage (ms)') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/src/spr_rrt_dscore_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
 
 #------------------------------------------------------------------------------#
-# + suen - region 2 ----
+# + lmer - rrt ----
 #------------------------------------------------------------------------------#
+
+# read in data
+
+spr_crit_clean <- read_csv('data/spr_crit_clean.csv')
 
 # filter data for analysis
 
-md <- temp %>%
+md <- spr_crit_clean %>%
   filter(region2 == 2,
-         study == '210510_su',
-         group == 'english')
+         group %in% c('korean', 'mandarin'),
+         study == '210510_do') %>%
+  select(study, group, rrt, dependency, environment, participant, item)
+
+# add proficiency scores
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+# add proficiency scores
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+# set class of columns ...
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         proficiency = as.numeric(proficiency),
+         rrt = as.numeric(rrt)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+summary(md)
 
 # apply deviation coding ...
 
 contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
 contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
 
 # view contrasts ...
 
 contrasts(md$dependency)
 contrasts(md$environment)
+contrasts(md$group)
 
 #------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_rrt_region2_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 212.79 sec elapsed
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 1 negative eigenvalue: -3.1e+00
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                           -55.49      12.68   45.73  -4.377 6.93e-05 ***
-# dependencypronoun                      29.40      13.26   57.68   2.216   0.0306 *  
-# environmentlong                        13.23      18.61   45.12   0.711   0.4807    
-# environmentisland                      94.65      12.18  271.83   7.769 1.63e-13 ***
-# environmentlong:dependencypronoun     -33.09      19.92   55.13  -1.661   0.1024    
-# environmentisland:dependencypronoun  -109.14      19.11   55.37  -5.711 4.60e-07 ***
-
-#------------------------------------------------------------------------------#
-# + suen - region 3 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 3,
-         study == '210510_su',
-         group == 'english')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
+# + + model 1
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
+model1 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 | participant) + 
+                 (1 | item), 
                data = md,
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_rrt_region3_md1.rds')
+  write_rds('models/spr_do_rrt_proficiency_region2_md1.rds')
 summary(model1)
 toc()
 beep()
 
-# 990.86 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)               -40.763      7.803  30.442  -5.224 1.19e-05 ***
-# dependency2               -10.960      9.180  36.342  -1.194   0.2403    
-# environment2               12.098      9.507  81.808   1.273   0.2068    
-# environment3              150.072     16.099  45.622   9.322 3.92e-12 ***
-# dependency2:environment2  -11.907     22.588  32.683  -0.527   0.6017    
-# dependency2:environment3  -74.490     22.512  42.946  -3.309   0.0019 ** 
+pairwise <- model1 %>%
+  emmeans(~ proficiency * dependency * environment * group) %>%
+  contrast('pairwise', simple = 'all', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+trends <- emtrends(model1, ~ group * dependency * environment , var = 'proficiency', adjust = 'mvt')
+test(trends)
 
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                          -103.74      16.55   28.21  -6.267 8.66e-07 ***
-# dependencypronoun                      17.83      15.81   34.41   1.128  0.26721    
-# environmentlong                        18.05      15.42   32.72   1.170  0.25034    
-# environmentisland                     187.31      23.15   45.43   8.090 2.38e-10 ***
-# environmentlong:dependencypronoun     -11.90      22.59   32.70  -0.527  0.60200    
-# environmentisland:dependencypronoun   -74.48      22.52   42.96  -3.308  0.00191 ** 
-
-#------------------------------------------------------------------------------#
-# + suko - region 1 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 1,
-         study == '210510_su',
-         group == 'korean')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_rrt_region1_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 216.6 sec elapsed
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 1 negative eigenvalue: -1.2e+00 
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)
-# (Intercept)                -5.007     10.820  32.885  -0.463    0.647
-# dependency2               -25.043     20.354  44.004  -1.230    0.225
-# environment2              -22.276     27.092  31.605  -0.822    0.417
-# environment3               -6.726     28.390  55.290  -0.237    0.814
-# dependency2:environment2  -13.735     54.172  53.609  -0.254    0.801
-# dependency2:environment3  -12.533     57.014  38.522  -0.220    0.827
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)
-# (Intercept)                          11.8752    26.7665  32.1748   0.444    0.660
-# dependencypronoun                   -15.8171    32.4809  63.1945  -0.487    0.628
-# environmentlong                     -14.9229    39.0395  35.4573  -0.382    0.705
-# environmentisland                     0.8691    39.7102  29.9687   0.022    0.983
-# environmentlong:dependencypronoun   -14.2447    54.4191  54.4822  -0.262    0.794
-# environmentisland:dependencypronoun -13.4231    56.9894  38.8554  -0.236    0.815
-
-#------------------------------------------------------------------------------#
-# + suko - region 2 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 2,
-         study == '210510_su',
-         group == 'korean')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_rrt_region2_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 2320.28 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 4 negative eigenvalues: -4.5e-04 -1.2e-02 -7.7e-02 -2.0e+01 
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)               -10.507      8.314   35.320  -1.264  0.21458   
-# dependency2               -45.397     15.178   73.511  -2.991  0.00378 **
-# environment2               22.605     22.126   29.705   1.022  0.31520   
-# environment3               -3.938     18.916   40.969  -0.208  0.83612   
-# dependency2:environment2 -101.738     35.628   49.523  -2.856  0.00626 **
-# dependency2:environment3    5.750     40.879   31.342   0.141  0.88904 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)   
-# (Intercept)                           -9.833     19.532   39.301  -0.503  0.61747   
-# dependencypronoun                    -12.304     27.666   40.168  -0.445  0.65888   
-# environmentlong                       73.007     29.217   34.140   2.499  0.01744 * 
-# environmentisland                     -7.263     26.873   36.802  -0.270  0.78847   
-# environmentlong:dependencypronoun   -103.034     35.722   47.964  -2.884  0.00586 **
-# environmentisland:dependencypronoun    4.768     41.479   32.796   0.115  0.90918  
-
-#------------------------------------------------------------------------------#
-# + suko - region 3 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 3,
-         study == '210510_su',
-         group == 'korean')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_rrt_region3_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 286.86 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 2 negative eigenvalues: -2.6e-04 -1.6e-01 
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)               -20.610      9.010   48.714  -2.288   0.0265 *  
-#   dependency2               -13.111     17.063   36.144  -0.768   0.4473    
-# environment2                9.972     20.991   36.348   0.475   0.6376    
-# environment3               55.198     23.448   48.396   2.354   0.0227 *  
-# dependency2:environment2 -101.692     38.788   43.201  -2.622   0.0120 *  
-# dependency2:environment3 -140.361     33.998   73.558  -4.128 9.53e-05 ***
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                           -76.23      18.03   70.73  -4.228 6.94e-05 ***
-# dependencypronoun                      67.74      26.50   51.88   2.556 0.013558 *  
-# environmentlong                        60.95      29.51   45.10   2.065 0.044701 *  
-# environmentisland                     125.22      27.11   62.84   4.619 1.96e-05 ***
-# environmentlong:dependencypronoun    -101.79      39.39   47.10  -2.584 0.012927 *  
-# environmentisland:dependencypronoun  -140.36      34.38   81.45  -4.083 0.000103 ***
-
-#------------------------------------------------------------------------------#
-# + suzh - region 1 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 1,
-         study == '210510_su',
-         group == 'mandarin')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_rrt_region1_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 258.11 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 2 negative eigenvalues: -6.2e+00 -1.2e+01 
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                23.511     14.962   51.104   1.571  0.12226    
-# dependency2               -86.848     18.298   72.047  -4.746 1.02e-05 ***
-# environment2               -1.652     21.799   85.273  -0.076  0.93976    
-# environment3               49.822     21.117  122.146   2.359  0.01990 *  
-# dependency2:environment2 -112.241     47.182   30.836  -2.379  0.02374 *  
-# dependency2:environment3 -116.427     43.291   65.706  -2.689  0.00906 ** 
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                            12.81      23.81   45.28   0.538 0.593192    
-# dependencypronoun                     -10.62      29.14   63.91  -0.364 0.716848    
-# environmentlong                        54.39      35.07   46.38   1.551 0.127767    
-# environmentisland                     108.05      31.21   74.53   3.462 0.000892 ***
-# environmentlong:dependencypronoun    -112.29      47.51   39.20  -2.364 0.023153 *  
-# environmentisland:dependencypronoun  -116.55      43.54   63.17  -2.677 0.009457 ** 
-
-#------------------------------------------------------------------------------#
-# + suzh - region 2 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 2,
-         study == '210510_su',
-         group == 'mandarin')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_rrt_region2_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 269.97 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Warning message:
-#   Model failed to converge with 2 negative eigenvalues: -1.2e+00 -2.0e+00 
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)    
-# (Intercept)                -26.51      10.78   56.22  -2.459    0.017 *  
-# dependency2                -76.70      14.66   75.85  -5.233 1.44e-06 ***
-# environment2                82.99      19.35   76.85   4.289 5.17e-05 ***
-# environment3                28.28      25.28   53.17   1.119    0.268    
-# dependency2:environment2  -176.72      40.23   68.46  -4.393 3.99e-05 ***
-# dependency2:environment3   -50.32      34.25  271.56  -1.469    0.143  
-
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error        df t value Pr(>|t|)    
-# (Intercept)                          -63.1519    19.2731   79.8946  -3.277  0.00156 ** 
-# dependencypronoun                     -0.9302    24.0921  367.5248  -0.039  0.96922    
-# environmentlong                      171.1295    31.4737   59.9389   5.437 1.05e-06 ***
-# environmentisland                     53.4415    32.3608   58.6065   1.651  0.10400    
-# environmentlong:dependencypronoun   -176.4626    40.7114   69.6624  -4.334 4.82e-05 ***
-# environmentisland:dependencypronoun  -50.2838    34.2306  265.3421  -1.469  0.14303  
-
-#------------------------------------------------------------------------------#
-# + suzh - region 3 ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(region2 == 3,
-         study == '210510_su',
-         group == 'mandarin')
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- lmer(rrt ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_rrt_region3_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 199.67 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)
-# (Intercept)                 2.690     13.045  57.953   0.206    0.837
-# dependency2               -26.262     16.755  47.568  -1.567    0.124
-# environment2               29.517     24.590  31.078   1.200    0.239
-# environment3              -30.667     34.518  61.991  -0.888    0.378
-# dependency2:environment2   -3.342     52.106  39.342  -0.064    0.949
-# dependency2:environment3  -13.162     40.061  56.108  -0.329    0.744
-
-# old analysis ...
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error      df t value Pr(>|t|)
-# (Intercept)                           13.256     33.098  47.181   0.401    0.691
-# dependencypronoun                    -20.730     32.301  38.533  -0.642    0.525
-# environmentlong                       31.380     37.616  36.211   0.834    0.410
-# environmentisland                    -23.822     39.817  55.114  -0.598    0.552
-# environmentlong:dependencypronoun     -3.404     52.579  40.549  -0.065    0.949
-# environmentisland:dependencypronoun  -13.256     40.077  54.968  -0.331    0.742
 
 #------------------------------------------------------------------------------#
 # modeling for accuracy data ----
@@ -4096,1009 +5762,140 @@ ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, s
   facet_grid(study~group)
 
 #------------------------------------------------------------------------------#
-# + doen ----
+# + orc ----
 #------------------------------------------------------------------------------#
 
-# doen = ORC study (do) + ENS group (en)
+# filter data for analysis
 
-# filter for modeling ...
+md <- temp %>%
+        filter(study == '210510_do')
 
-md <- temp %>% 
-  filter(study == '210510_do', group == 'english')
+# set class of columns ...
 
-# count participants ...
-
-check <- md %>%
-  group_by(study, group, participant) %>%
-  summarise()
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         accuracy = as.logical(accuracy)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
 # apply deviation coding ...
 
 contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
 contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
 
 # view contrasts ...
 
 contrasts(md$dependency)
 contrasts(md$environment)
+contrasts(md$group)
 
 #------------------------------------------------------------------------------#
-# + + model 1 (maximal) 
+# + + model 1 
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model1 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/spr_doen_acc_md1.rds')
-
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               4.32597    0.34719  12.460   <2e-16 ***
-# dependency2               0.84492    0.76115   1.110    0.267    
-# environment2              0.13692    1.02568   0.133    0.894    
-# environment3              0.49225    0.90789   0.542    0.588    
-# dependency2:environment2  1.11743    2.22829   0.501    0.616    
-# dependency2:environment3 -0.04087    1.81099  -0.023    0.982 
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-tic()
-model3 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-model3 <- read_rds('models/spr_doen_acc_md3.rds')
-
-# 2435.58 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.92513    0.24601  15.955   <2e-16 ***
-# dependency2               0.18935    0.40465   0.468    0.640    
-# environment2             -0.14796    0.51738  -0.286    0.775    
-# environment3              0.17597    0.55967   0.314    0.753    
-# dependency2:environment2  0.50081    0.93346   0.537    0.592    
-# dependency2:environment3 -0.07302    0.98115  -0.074    0.941 
-
-# compare models ...
-
-anova(model1, model3)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model3   37 940.65 1159.0 -433.33   866.65                     
-# model1   48 956.88 1240.1 -430.44   860.88 5.7667 11     0.8885
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-tic()
-model4 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-model4 <- read_rds('models/spr_doen_acc_md4.rds')
-
-# 265.82 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.86811    0.22755  16.999   <2e-16 ***
-# dependency2               0.21421    0.33822   0.633    0.527    
-# environment2             -0.15598    0.46740  -0.334    0.739    
-# environment3              0.09027    0.51528   0.175    0.861    
-# dependency2:environment2  0.03805    0.60071   0.063    0.949    
-# dependency2:environment3 -0.22013    0.58596  -0.376    0.707 
-
-# compare models ...
-
-anova(model3, model4)
-
-# npar    AIC  BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model4   26 919.52 1073 -433.76   867.52                     
-# model3   37 940.65 1159 -433.33   866.65 0.8711 11          1
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-tic()
-model5 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-model5 <- read_rds('models/spr_doen_acc_md5.rds')
-
-# 12.76 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.72472    0.20712  17.984   <2e-16 ***
-# dependency2               0.29404    0.31706   0.927    0.354    
-# environment2             -0.14602    0.37317  -0.391    0.696    
-# environment3              0.01555    0.40119   0.039    0.969    
-# dependency2:environment2  0.26222    0.55428   0.473    0.636    
-# dependency2:environment3  0.12010    0.59372   0.202    0.840 
-
-# compare models ...
-
-anova(model4, model5)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model5   17 907.46 1007.8 -436.73   873.46                    
-# model4   26 919.52 1073.0 -433.76   867.52 5.934  9     0.7465
-
-#------------------------------------------------------------------------------#
-# + + model 6 (final) ----
-#------------------------------------------------------------------------------#
-
-tic()
-model6 <- glmer(accuracy ~ dependency * environment + 
+model1 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 | participant) + 
                   (1 | item), 
                 data = md, family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doen_acc_md6.rds')
-summary(model6)
+  write_rds('models/spr_doall_acc_md1.rds')
+summary(model1)
 toc()
 beep()
 
-model6 <- read_rds('models/spr_doen_acc_md6.rds')
-
-# 1.91 sec elapsed
+# 22.45 sec elapsed
 # no warnings
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.75380    0.20777  18.067  < 2e-16 ***
-# dependency2               0.85728    0.21179   4.048 5.17e-05 ***
-# environment2             -0.10776    0.26048  -0.414    0.679    
-# environment3             -0.11300    0.25861  -0.437    0.662    
-# dependency2:environment2  0.20103    0.52183   0.385    0.700    
-# dependency2:environment3  0.05514    0.51836   0.106    0.915 
-
-# compare models ...
-
-anova(model5, model6)
-
-# npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 896.21  943.41 -440.10   880.21                     
-# model5   17 907.46 1007.77 -436.73   873.46 6.7506  9     0.6631
-
-anova(model1, model6)
-
-# npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 896.21  943.41 -440.10   880.21                     
-# model1   48 956.88 1240.13 -430.44   860.88 19.322 40     0.9976
-
-# check assumptions ...
-
-check_model(model6)
-ggsave('plots/check_model.png', width=10, height=10, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + doko ----
-#------------------------------------------------------------------------------#
-
-# doko = ORC study (do) + KLE group (ko)
-
-# filter for modeling ...
-
-md <- temp %>% 
-  filter(study == '210510_do', group == 'korean')
-
-# count participants ...
-
-check <- md %>%
-  group_by(study, group, participant) %>%
-  summarise()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/spr_doko_acc_md1.rds')
-
-# 4618.69 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.3364     0.1959  11.925  < 2e-16 ***
-# dependency2                1.5085     0.2777   5.431  5.6e-08 ***
-# environment2              -0.3198     0.3392  -0.943    0.346    
-# environment3              -0.3216     0.3169  -1.015    0.310    
-# dependency2:environment2  -0.4101     0.7079  -0.579    0.562    
-# dependency2:environment3  -0.7649     0.7295  -1.049    0.294 
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-model5 <- read_rds('models/spr_doko_acc_md5.rds')
-
-# 16.36 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.1794     0.1683  12.953  < 2e-16 ***
-# dependency2                1.4001     0.1966   7.123 1.05e-12 ***
-# environment2              -0.1640     0.2427  -0.676    0.499    
-# environment3              -0.1136     0.2300  -0.494    0.621    
-# dependency2:environment2  -0.1571     0.3886  -0.404    0.686    
-# dependency2:environment3  -0.1784     0.3853  -0.463    0.643 
-
-# compare models ...
-
-anova(model1, model5)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model5   17 1551.3 1646.4 -758.66   1517.3                    
-# model1   48 1592.0 1860.4 -748.03   1496.0 21.27 31     0.9046
-
-#------------------------------------------------------------------------------#
-# + + model 6 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(accuracy ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doko_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-model6 <- read_rds('models/spr_doko_acc_md6.rds')
-
-# 1.71 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               2.14936    0.16093  13.356   <2e-16 ***
-# dependency2               1.40744    0.14654   9.604   <2e-16 ***
-# environment2             -0.19510    0.17597  -1.109    0.268    
-# environment3             -0.04670    0.17985  -0.260    0.795    
-# dependency2:environment2 -0.03271    0.35363  -0.092    0.926    
-# dependency2:environment3 -0.06833    0.35921  -0.190    0.849 
-
-# compare models ...
-
-anova(model1, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1537.2 1582.0 -760.63   1521.2                     
-# model1   48 1592.0 1860.4 -748.03   1496.0 25.201 40     0.9672
-
-anova(model5, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1537.2 1582.0 -760.63   1521.2                     
-# model5   17 1551.3 1646.4 -758.66   1517.3 3.9306  9     0.9159
-
-# check assumptions ...
-
-check_model(model6)
-ggsave('plots/check_model.png', width=10, height=10, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + dozh ----
-#------------------------------------------------------------------------------#
-
-# dozh = ORC study (do) + MLE group (zh)
-
-# filter for modeling ...
-
-md <- temp %>% 
-  filter(study == '210510_do', group == 'mandarin')
-
-# count participants ...
-
-check <- md %>%
-  group_by(study, group, participant) %>%
-  summarise()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal)
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/spr_dozh_acc_md1.rds')
-
-# 1717.86 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                3.8007     0.3166  12.006   <2e-16 ***
-# dependency2                1.1720     0.4939   2.373   0.0177 *  
-# environment2              -0.1428     0.6234  -0.229   0.8189    
-# environment3              -0.5478     0.6444  -0.850   0.3953    
-# dependency2:environment2   1.0256     1.1382   0.901   0.3675    
-# dependency2:environment3   1.5550     1.0640   1.462   0.1439 
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-model3 <- read_rds('models/spr_dozh_acc_md3.rds')
-
-# 488.4 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.55710    0.28596  12.439   <2e-16 ***
-# dependency2               0.81722    0.33417   2.446   0.0145 *  
-# environment2             -0.35603    0.57372  -0.621   0.5349    
-# environment3             -0.85667    0.57475  -1.491   0.1361    
-# dependency2:environment2  0.07305    0.56159   0.130   0.8965    
-# dependency2:environment3  0.67998    0.59071   1.151   0.2497 
-
-# compare models ...
-
-anova(model3, model1)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model3   26 1014.7 1160.5 -481.35   962.70                    
-# model1   48 1048.9 1318.0 -476.45   952.91 9.797 22     0.9881
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-model4 <- read_rds('models/spr_dozh_acc_md4.rds')
-
-# 69.7 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.517461   0.285402  12.325   <2e-16 ***
-# dependency2               0.771873   0.375679   2.055   0.0399 *  
-# environment2              0.005219   0.545209   0.010   0.9924    
-# environment3             -0.638777   0.474521  -1.346   0.1783    
-# dependency2:environment2  0.686489   0.902823   0.760   0.4470    
-# dependency2:environment3  0.666644   0.777452   0.857   0.3912 
-
-# compare models ...
-
-anova(model1, model4)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model4   28 1020.4 1177.4 -482.22   964.43                     
-# model1   48 1048.9 1318.0 -476.45   952.91 11.525 20     0.9314
-
-anova(model3, model4)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model3   26 1014.7 1160.5 -481.35   962.70                    
-# model4   28 1020.4 1177.4 -482.22   964.43     0  2          1
-
-#------------------------------------------------------------------------------#
-# + + model 5 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-model5 <- read_rds('models/spr_dozh_acc_md5.rds')
-
-# 14.53 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.46372    0.27446  12.620  < 2e-16 ***
-# dependency2               0.79196    0.30610   2.587  0.00967 ** 
-# environment2             -0.04924    0.51008  -0.097  0.92310    
-# environment3             -0.61506    0.46842  -1.313  0.18916    
-# dependency2:environment2  0.16803    0.54197   0.310  0.75653    
-# dependency2:environment3  0.75679    0.56992   1.328  0.18422
-
-# compare models ...
-
-anova(model4, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 1001.2 1096.5 -483.62   967.24                     
-# model4   28 1020.4 1177.4 -482.22   964.43 2.8109 11      0.993
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(accuracy ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_dozh_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-model6 <- read_rds('models/spr_dozh_acc_md6.rds')
-
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.26369    0.24570  13.283  < 2e-16 ***
-# dependency2               0.98170    0.19136   5.130  2.9e-07 ***
-# environment2             -0.23260    0.23434  -0.993    0.321    
-# environment3             -0.14076    0.24246  -0.581    0.562    
-# dependency2:environment2 -0.03142    0.45959  -0.068    0.945    
-# dependency2:environment3  0.57751    0.47463   1.217    0.224 
-
-# compare models ...
-
-anova(model6, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)  
-# model6    8 1000.0 1044.9 -492.00   984.01                       
-# model5   17 1001.2 1096.5 -483.62   967.24 16.767  9     0.0525 .
-
-#------------------------------------------------------------------------------#
-# + suen ----
-#------------------------------------------------------------------------------#
-
-# suen = SRC study (su) + ENS group (en)
-
-# filter for modeling ...
-
-md <- temp %>% 
-  filter(study == '210510_su', group == 'english')
-
-# count participants ...
-
-check <- md %>%
-  group_by(study, group, participant) %>%
-  summarise()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal)
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/spr_suen_acc_md1.rds')
-
-# 1105.91 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.09121    0.24818  12.455  < 2e-16 ***
-# dependency2               1.33220    0.38692   3.443 0.000575 ***
-# environment2             -0.00791    0.47680  -0.017 0.986764    
-# environment3             -0.40507    0.49115  -0.825 0.409521    
-# dependency2:environment2  0.54681    0.93946   0.582 0.560536    
-# dependency2:environment3  1.02199    0.93589   1.092 0.274834 
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-# skip for now
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 76.96 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.03336    0.24319  12.473  < 2e-16 ***
-# dependency2               1.27208    0.35871   3.546 0.000391 ***
-# environment2             -0.03007    0.40248  -0.075 0.940437    
-# environment3             -0.45754    0.37687  -1.214 0.224735    
-# dependency2:environment2  0.07569    0.56524   0.134 0.893479    
-# dependency2:environment3  0.99261    0.56357   1.761 0.078190 .  
-
-# compare models ...
-
-anova(model3, model4)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   26 1055.3 1198.6 -501.66   1003.3
-model3   37 1076.2 1280.1 -501.12   1002.2 1.0889 11     0.9999
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-tic()
-model5 <- glmer(accuracy ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-model5 <- read_rds('models/spr_suen_acc_md5.rds')
-
-# 7.9 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               2.95094    0.22589  13.064  < 2e-16 ***
-# dependency2               1.14172    0.30432   3.752 0.000176 ***
-# environment2             -0.02452    0.33693  -0.073 0.941976    
-# environment3             -0.50700    0.30082  -1.685 0.091909 .  
-# dependency2:environment2  0.09075    0.51881   0.175 0.861136    
-# dependency2:environment3  0.89985    0.50233   1.791 0.073239 . 
-
-#------------------------------------------------------------------------------#
-# + + model 6 (final) ----
-#------------------------------------------------------------------------------#
-
-tic()
-model6 <- glmer(accuracy ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suen_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-model6 <- read_rds('models/spr_suen_acc_md6.rds')
-
-# 1.56 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.8552     0.2028  14.080  < 2e-16 ***
-# dependency2                0.9083     0.1879   4.834 1.34e-06 ***
-# environment2              -0.2913     0.2357  -1.236   0.2164    
-# environment3              -0.5806     0.2326  -2.496   0.0126 *  
-# dependency2:environment2   0.1031     0.4708   0.219   0.8266    
-# dependency2:environment3   0.9431     0.4658   2.025   0.0429 * 
-
-anova(model6, model5)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model6    8 1025.4 1069.5 -504.70   1009.4                    
-# model5   17 1039.8 1133.5 -502.92   1005.8 3.557  9     0.9381
-
-anova(model4, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1025.4 1069.5 -504.70   1009.4                     
-# model4   26 1055.3 1198.6 -501.66   1003.3 6.0642 18     0.9959
-
-anova(model1, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1025.4 1069.5 -504.70  1009.39                     
-# model1   48 1093.4 1357.9 -498.69   997.39 12.004 40          1
-
-# post-hoc tests ...
-
-pairwise1 <- model6 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
+# (Intercept)                      3.03467    0.12761  23.780  < 2e-16 ***
+# dependency2                      1.08778    0.10718  10.149  < 2e-16 ***
+# environment2                    -0.17436    0.13017  -1.339  0.18043    
+# environment3                    -0.09116    0.13198  -0.691  0.48973    
+# group2                          -1.58795    0.23635  -6.719 1.83e-11 ***
+# group3                          -0.67823    0.24556  -2.762  0.00575 ** 
+# dependency2:environment2         0.01200    0.26026   0.046  0.96323    
+# dependency2:environment3         0.17525    0.26378   0.664  0.50644    
+# dependency2:group2               0.57736    0.25970   2.223  0.02620 *  
+# dependency2:group3               0.10430    0.28358   0.368  0.71303    
+# environment2:group2             -0.09482    0.31824  -0.298  0.76573    
+# environment3:group2              0.08877    0.31866   0.279  0.78058    
+# environment2:group3             -0.10784    0.34677  -0.311  0.75580    
+# environment3:group3              0.02838    0.35068   0.081  0.93550    
+# dependency2:environment2:group2 -0.27735    0.63581  -0.436  0.66268    
+# dependency2:environment3:group2 -0.12824    0.63669  -0.201  0.84038    
+# dependency2:environment2:group3 -0.22829    0.69175  -0.330  0.74139    
+# dependency2:environment3:group3  0.53032    0.69884   0.759  0.44794 
+
+pairwise <- model1 %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
   summary(by = NULL, adjust = 'holm')
-pairwise1
+pairwise
 
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short         -0.560 0.350 Inf  -1.598  0.1099
-# gap - pronoun long          -0.663 0.315 Inf  -2.103  0.0710 .
-# gap - pronoun island        -1.503 0.307 Inf  -4.891  <.0001 ***
-# Results are given on the log odds ratio (not the response) scale.
-# P value adjustment: holm method for 3 tests
-
-#------------------------------------------------------------------------------#
-# + suko ----
-#------------------------------------------------------------------------------#
-
-# suko = SRC study (su) + KLE group (ko)
-
-# filter for modeling ...
-
-md <- temp %>% 
-  filter(study == '210510_su', group == 'korean')
-
-# count participants ...
-
-check <- md %>%
-  group_by(study, group, participant) %>%
-  summarise()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
+# contrast      environment group    estimate    SE  df z.ratio p.value
+# gap - pronoun short       english    -0.787 0.374 Inf  -2.101  0.0651 .
+# gap - pronoun long        english    -0.967 0.366 Inf  -2.641  0.0413 *
+# gap - pronoun island      english    -0.828 0.359 Inf  -2.305  0.0651 .
+# gap - pronoun short       korean     -1.499 0.267 Inf  -5.623  <.0001 ***
+# gap - pronoun long        korean     -1.402 0.248 Inf  -5.649  <.0001 ***
+# gap - pronoun island      korean     -1.412 0.260 Inf  -5.430  <.0001 ***
+# gap - pronoun short       mandarin   -0.790 0.329 Inf  -2.403  0.0651 .
+# gap - pronoun long        mandarin   -0.743 0.310 Inf  -2.391  0.0651 .
+# gap - pronoun island      mandarin   -1.362 0.336 Inf  -4.052  0.0003 ***
+# Results are given on the log odds ratio (not the response) scale. 
+# P value adjustment: holm method for 9 tests 
 
 #------------------------------------------------------------------------------#
-# + + model 1 (maximal)
+# + + model 2 
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model1 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/spr_suko_acc_md1.rds')
-
-# 3775.56 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.30218    0.31797  10.385  < 2e-16 ***
-# dependency2               1.65354    0.56411   2.931  0.00338 ** 
-# environment2             -1.37605    0.78757  -1.747  0.08060 .  
-# environment3             -1.82990    0.73873  -2.477  0.01325 *  
-# dependency2:environment2 -0.66746    1.66759  -0.400  0.68897    
-# dependency2:environment3 -0.07874    1.54553  -0.051  0.95937  
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-model4 <- read_rds('models/spr_suko_acc_md4.rds')
-
-# 117.45 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               3.30218    0.31797  10.385  < 2e-16 ***
-# dependency2               1.65354    0.56411   2.931  0.00338 ** 
-# environment2             -1.37605    0.78757  -1.747  0.08060 .  
-# environment3             -1.82990    0.73873  -2.477  0.01325 *  
-# dependency2:environment2 -0.66746    1.66759  -0.400  0.68897    
-# dependency2:environment3 -0.07874    1.54553  -0.051  0.95937  
-
-# compare models ...
-
-anova(model1, model4)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model4   26 1181.9 1326.1 -564.97   1129.9                    
-# model1   48 1205.2 1471.4 -554.61   1109.2 20.71 22     0.5387
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(accuracy ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
+model2 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 + dependency | participant) + 
                   (1 | item), 
                 data = md, family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_acc_md5.rds')
-summary(model5)
+  write_rds('models/spr_doall_acc_md2.rds')
+summary(model2)
 toc()
 beep()
 
-model5 <- read_rds('models/spr_suko_acc_md5.rds')
-
-# 5.78 sec elapsed
-# Model failed to converge with max|grad| = 0.169075 (tol = 0.002, component 1)
-# Model is nearly unidentifiable: very large eigenvalue
-# - Rescale variables?
-  
-#------------------------------------------------------------------------------#
-# + + model 6 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(accuracy ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suko_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-model6 <- read_rds('models/spr_suko_acc_md6.rds')
-
-# 1.36 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.7622     0.2021  13.670  < 2e-16 ***
-# dependency2                1.1325     0.1770   6.399 1.57e-10 ***
-# environment2              -0.8526     0.2288  -3.727 0.000194 ***
-# environment3              -1.0365     0.2238  -4.631 3.63e-06 ***
-# dependency2:environment2   0.5178     0.4566   1.134 0.256780    
-# dependency2:environment3   0.5981     0.4506   1.327 0.184411  
-
-# compare models ...
-
-anova(model4, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1153.7 1198.0 -568.83   1137.7                     
-# model4   26 1181.9 1326.1 -564.97   1129.9 7.7169 18     0.9826
-
-anova(model6, model1)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1153.7 1198.0 -568.83   1137.7                     
-# model1   48 1205.2 1471.4 -554.61   1109.2 28.427 40     0.9144
-
-#------------------------------------------------------------------------------#
-# + suzh ----
-#------------------------------------------------------------------------------#
-
-# suzh = SRC study (su) + MLE group (zh)
-
-# filter for modeling ...
-
-md <- temp %>% 
-  filter(study == '210510_su', group == 'mandarin')
-
-# count participants ...
-
-check <- md %>%
-  group_by(study, group, participant) %>%
-  summarise()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal)
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/spr_suzh_acc_md1.rds')
-
-# 1747.23 sec elapsed
+# 29.88 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                3.0974     0.2409  12.857  < 2e-16 ***
-# dependency2                1.3350     0.3822   3.493 0.000478 ***
-# environment2              -0.9075     0.5640  -1.609 0.107586    
-# environment3              -1.0045     0.5111  -1.965 0.049360 *  
-# dependency2:environment2   0.7882     1.0811   0.729 0.465980    
-# dependency2:environment3  -0.1669     1.0064  -0.166 0.868303 
+# (Intercept)                      2.99920    0.12608  23.788  < 2e-16 ***
+# dependency2                      0.88354    0.14937   5.915 3.32e-09 ***
+# environment2                    -0.17488    0.12975  -1.348  0.17771    
+# environment3                    -0.09244    0.13160  -0.702  0.48242    
+# group2                          -1.59434    0.22978  -6.939 3.96e-12 ***
+# group3                          -0.68706    0.23879  -2.877  0.00401 ** 
+# dependency2:environment2         0.01947    0.25951   0.075  0.94019    
+# dependency2:environment3         0.18166    0.26309   0.690  0.48989    
+# dependency2:group2               0.67168    0.26707   2.515  0.01190 *  
+# dependency2:group3               0.11202    0.28607   0.392  0.69535    
+# environment2:group2             -0.08939    0.31741  -0.282  0.77823    
+# environment3:group2              0.09299    0.31789   0.293  0.76989    
+# environment2:group3             -0.10449    0.34572  -0.302  0.76248    
+# environment3:group3              0.02738    0.34977   0.078  0.93760    
+# dependency2:environment2:group2 -0.26424    0.63424  -0.417  0.67695    
+# dependency2:environment3:group2 -0.13109    0.63534  -0.206  0.83654    
+# dependency2:environment2:group3 -0.21819    0.68993  -0.316  0.75181    
+# dependency2:environment3:group3  0.53551    0.69765   0.768  0.44273 
+
+anova(model1, model2)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   20 3416.3 3552.5 -1688.2   3376.3                     
+# model2   22 3416.7 3566.5 -1686.3   3372.7 3.6103  2     0.1645
 
 #------------------------------------------------------------------------------#
 # + + model 3 
@@ -5107,72 +5904,520 @@ model1 <- read_rds('models/spr_suzh_acc_md1.rds')
 # fit model ...
 
 tic()
-model3 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (dependency + environment | item), 
+model3 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 + environment | participant) + 
+                  (1 | item), 
                 data = md, family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_acc_md3.rds')
+  write_rds('models/spr_doall_acc_md3.rds')
 summary(model3)
 toc()
 beep()
 
-# 99.14 sec elapsed
+# 52.41 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.9171     0.2162  13.493  < 2e-16 ***
-# dependency2                0.9761     0.2665   3.662  0.00025 ***
-# environment2              -1.0376     0.4414  -2.351  0.01874 *  
-# environment3              -1.0614     0.4193  -2.531  0.01136 *  
-# dependency2:environment2   0.8669     0.4895   1.771  0.07655 .  
-# dependency2:environment3   0.3725     0.4786   0.778  0.43639  
-
-# compare models ...
+# (Intercept)                      3.06852    0.13044  23.525  < 2e-16 ***
+# dependency2                      1.09646    0.10778  10.173  < 2e-16 ***
+# environment2                    -0.06433    0.20412  -0.315  0.75265    
+# environment3                    -0.22264    0.19197  -1.160  0.24614    
+# group2                          -1.59664    0.23804  -6.707 1.98e-11 ***
+# group3                          -0.66897    0.24747  -2.703  0.00687 ** 
+# dependency2:environment2         0.04293    0.26523   0.162  0.87141    
+# dependency2:environment3         0.14394    0.26474   0.544  0.58666    
+# dependency2:group2               0.58910    0.26068   2.260  0.02383 *  
+# dependency2:group3               0.10577    0.28468   0.372  0.71023    
+# environment2:group2             -0.16107    0.35070  -0.459  0.64602    
+# environment3:group2              0.14131    0.33939   0.416  0.67714    
+# environment2:group3             -0.10361    0.37481  -0.276  0.78221    
+# environment3:group3              0.03953    0.36694   0.108  0.91420    
+# dependency2:environment2:group2 -0.27099    0.64254  -0.422  0.67321    
+# dependency2:environment3:group2 -0.15917    0.63541  -0.250  0.80221    
+# dependency2:environment2:group3 -0.22702    0.69930  -0.325  0.74546    
+# dependency2:environment3:group3  0.51010    0.69679   0.732  0.46412
 
 anova(model1, model3)
 
 # npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model3   26 1280.3 1426.8 -614.17   1228.3                     
-# model1   48 1311.2 1581.7 -607.60   1215.2 13.128 22     0.9295
+# model1   20 3416.3 3552.5 -1688.2   3376.3                     
+# model3   25 3420.6 3590.8 -1685.3   3370.6 5.6928  5     0.3373
 
 #------------------------------------------------------------------------------#
-# + + model 4
+# + + model 4 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model4 <- glmer(accuracy ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (1 | item), 
+model4 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + dependency | item), 
                 data = md, family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_acc_md4.rds')
+  write_rds('models/spr_doall_acc_md4.rds')
 summary(model4)
 toc()
 beep()
 
-# 58.47 sec elapsed
+model4 <- read_rds('models/spr_doall_acc_md4.rds')
+
+# 42.08 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                      3.047831   0.130720  23.316  < 2e-16 ***
+# dependency2                      1.132730   0.121568   9.318  < 2e-16 ***
+# environment2                    -0.177957   0.130539  -1.363  0.17280    
+# environment3                    -0.091970   0.132260  -0.695  0.48682    
+# group2                          -1.588793   0.236340  -6.723 1.79e-11 ***
+# group3                          -0.680527   0.245515  -2.772  0.00557 ** 
+# dependency2:environment2         0.004902   0.260962   0.019  0.98501    
+# dependency2:environment3         0.171064   0.264416   0.647  0.51766    
+# dependency2:group2               0.563371   0.260320   2.164  0.03045 *  
+# dependency2:group3               0.095099   0.284066   0.335  0.73779    
+# environment2:group2             -0.094149   0.319038  -0.295  0.76792    
+# environment3:group2              0.093188   0.319472   0.292  0.77052    
+# environment2:group3             -0.105302   0.347745  -0.303  0.76203    
+# environment3:group3              0.034625   0.351480   0.099  0.92153    
+# dependency2:environment2:group2 -0.270645   0.637517  -0.425  0.67118    
+# dependency2:environment3:group2 -0.109145   0.638595  -0.171  0.86429    
+# dependency2:environment2:group3 -0.253209   0.694185  -0.365  0.71529    
+# dependency2:environment3:group3  0.534426   0.701271   0.762  0.44601  
+
+anova(model1, model4)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   20 3416.3 3552.5 -1688.2   3376.3                     
+# model4   22 3418.8 3568.6 -1687.4   3374.8 1.5056  2      0.471
+
+pairwise <- model4 %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairwise
+
+# contrast      environment group    estimate    SE  df z.ratio p.value
+# gap - pronoun short       english    -0.844 0.381 Inf  -2.215  0.2161
+# gap - pronoun long        english    -1.023 0.372 Inf  -2.749  0.0525 .
+# gap - pronoun island      english    -0.873 0.364 Inf  -2.398  0.1387
+# gap - pronoun short       korean     -1.534 0.272 Inf  -5.630  <.0001 ***
+# gap - pronoun long        korean     -1.442 0.255 Inf  -5.660  <.0001 ***
+# gap - pronoun island      korean     -1.454 0.267 Inf  -5.450  <.0001 ***
+# gap - pronoun short       mandarin   -0.845 0.336 Inf  -2.517  0.1014
+# gap - pronoun long        mandarin   -0.771 0.315 Inf  -2.447  0.1222
+# gap - pronoun island      mandarin   -1.409 0.342 Inf  -4.118  0.0003 ***
+# Results are given on the log odds ratio (not the response) scale. 
+# P value adjustment: mvt method for 9 tests 
+
+pairwise <- model4 %>%
+  emmeans(~ dependency * group) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairwise
+
+
+pairwise <- model4 %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairwise
+
+# environment group    dependency contrast           estimate    SE  df z.ratio p.value
+# short       english  .          gap - pronoun      -0.84363 0.381 Inf  -2.215  0.7219
+# long        english  .          gap - pronoun      -1.02315 0.372 Inf  -2.749  0.1915
+# island      english  .          gap - pronoun      -0.87294 0.364 Inf  -2.398  0.4613
+# short       korean   .          gap - pronoun      -1.53360 0.272 Inf  -5.630  <.0001
+# long        korean   .          gap - pronoun      -1.44247 0.255 Inf  -5.660  <.0001
+# island      korean   .          gap - pronoun      -1.45376 0.267 Inf  -5.450  <.0001
+# short       mandarin .          gap - pronoun      -0.84499 0.336 Inf  -2.517  0.3548
+# long        mandarin .          gap - pronoun      -0.77130 0.315 Inf  -2.447  0.4175
+# island      mandarin .          gap - pronoun      -1.40872 0.342 Inf  -4.118  0.0015
+
+joint_tests(model4)
+
+# tables ...
+
+summary(model4)$coefficients %>%
+  kbl(digits = c(2, 2, 2, 3))
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(7)
+
+# plot ...
+
+plot <- plot(emmeans(model4, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log odds ratio") +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_accuracy_emmeans.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + model 5 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + environment | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_acc_md5.rds')
+summary(model5)
+toc()
+beep()
+
+# 65.8 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.9229     0.2135  13.688  < 2e-16 ***
-# dependency2                1.0638     0.3089   3.444 0.000573 ***
-# environment2              -0.4359     0.4144  -1.052 0.292853    
-# environment3              -0.4856     0.3727  -1.303 0.192616    
-# dependency2:environment2   1.4062     0.7992   1.760 0.078469 .  
-# dependency2:environment3   0.6208     0.7241   0.857 0.391262 
+# (Intercept)                      3.04922    0.12803  23.817  < 2e-16 ***
+# dependency2                      1.09235    0.10749  10.162  < 2e-16 ***
+# environment2                    -0.16354    0.15069  -1.085  0.27781    
+# environment3                    -0.06643    0.15614  -0.425  0.67048    
+# group2                          -1.59307    0.23738  -6.711 1.93e-11 ***
+# group3                          -0.67819    0.24658  -2.750  0.00595 ** 
+# dependency2:environment2         0.02161    0.26077   0.083  0.93396    
+# dependency2:environment3         0.18808    0.26479   0.710  0.47753    
+# dependency2:group2               0.58066    0.26032   2.231  0.02571 *  
+# dependency2:group3               0.10602    0.28427   0.373  0.70919    
+# environment2:group2             -0.10417    0.31896  -0.327  0.74397    
+# environment3:group2              0.07584    0.31947   0.237  0.81237    
+# environment2:group3             -0.11084    0.34729  -0.319  0.74960    
+# environment3:group3              0.02691    0.35148   0.077  0.93897    
+# dependency2:environment2:group2 -0.28086    0.63729  -0.441  0.65943    
+# dependency2:environment3:group2 -0.12274    0.63900  -0.192  0.84768    
+# dependency2:environment2:group3 -0.24164    0.69299  -0.349  0.72732    
+# dependency2:environment3:group3  0.52827    0.70158   0.753  0.45147 
 
-# compare models ...
-
-anova(model3, model4)
+anova(model1, model5)
 
 # npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model3   26 1280.3 1426.8 -614.17   1228.3                     
-# model4   28 1282.5 1440.3 -613.26   1226.5 1.8186  2     0.4028
+# model1   20 3416.3 3552.5 -1688.2   3376.3                     
+# model5   25 3422.7 3592.9 -1686.3   3372.7 3.6602  5     0.5993
+
+#------------------------------------------------------------------------------#
+# + + model 6 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + group | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_doall_acc_md6.rds')
+summary(model6)
+toc()
+beep()
+
+# 78.67 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                      3.038509   0.128162  23.708  < 2e-16 ***
+# dependency2                      1.088360   0.107295  10.144  < 2e-16 ***
+# environment2                    -0.180742   0.130658  -1.383   0.1666    
+# environment3                    -0.096034   0.132549  -0.725   0.4687    
+# group2                          -1.577590   0.239527  -6.586 4.51e-11 ***
+# group3                          -0.632270   0.253002  -2.499   0.0125 *  
+# dependency2:environment2         0.018358   0.260703   0.070   0.9439    
+# dependency2:environment3         0.176465   0.263927   0.669   0.5037    
+# dependency2:group2               0.573594   0.259493   2.210   0.0271 *  
+# dependency2:group3               0.108949   0.283995   0.384   0.7013    
+# environment2:group2             -0.095262   0.317791  -0.300   0.7644    
+# environment3:group2              0.085705   0.318279   0.269   0.7877    
+# environment2:group3             -0.128212   0.348497  -0.368   0.7129    
+# environment3:group3              0.008234   0.352622   0.023   0.9814    
+# dependency2:environment2:group2 -0.278178   0.635898  -0.437   0.6618    
+# dependency2:environment3:group2 -0.127073   0.636358  -0.200   0.8417    
+# dependency2:environment2:group3 -0.227275   0.693736  -0.328   0.7432    
+# dependency2:environment3:group3  0.530603   0.700238   0.758   0.4486 
+
+anova(model1, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   20 3416.3 3552.5 -1688.2   3376.3                     
+# model6   25 3425.3 3595.5 -1687.7   3375.3 1.0016  5     0.9624
+
+#------------------------------------------------------------------------------#
+# + src ----
+#------------------------------------------------------------------------------#
+
+# filter data for analysis
+
+md <- temp %>%
+  filter(study == '210510_su')
+
+# set class of columns ...
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         accuracy = as.logical(accuracy)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+contrasts(md$group)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_suall_acc_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 13.81 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                      2.76600    0.13120  21.082  < 2e-16 ***
+# dependency2                      0.99880    0.10020   9.968  < 2e-16 ***
+# environment2                    -0.54249    0.12765  -4.250 2.14e-05 ***
+# environment3                    -0.76718    0.12428  -6.173 6.70e-10 ***
+# group2                          -0.13053    0.22710  -0.575  0.56543    
+# group3                          -0.13156    0.22122  -0.595  0.55206    
+# dependency2:environment2         0.61892    0.25542   2.423  0.01539 *  
+# dependency2:environment3         0.69001    0.24918   2.769  0.00562 ** 
+# dependency2:group2               0.23999    0.25169   0.954  0.34032    
+# dependency2:group3               0.09373    0.24334   0.385  0.70011    
+# environment2:group2             -0.55881    0.32053  -1.743  0.08127 .  
+# environment3:group2             -0.47305    0.31520  -1.501  0.13341    
+# environment2:group3             -0.23086    0.30856  -0.748  0.45436    
+# environment3:group3             -0.15684    0.29921  -0.524  0.60015    
+# dependency2:environment2:group2  0.42914    0.64103   0.669  0.50321    
+# dependency2:environment3:group2 -0.34605    0.63182  -0.548  0.58390    
+# dependency2:environment2:group3  1.12692    0.61553   1.831  0.06713 .  
+# dependency2:environment3:group3 -0.48257    0.59876  -0.806  0.42027 
+
+#------------------------------------------------------------------------------#
+# + + model 2
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 + dependency | participant) + 
+                  (1 | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_suall_acc_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 15.24 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                      2.78202    0.13416  20.737  < 2e-16 ***
+# dependency2                      1.03488    0.14092   7.344 2.08e-13 ***
+# environment2                    -0.54289    0.12755  -4.256 2.08e-05 ***
+# environment3                    -0.76788    0.12422  -6.182 6.34e-10 ***
+# group2                          -0.13141    0.22855  -0.575  0.56531    
+# group3                          -0.13331    0.22263  -0.599  0.54931    
+# dependency2:environment2         0.61669    0.25520   2.417  0.01567 *  
+# dependency2:environment3         0.68696    0.24914   2.757  0.00583 ** 
+# dependency2:group2               0.23475    0.26173   0.897  0.36976    
+# dependency2:group3               0.08451    0.25335   0.334  0.73871    
+# environment2:group2             -0.55793    0.32021  -1.742  0.08145 .  
+# environment3:group2             -0.47520    0.31499  -1.509  0.13140    
+# environment2:group3             -0.22801    0.30831  -0.740  0.45958    
+# environment3:group3             -0.15884    0.29912  -0.531  0.59542    
+# dependency2:environment2:group2  0.43401    0.64048   0.678  0.49800    
+# dependency2:environment3:group2 -0.34618    0.63130  -0.548  0.58344    
+# dependency2:environment2:group3  1.13570    0.61501   1.847  0.06480 .  
+# dependency2:environment3:group3 -0.48077    0.59829  -0.804  0.42164 
+
+anova(model1, model2)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   20 3412.9 3546.2 -1686.5   3372.9                     
+# model2   22 3416.5 3563.1 -1686.2   3372.5 0.4238  2     0.8091
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 + dependency + environment | participant) + 
+                  (1 | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_suall_acc_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 128.85 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                      2.82858    0.13961  20.260  < 2e-16 ***
+# dependency2                      1.08650    0.15785   6.883 5.86e-12 ***
+# environment2                    -0.57729    0.19830  -2.911   0.0036 ** 
+# environment3                    -0.82769    0.19208  -4.309 1.64e-05 ***
+# group2                          -0.12934    0.23629  -0.547   0.5841    
+# group3                          -0.13468    0.22995  -0.586   0.5581    
+# dependency2:environment2         0.40986    0.28772   1.425   0.1543    
+# dependency2:environment3         0.54012    0.27803   1.943   0.0521 .  
+# dependency2:group2               0.25483    0.28512   0.894   0.3715    
+# dependency2:group3               0.09461    0.27609   0.343   0.7318    
+# environment2:group2             -0.56168    0.35819  -1.568   0.1169    
+# environment3:group2             -0.47042    0.33947  -1.386   0.1658    
+# environment2:group3             -0.23067    0.34547  -0.668   0.5043    
+# environment3:group3             -0.14971    0.32323  -0.463   0.6432    
+# dependency2:environment2:group2  0.43343    0.67312   0.644   0.5196    
+# dependency2:environment3:group2 -0.35325    0.66075  -0.535   0.5929    
+# dependency2:environment2:group3  1.15706    0.64771   1.786   0.0740 .  
+# dependency2:environment3:group3 -0.47433    0.62765  -0.756   0.4498  
+
+anova(model2, model3)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   22 3416.5 3563.1 -1686.2   3372.5                     
+# model3   29 3424.3 3617.6 -1683.2   3366.3 6.1645  7     0.5207
+
+#------------------------------------------------------------------------------#
+# + + model 4 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 + dependency | participant) + 
+                  (1 + dependency | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_suall_acc_md4.rds')
+summary(model4)
+toc()
+beep()
+
+model4 <- read_rds('models/spr_suall_acc_md4.rds')
+
+# 43.81 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                      2.79050    0.13687  20.388  < 2e-16 ***
+# dependency2                      1.06727    0.14980   7.125 1.04e-12 ***
+# environment2                    -0.54150    0.12740  -4.250 2.14e-05 ***
+# environment3                    -0.76640    0.12409  -6.176 6.57e-10 ***
+# group2                          -0.13294    0.22865  -0.581  0.56097    
+# group3                          -0.13217    0.22274  -0.593  0.55292    
+# dependency2:environment2         0.61382    0.25497   2.407  0.01607 *  
+# dependency2:environment3         0.68232    0.24890   2.741  0.00612 ** 
+# dependency2:group2               0.23367    0.26144   0.894  0.37144    
+# dependency2:group3               0.08416    0.25312   0.333  0.73951    
+# environment2:group2             -0.55801    0.31975  -1.745  0.08096 .  
+# environment3:group2             -0.47458    0.31455  -1.509  0.13137    
+# environment2:group3             -0.23018    0.30804  -0.747  0.45492    
+# environment3:group3             -0.16445    0.29915  -0.550  0.58250    
+# dependency2:environment2:group2  0.42819    0.63993   0.669  0.50342    
+# dependency2:environment3:group2 -0.35099    0.63052  -0.557  0.57776    
+# dependency2:environment2:group3  1.12680    0.61487   1.833  0.06686 .  
+# dependency2:environment3:group3 -0.49306    0.59847  -0.824  0.41002  
+
+anova(model4, model2)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model2   22 3416.5 3563.1 -1686.2   3372.5                     
+# model4   24 3420.0 3580.0 -1686.0   3372.0 0.4451  2     0.8005
+
+pairwise <- model4 %>%
+  emmeans(~ dependency * environment * group) %>%
+  contrast('pairwise', simple = 'each', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+# tables ...
+
+summary(model4)$coefficients %>%
+  kbl(digits = c(2, 2, 2, 2, 3)) %>%
+  remove_column(4)
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(7)
+
+# visualize ...
+
+emmip <- emmip(model4, dependency ~ environment | group, CIs = TRUE)
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
+emmip + 
+  geom_hline(yintercept = 0) +
+  theme_classic() +
+  scale_color_manual(values = c('#648fff', '#ffb000')) + 
+  facet_wrap(~group, labeller = as_labeller(groups))
+
+ggsave('plots/src/spr_rrt_region3_emmip.png', width=6.5, height=3, dpi=600)
+
+# interaction plot with significance lines
+
+plot <- plot(emmeans(model4, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 2, alpha = .3, position = position_dodge(width = .1)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = .75, position = position_dodge(width = .1)) +
+  geom_line(lwd = 1, position = position_dodge(width = .1)) +
+  geom_point(size = 2, position = position_dodge(width = .1)) +
+  theme_classic() +
+  scale_y_continuous(name="log odds ratio") +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/src/spr_accuracy_emmeans.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -5181,103 +6426,100 @@ anova(model3, model4)
 # fit model ...
 
 tic()
-model5 <- glmer(accuracy ~ dependency * environment + 
-                   (dependency + environment | participant) + 
-                   (1 | item), 
-                 data = md, family = binomial, 
-                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_acc_md5.rds')
+model5 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 + dependency | participant) + 
+                  (1 + dependency + environment | item), 
+                data = md, family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_suall_acc_md5.rds')
 summary(model5)
 toc()
 beep()
 
-model5 <- read_rds('models/spr_suzh_acc_md5.rds')
-
-# 15.28 sec elapsed
+# 93.15 sec elapsed
 # optimizer (bobyqa) convergence code: 0 (OK)
 # boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.7996     0.1989  14.078  < 2e-16 ***
-# dependency2                0.9387     0.2444   3.842 0.000122 ***
-# environment2              -0.6705     0.3303  -2.030 0.042364 *  
-# environment3              -0.7110     0.3354  -2.120 0.034040 *  
-# dependency2:environment2   0.9930     0.4632   2.144 0.032038 *  
-# dependency2:environment3   0.4440     0.4572   0.971 0.331508
-
-# compare models ...
+# (Intercept)                      2.82363    0.13929  20.272  < 2e-16 ***
+# dependency2                      1.09092    0.15302   7.129 1.01e-12 ***
+# environment2                    -0.57983    0.17473  -3.318 0.000905 ***
+# environment3                    -0.81536    0.14269  -5.714 1.10e-08 ***
+# group2                          -0.13271    0.22968  -0.578 0.563404    
+# group3                          -0.13659    0.22388  -0.610 0.541794    
+# dependency2:environment2         0.57653    0.26053   2.213 0.026904 *  
+# dependency2:environment3         0.64807    0.25076   2.584 0.009755 ** 
+# dependency2:group2               0.23898    0.26163   0.913 0.361013    
+# dependency2:group3               0.08155    0.25350   0.322 0.747690    
+# environment2:group2             -0.55908    0.31922  -1.751 0.079881 .  
+# environment3:group2             -0.47404    0.31359  -1.512 0.130621    
+# environment2:group3             -0.23038    0.30819  -0.748 0.454753    
+# environment3:group3             -0.15856    0.29887  -0.531 0.595741    
+# dependency2:environment2:group2  0.42542    0.63916   0.666 0.505673    
+# dependency2:environment3:group2 -0.35779    0.62857  -0.569 0.569215    
+# dependency2:environment2:group3  1.15629    0.61594   1.877 0.060479 .  
+# dependency2:environment3:group3 -0.45819    0.59725  -0.767 0.442981  
 
 anova(model4, model5)
 
 # npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 1271.2 1367.0 -618.58   1237.2                     
-# model4   28 1282.5 1440.3 -613.26   1226.5 10.635 11     0.4743
+# model4   24 3420.0 3580.0 -1686.0   3372.0                     
+# model5   31 3428.4 3634.9 -1683.2   3366.4 5.6549  7     0.5806
 
 #------------------------------------------------------------------------------#
-# + + model 6 (final) ----
+# + + model 6
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model6 <- glmer(accuracy ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
+model6 <- glmer(accuracy ~ dependency * environment * group + 
+                  (1 + dependency | participant) + 
+                  (1 + dependency + group | item), 
                 data = md, family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_suzh_acc_md6.rds')
+  write_rds('models/spr_suall_acc_md6.rds')
 summary(model6)
 toc()
 beep()
 
-model6 <- read_rds('models/spr_suzh_acc_md6.rds')
-
-# 1.32 sec elapsed
-# no warnings
+# 140.39 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
 # Fixed effects:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                2.7050     0.1816  14.899  < 2e-16 ***
-# dependency2                0.9649     0.1640   5.885 3.99e-09 ***
-# environment2              -0.5033     0.2093  -2.405 0.016181 *  
-# environment3              -0.6909     0.1990  -3.471 0.000518 ***
-# dependency2:environment2   1.2225     0.4172   2.930 0.003390 ** 
-# dependency2:environment3   0.5130     0.3961   1.295 0.195320   
+# (Intercept)                      2.81391    0.13794  20.400  < 2e-16 ***
+# dependency2                      1.07103    0.15289   7.005 2.46e-12 ***
+# environment2                    -0.54542    0.12745  -4.279 1.87e-05 ***
+# environment3                    -0.77123    0.12415  -6.212 5.23e-10 ***
+# group2                          -0.14925    0.24455  -0.610  0.54164    
+# group3                          -0.16529    0.24578  -0.673  0.50126    
+# dependency2:environment2         0.62183    0.25481   2.440  0.01467 *  
+# dependency2:environment3         0.69274    0.24904   2.782  0.00541 ** 
+# dependency2:group2               0.20831    0.26530   0.785  0.43233    
+# dependency2:group3               0.08046    0.25826   0.312  0.75539    
+# environment2:group2             -0.56144    0.31981  -1.756  0.07917 .  
+# environment3:group2             -0.46515    0.31460  -1.479  0.13926    
+# environment2:group3             -0.22658    0.30750  -0.737  0.46122    
+# environment3:group3             -0.14514    0.29882  -0.486  0.62718    
+# dependency2:environment2:group2  0.42287    0.63960   0.661  0.50852    
+# dependency2:environment3:group2 -0.34032    0.63126  -0.539  0.58981    
+# dependency2:environment2:group3  1.11579    0.61399   1.817  0.06918 .  
+# dependency2:environment3:group3 -0.48274    0.59747  -0.808  0.41911 
 
-# compare models ...
-
-anova(model6, model5)
+anova(model4, model6)
 
 # npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1260.2 1305.2 -622.08   1244.2                     
-# model5   17 1271.2 1367.0 -618.58   1237.2 6.9998  9     0.6371
-
-anova(model1, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 1260.2 1305.2 -622.08   1244.2                     
-# model1   48 1311.2 1581.7 -607.60   1215.2 28.945 40     0.9025
-
-# post-hoc tests
-
-pairwise1 <- model6 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise1
-
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short         -0.386 0.307 Inf  -1.257  0.2089
-# gap - pronoun long          -1.609 0.285 Inf  -5.646  <.0001 ***
-# gap - pronoun island        -0.899 0.250 Inf  -3.593  0.0007 ***
-#   Results are given on the log odds ratio (not the response) scale.
-# P value adjustment: holm method for 3 tests
+# model4   24 3420.0 3580.0 -1686.0   3372.0                     
+# model6   31 3429.3 3635.9 -1683.7   3367.3 4.7241  7     0.6936
 
 #------------------------------------------------------------------------------#
 # scatter plot of proficiency effects for accuracy data ----
 #------------------------------------------------------------------------------#
 
 # trim based on accuracy
-trim <- ds %>%
+
+trim <- spr_crit_clean %>%
   group_by(study, group, participant) %>%
   mutate(acc_rate = mean(as.logical(accuracy))) %>%
   ungroup() %>%
@@ -5290,7 +6532,10 @@ plot <- trim %>%
 
 plot <- plot %>%
   left_join(proficiency, by = c('study', 'group', 'participant')) %>%
-  filter(proficiency != 'NA')
+  filter(proficiency != 'NA') %>%
+  group_by(study) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
+  ungroup()
 
 # facet labels
 
@@ -5298,8 +6543,8 @@ groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
 
 # define data for plots
 
-p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency*100, y=acc_rate*100))
-p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency*100, y=acc_rate*100))
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=acc_rate*100))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=acc_rate*100))
 
 # generate plot
 
@@ -5308,7 +6553,7 @@ s <- list(
   geom_point(shape = 1),
   theme_classic(),
   scale_x_continuous(name='proficiency'),
-  scale_y_continuous(name="% accuracy", limits = c(-5, 100)),
+  scale_y_continuous(name="% accuracy", limits = c(0, 100)),
   scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")),
   theme(text = element_text(size = 12),
         plot.title = element_text(size = 12, hjust = .5), 
@@ -5323,6 +6568,9 @@ ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi
 
 p2 + s
 ggsave("plots/src/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
+
+
+
 
 md <- plot %>% 
   filter(study == '210510_do', group == 'mandarin')
@@ -5352,8 +6600,250 @@ summary(model)
 # KLE -> b = 0.55, t = 3.88, p < .001
 # MLE -> b = 0.59, t = 3.40, p = .001
 
+#------------------------------------------------------------------------------#
+# proficiency - accuracy ----
+#------------------------------------------------------------------------------#
+
+# set class of columns ...
+
+md <- spr_crit_clean %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         accuracy = as.logical(accuracy)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check minimum accuracy rate
+
+min(md$acc_rate)
+
+# add mean-centered proficiency scores ...
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = as.numeric(proficiency)) %>%
+  group_by(study) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
+  ungroup()
+
+# filter for analysis ...
+
+md <- md %>%
+  filter(group %in% c('korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group))
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants with no proficiency scores ...
+
+md <- md %>%
+  filter(is.na(proficiency) == FALSE)
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+summary(md)
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+contrasts(md$group)
+
+#------------------------------------------------------------------------------#
+# + plot ----
+#------------------------------------------------------------------------------#
+
+plot <- md %>%
+  group_by(study, group, dependency, environment, participant, proficiency) %>%
+  summarise(accuracy = mean(accuracy)*100) %>%
+  ungroup()
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=accuracy, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=accuracy, group = environment, col = environment, fill = environment, linetype = environment))
+
+# generate plot
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  geom_smooth(method=lm, lwd = 1, alpha = .2), 
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name='accuracy rate'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_grid2(vars(dependency), vars(group), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3.5, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_accuracy_proficiency_effect.png", width=6.5, height=3.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + lmer - accuracy rate ----
+#------------------------------------------------------------------------------#
+
+model1 <- lmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant),
+                data = filter(plot, study == '210510_do')) 
+summary(model1)
+
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)
+# (Intercept)                                  9.122e-01  1.097e-02  1.290e+02  83.183  < 2e-16
+# proficiency                                  6.085e-03  1.188e-03  1.290e+02   5.121 1.08e-06 ***
+# dependency2                                  8.333e-02  1.201e-02  6.450e+02   6.941 9.53e-12 ***
+# environment2                                -6.632e-03  1.470e-02  6.450e+02  -0.451 0.652115
+# environment3                                -2.378e-03  1.470e-02  6.450e+02  -0.162 0.871549
+# group2                                       6.682e-02  2.193e-02  1.290e+02   3.047 0.002806 **
+# proficiency:dependency2                     -4.496e-03  1.301e-03  6.450e+02  -3.456 0.000584 ***
+# proficiency:environment2                     2.114e-03  1.593e-03  6.450e+02   1.327 0.185120
+# proficiency:environment3                     1.069e-03  1.593e-03  6.450e+02   0.671 0.502517
+# dependency2:environment2                     1.580e-02  2.941e-02  6.450e+02   0.537 0.591383
+# dependency2:environment3                     3.628e-03  2.941e-02  6.450e+02   0.123 0.901845
+# proficiency:group2                          -1.816e-03  2.377e-03  1.290e+02  -0.764 0.446301
+# dependency2:group2                          -9.081e-02  2.401e-02  6.450e+02  -3.782 0.000170 ***
+# environment2:group2                         -1.644e-02  2.941e-02  6.450e+02  -0.559 0.576240
+# environment3:group2                         -5.101e-02  2.941e-02  6.450e+02  -1.735 0.083280 .
+# proficiency:dependency2:environment2         1.066e-03  3.187e-03  6.450e+02   0.335 0.737995
+# proficiency:dependency2:environment3        -2.962e-03  3.187e-03  6.450e+02  -0.929 0.353065
+# proficiency:dependency2:group2               1.868e-04  2.602e-03  6.450e+02   0.072 0.942796
+# proficiency:environment2:group2             -6.297e-03  3.187e-03  6.450e+02  -1.976 0.048586 *
+# proficiency:environment3:group2             -8.860e-03  3.187e-03  6.450e+02  -2.780 0.005589 **
+# dependency2:environment2:group2             -5.782e-03  5.882e-02  6.450e+02  -0.098 0.921727
+# dependency2:environment3:group2              3.716e-02  5.882e-02  6.450e+02   0.632 0.527771
+# proficiency:dependency2:environment2:group2  3.028e-03  6.373e-03  6.450e+02   0.475 0.634832
+# proficiency:dependency2:environment3:group2 -1.319e-04  6.373e-03  6.450e+02  -0.021 0.983490
+
+trends <- emtrends(model1, ~ group * environment * dependency, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# group    environment dependency proficiency.trend      SE  df t.ratio p.value
+# korean   short       gap                 0.005144 0.00268 556   1.919  0.4610
+# mandarin short       gap                 0.008770 0.00263 556   3.332  0.0108 *
+# korean   long        gap                 0.010630 0.00268 556   3.966  0.0010 **
+# mandarin long        gap                 0.006445 0.00263 556   2.449  0.1524
+# korean   island      gap                 0.012091 0.00268 556   4.511  0.0001 ***
+# mandarin island      gap                 0.006923 0.00263 556   2.630  0.0952
+# korean   short       pronoun             0.001668 0.00268 556   0.622  0.9998
+# mandarin short       pronoun             0.004516 0.00263 556   1.716  0.6225
+# korean   long        pronoun             0.006707 0.00268 556   2.502  0.1333
+# mandarin long        pronoun             0.004771 0.00263 556   1.813  0.5444
+# korean   island      pronoun             0.005720 0.00268 556   2.134  0.3101
+# mandarin island      pronoun            -0.000359 0.00263 556  -0.136  1.0000
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 12 tests
+
+# plot ...
+
+plot <- emmip(model1, environment ~ proficiency | group ~ dependency, cov.reduce = range, CIs = TRUE, plotit = FALSE) %>%
+  mutate(yvar = yvar *100,
+         LCL = LCL * 100,
+         UCL = UCL * 100)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='accuracy rate') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_grid2(vars(dependency), vars(group), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_accuracy_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + glmer - accuracy ----
+#------------------------------------------------------------------------------#
+
+# fit models ...
+
+tic()
+model1 <- glmer(accuracy ~ proficiency * group + 
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_proficiency_acc_md1.rds')
+summary(model1)
+toc()
+
+# 71.232 sec elapsed
+# Fixed effects:
+#                    Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         3.71321    0.22463  16.530  < 2e-16 ***
+# proficiency         0.11224    0.02216   5.064 4.11e-07 ***
+# group2              1.34763    0.41397   3.255  0.00113 ** 
+# proficiency:group2 -0.01808    0.04412  -0.410  0.68196 
+
+test(emtrends(model1, ~ group, var = 'proficiency', adjust = 'mvt'))
+
+# group    proficiency.trend     SE  df z.ratio p.value
+# korean               0.121 0.0313 Inf   3.869  0.0002 ***
+# mandarin             0.103 0.0312 Inf   3.308  0.0019 **
+
+tic()
+model2 <- glmer(accuracy ~ proficiency * environment * group + 
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md, study == '210510_do', dependency == 'gap'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_proficiency_acc_md2.rds')
+summary(model2)
+toc()
+
+# 461.832 sec elapsed
+# Model failed to converge with max|grad| = 0.00278253 (tol = 0.002, component 1)
+
+tic()
+model3 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_proficiency_acc_md3.rds')
+summary(model3)
+toc()
+
+# 3406.738 sec elapsed (56.78 min)
+# Model failed to converge with max|grad| = 0.00625195 (tol = 0.002, component 1)
+
 #==============================================================================#
-# ::::: acceptability judgment task (ajt) ::::: ----
+# ::::: acceptability judgment task (ajt) ::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # ajt = acceptability judgment task
@@ -5673,58 +7163,44 @@ plot <- crit %>%
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
   filter(dependency != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
-  mutate(panel = factor(panel, levels = c('ENS on English AJT', 
-                                          'KLE on English AJT', 
-                                          'MLE on English AJT', 
-                                          'KLE on Korean AJT', 
-                                          'MLE on Mandarin AJT')))
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'EE',
+                           group == 'korean' & task == 'english_ajt' ~ 'KE',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KK',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'ME',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MM')) %>%
+  mutate(panel = factor(panel, levels = c('EE', 
+                                          'KE', 
+                                          'ME', 
+                                          'KK', 
+                                          'MM')))
 
-# define data
-
-p1 <- ggplot(data=filter(plot, study == '210510_do', group == 'english' & task == 'english_ajt'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p2 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'english_ajt'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p3 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'english_ajt'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p4 <- ggplot(data=filter(plot, study == '210510_do', group == 'korean' & task == 'korean_ajt'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p5 <- ggplot(data=filter(plot, study == '210510_do', group == 'mandarin' & task == 'mandarin_ajt'), 
+p1 <- ggplot(data=filter(plot, study == '210510_do'), 
              aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
 
-p6 <- ggplot(data=filter(plot, study == '210510_su', group == 'english' & task == 'english_ajt'), 
+p2 <- ggplot(data=filter(plot, study == '210510_su'), 
              aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p7 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'english_ajt'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p8 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'english_ajt'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p9 <- ggplot(data=filter(plot, study == '210510_su', group == 'korean' & task == 'korean_ajt'), 
-             aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
-p10 <- ggplot(data=filter(plot, study == '210510_su', group == 'mandarin' & task == 'mandarin_ajt'), 
-              aes(x=environment, y=mean, group=dependency, col=dependency, shape=dependency))
 
-# add styling
+design <- "
+ ABC
+ #DE
+"
 
 s <- list(
   annotate("rect", 
            xmin = 0, xmax = 4, 
            ymin = 1+(5/3), 
            ymax = 1+(5/3)+(5/3), 
-           alpha = .15),
+           alpha = .1),
   geom_hline(yintercept = 3.5),
-  geom_line(lwd = 1),
-  geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), 
-                width=.2, lwd=1, linetype=1),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
   theme_classic(),
   scale_x_discrete(name='environment', 
                    limits = c('short', 'long', 'island'), 
-                   labels = c('short', 'long', 'island')),
+                   expand = c(0, 0)),
   scale_y_continuous(name='rating', 
                      limits=c(1, 6), breaks = c(1, 2, 3, 4, 5, 6)),
   scale_colour_manual(name='dependency', 
@@ -5734,50 +7210,22 @@ s <- list(
                      values=c(16, 15), 
                      labels=c('gap', 'resumption')),
   theme(text = element_text(size = 12),
+        legend.position = c(.15, .22),
+        legend.margin = margin(-10, 0, 0, 0),
+        axis.title.y = element_text(hjust = .88),
         plot.title = element_text(size = 12, hjust = .5)),
-  facet_wrap(~panel)
+  facet_manual(~panel, design = design, axes = 'all', remove_labels = FALSE,
+               labeller = as_labeller(c(`EE` = 'ENS in English', 
+                                        `KE` = 'KLE in English', 
+                                        `ME` = 'MLE in English', 
+                                        `KK` = 'KLE in Korean', 
+                                        `MM` = 'MLE in Mandarin')))
 )
 
-# print and save
+p1 + s
+ggsave("plots/orc/ajt_crit_rating.png", width=6.5, height=3.5, dpi=600)
 
-p1 + s + theme(legend.position = "none",
-               axis.title.x = element_blank(), 
-               plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", 
-                 axis.title.x = element_blank(), 
-                 axis.title.y = element_blank(), 
-                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position = "none", 
-                 axis.title.x = element_blank(), 
-                 axis.title.y = element_blank(), 
-                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.7, .65), 
-                 axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position = "none", 
-                 axis.title.x = element_blank(), 
-                 axis.title.y = element_blank())
-
-ggsave("plots/orc/ajt_crit_rating.png", width=6.5, height=3, dpi=600)
-
-p6 + s + theme(legend.position = "none", 
-               axis.title.x = element_blank(), 
-               plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p7 + s + theme(legend.position = "none", 
-                 axis.title.x = element_blank(), 
-                 axis.title.y = element_blank(), 
-                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p8 + s + theme(legend.position = "none", 
-                 axis.title.x = element_blank(), 
-                 axis.title.y = element_blank(), 
-                 plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  patchwork::plot_spacer() + 
-  p9 + s + theme(legend.position = c(-.7, .65), 
-                 axis.title.y = element_blank()) + 
-  p10 + s + theme(legend.position = "none", 
-                  axis.title.x = element_blank(), 
-                  axis.title.y = element_blank())
-
+p2 + s
 ggsave("plots/src/ajt_crit_rating.png", width=6.5, height=3.5, dpi=600)
 
 #------------------------------------------------------------------------------#
@@ -6015,28 +7463,43 @@ ggsave("plots/ajt_scatter_acceptance_ppt.png", width=8, height=8, dpi=600)
 
 # prep data
 
-temp <- ajt %>%
-  filter(!condition %in% c('grammatical', 'ungrammatical')) %>%
+ajt_crit <- ajt %>%
+  filter(!condition %in% c('grammatical', 'ungrammatical'))
+
+# write to csv
+
+write_csv(ajt_crit, 'data/ajt_crit.csv')
+
+# read in data ...
+
+ajt_crit <- read_csv('data/ajt_crit.csv')
+
+# create panel factor ...
+
+temp <- ajt_crit %>% 
+  mutate(panel = case_when(task == 'english_ajt' & group == 'english' ~ 'EE',
+                           task == 'english_ajt' & group == 'korean' ~ 'KE',
+                           task == 'english_ajt' & group == 'mandarin' ~ 'ME',
+                           task == 'korean_ajt' & group == 'korean' ~ 'KK',
+                           task == 'mandarin_ajt' & group == 'mandarin' ~ 'MM')) %>%
+  mutate(panel = fct_relevel(panel, 'EE', 'KE', 'ME', 'KK', 'MM'))
+
+# adjust column classes ...
+
+temp <- temp %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'),
-         dependency = as.factor(dependency))
-
-#------------------------------------------------------------------------------#
-# + all ----
-#------------------------------------------------------------------------------#
-
-md <- temp %>% 
-  mutate(panel = case_when(task == 'english_ajt' & group == 'english' ~ 'enen',
-                           task == 'english_ajt' & group == 'korean' ~ 'enko',
-                           task == 'english_ajt' & group == 'mandarin' ~ 'enzh',
-                           task == 'korean_ajt' & group == 'korean' ~ 'koko',
-                           task == 'mandarin_ajt' & group == 'mandarin' ~ 'zhzh')) %>%
-  filter(study == '210510_do')
-
-# convert response and panel to factors
-
-md <- md %>%
+         dependency = factor(dependency)) %>%
   mutate(response = ordered(response)) %>%
   mutate(panel = factor(panel))
+
+#------------------------------------------------------------------------------#
+# + orc ----
+#------------------------------------------------------------------------------#
+
+# filter for analysis ...
+
+md <- temp %>%
+  filter(study == '210510_do')
 
 # apply deviation coding ...
 
@@ -6066,7 +7529,7 @@ summary(model1)
 toc()
 beep()
 
-# 274.33 sec elapsed
+# 274.33 sec elapsed or 5 min (vs. 433.928 or 7 min on AWS)
 # no warnings
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -6105,8 +7568,31 @@ beep()
 pairwise <- model1 %>%
   emmeans(~ dependency * environment * panel) %>%
   contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
+  summary(by = NULL, adjust = 'mvt')
 pairwise
+
+# plot ...
+
+plot <- plot(emmeans(model1, ~ dependency * environment * panel), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log odds ratio") +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.position = c(.15, .22),
+        legend.margin = margin(-10, 0, 0, 0),
+        axis.title.y = element_text(hjust = .99)) +
+  facet_manual(~panel, design = design, axes = 'all', remove_labels = FALSE,
+               labeller = as_labeller(c(`enen` = 'ENS on English AJT', `enko` = 'KLE on English AJT', `enzh` = 'MLE on English AJT', `koko` = 'KLE on Korean AJT', `zhzh` = 'MLE on Mandarin AJT')))
+
+ggsave("plots/orc/ajt_clmm_emmeans_md1.png", width=6.5, height=3.5, dpi=600)
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -6196,7 +7682,7 @@ summary(model4)
 toc()
 beep()
 
-# 1454.01 sec elapsed
+# 1454.01 sec elapsed (24 min)
 # no warnings
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
@@ -6252,31 +7738,186 @@ summary(model5)
 toc()
 beep()
 
+# 28112.36 sec elapsed (7.8 hours)
+# Warning message:
+#   In summary.clmm(model5) :
+#   Variance-covariance matrix of the parameters is not defined
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)
+# dependency2                      -2.4046        NaN     NaN      NaN
+# environment2                     -0.3681        NaN     NaN      NaN
+# environment3                     -0.6062        NaN     NaN      NaN
+# panel2                            0.2915        NaN     NaN      NaN
+# panel3                            0.6861        NaN     NaN      NaN
+# panel4                            0.2288        NaN     NaN      NaN
+# panel5                           -0.4738        NaN     NaN      NaN
+# dependency2:environment2          1.6645        NaN     NaN      NaN
+# dependency2:environment3          3.1379        NaN     NaN      NaN
+# dependency2:panel2                1.7121        NaN     NaN      NaN
+# dependency2:panel3                2.3946        NaN     NaN      NaN
+# dependency2:panel4                1.7669        NaN     NaN      NaN
+# dependency2:panel5                3.2831        NaN     NaN      NaN
+# environment2:panel2               0.5630        NaN     NaN      NaN
+# environment3:panel2               1.9527        NaN     NaN      NaN
+# environment2:panel3               0.3020        NaN     NaN      NaN
+# environment3:panel3               1.1691        NaN     NaN      NaN
+# environment2:panel4              -0.2482        NaN     NaN      NaN
+# environment3:panel4               1.0691        NaN     NaN      NaN
+# environment2:panel5               0.8917        NaN     NaN      NaN
+# environment3:panel5               1.1052        NaN     NaN      NaN
+# dependency2:environment2:panel2  -0.7221        NaN     NaN      NaN
+# dependency2:environment3:panel2  -2.7847        NaN     NaN      NaN
+# dependency2:environment2:panel3  -1.0849        NaN     NaN      NaN
+# dependency2:environment3:panel3  -4.0947        NaN     NaN      NaN
+# dependency2:environment2:panel4   2.2912        NaN     NaN      NaN
+# dependency2:environment3:panel4  -0.2114        NaN     NaN      NaN
+# dependency2:environment2:panel5  -0.8185        NaN     NaN      NaN
+# dependency2:environment3:panel5  -3.6346        NaN     NaN      NaN
+
+anova(model4, model5)
+
+#        no.par   AIC logLik LR.stat df Pr(>Chisq)    
+# model4     40 29972 -14946                          
+# model5     76 29683 -14765  361.71 36  < 2.2e-16 ***
+
 #------------------------------------------------------------------------------#
-# + allen ----
+# + + model 6 (final?) ----
 #------------------------------------------------------------------------------#
 
-md <- temp %>% 
-  filter(study == '210510_do',
-         task == 'english_ajt')
+# fit model ...
 
-# convert response to factor
+tic()
+model6 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment + panel | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_all_clmm_md6.rds')
+summary(model6)
+toc()
+beep()
 
-md <- md %>%
-  mutate(response = ordered(response)) %>%
-  mutate(group = factor(group))
+model6 <- read_rds('models/ajt_all_clmm_md6.rds')
+
+# 10731.28 sec elapsed (3 hrs)
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# dependency2                     -2.28126    0.15198 -15.011  < 2e-16 ***
+# environment2                    -0.34102    0.07187  -4.745 2.08e-06 ***
+# environment3                    -0.55578    0.10166  -5.467 4.57e-08 ***
+# panel2                           0.34309    0.20636   1.663 0.096400 .  
+# panel3                           0.72471    0.20152   3.596 0.000323 ***
+# panel4                           0.26209    0.20628   1.271 0.203887    
+# panel5                          -0.40738    0.20066  -2.030 0.042341 *  
+# dependency2:environment2         1.41178    0.10141  13.922  < 2e-16 ***
+# dependency2:environment3         2.68990    0.10290  26.142  < 2e-16 ***
+# dependency2:panel2               1.58180    0.35465   4.460 8.19e-06 ***
+# dependency2:panel3               2.25319    0.34535   6.524 6.83e-11 ***
+# dependency2:panel4               1.72373    0.35465   4.860 1.17e-06 ***
+# dependency2:panel5               3.08311    0.34400   8.963  < 2e-16 ***
+# environment2:panel2              0.55655    0.18675   2.980 0.002880 ** 
+# environment3:panel2              1.95069    0.25006   7.801 6.14e-15 ***
+# environment2:panel3              0.30553    0.18303   1.669 0.095051 .  
+# environment3:panel3              1.12355    0.24323   4.619 3.85e-06 ***
+# environment2:panel4             -0.19053    0.18980  -1.004 0.315453    
+# environment3:panel4              1.10825    0.25166   4.404 1.06e-05 ***
+# environment2:panel5              0.83265    0.17877   4.658 3.20e-06 ***
+# environment3:panel5              1.03602    0.23991   4.318 1.57e-05 ***
+# dependency2:environment2:panel2 -0.51623    0.32355  -1.596 0.110598    
+# dependency2:environment3:panel2 -2.58791    0.32335  -8.003 1.21e-15 ***
+# dependency2:environment2:panel3 -0.78281    0.31547  -2.481 0.013087 *  
+# dependency2:environment3:panel3 -3.54231    0.31494 -11.248  < 2e-16 ***
+# dependency2:environment2:panel4  2.29248    0.33013   6.944 3.81e-12 ***
+# dependency2:environment3:panel4 -0.05329    0.33049  -0.161 0.871900    
+# dependency2:environment2:panel5 -0.52933    0.30639  -1.728 0.084058 .  
+# dependency2:environment3:panel5 -3.18627    0.30599 -10.413  < 2e-16 ***
+
+anova(model4, model6)
+
+# no.par   AIC logLik LR.stat df Pr(>Chisq)    
+# model4     40 29972 -14946                          
+# model6     65 29810 -14840  212.54 25  < 2.2e-16 ***
+
+# tables ...
+
+summary(model6)$coefficients %>%
+  kbl(digits = c(2, 2, 2, 3))
+
+pairwise %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(7)
+
+# plot ...
+
+plot <- plot(emmeans(model6, ~ dependency * environment * panel), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log odds ratio") +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.position = c(.15, .22),
+        legend.margin = margin(-10, 0, 0, 0),
+        axis.title.y = element_text(hjust = .99)) +
+  facet_manual(~panel, design = design, axes = 'all', remove_labels = FALSE,
+               labeller = as_labeller(c(`enen` = 'ENS in English', `enko` = 'KLE in English', `enzh` = 'MLE in English', `koko` = 'KLE in Korean', `zhzh` = 'MLE in Mandarin')))
+
+ggsave("plots/orc/ajt_clmm_emmeans_md6.png", width=6.5, height=3.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + model 7
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model7 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment * panel | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_all_clmm_md7.rds')
+summary(model7)
+toc()
+beep()
+
+# 33003.27 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)   
+# (Intercept)               -35.334     11.693   62.829  -3.022  0.00363 **
+# dependency2               -20.115     12.008   63.928  -1.675  0.09880 . 
+# environment2                5.977     12.456 1762.890   0.480  0.63139   
+# environment3               11.585     12.416 1762.828   0.933  0.35092   
+# dependency2:environment2   12.150     24.965 1768.577   0.487  0.62654   
+# dependency2:environment3   29.717     24.827 1751.635   1.197  0.23150 
+# (stopped it part-way through because it was taking too long)
+
+#------------------------------------------------------------------------------#
+# + src ----
+#------------------------------------------------------------------------------#
+
+# filter for analysis ...
+
+md <- temp %>%
+  filter(study == '210510_su')
 
 # apply deviation coding ...
 
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol = 1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol = 2)
+contrasts(md$panel) <- contr.treatment(5) - matrix(rep(1/5, 20), ncol = 4)
 
 # view contrasts ...
 
 contrasts(md$dependency)
 contrasts(md$environment)
-contrasts(md$group)
+contrasts(md$panel)
 
 #------------------------------------------------------------------------------#
 # + + model 1 
@@ -6285,36 +7926,48 @@ contrasts(md$group)
 # fit model ...
 
 tic()
-model1 <- clmm(response ~ dependency * environment * group + 
+model1 <- clmm(response ~ dependency * environment * panel + 
                  (1 | participant) + 
                  (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_allen_clmm_md1.rds')
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_suall_clmm_md1.rds')
 summary(model1)
 toc()
 beep()
 
-# 79.03 sec elapsed
+# 309.92 sec elapsed (5.17 min)
 # no warnings
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# dependency2                     -2.13847    0.05363 -39.874  < 2e-16 ***
-# environment2                    -0.33928    0.06154  -5.514 3.52e-08 ***
-# environment3                    -0.51053    0.06086  -8.388  < 2e-16 ***
-# group2                           0.20765    0.17816   1.166 0.243805    
-# group3                           0.59244    0.17388   3.407 0.000656 ***
-# dependency2:environment2         0.87851    0.12314   7.134 9.73e-13 ***
-# dependency2:environment3         2.31111    0.12332  18.741  < 2e-16 ***
-# dependency2:group2               1.31272    0.12393  10.593  < 2e-16 ***
-# dependency2:group3               1.79179    0.12050  14.870  < 2e-16 ***
-# environment2:group2              0.47927    0.15326   3.127 0.001766 ** 
-# environment3:group2              1.61083    0.15102  10.666  < 2e-16 ***
-# environment2:group3              0.29365    0.14835   1.980 0.047759 *  
-# environment3:group3              1.02722    0.14578   7.046 1.84e-12 ***
-# dependency2:environment2:group2 -0.52010    0.30647  -1.697 0.089685 .  
-# dependency2:environment3:group2 -2.24969    0.30220  -7.444 9.74e-14 ***
-# dependency2:environment2:group3 -0.75177    0.29667  -2.534 0.011277 *  
-# dependency2:environment3:group3 -3.13786    0.29317 -10.703  < 2e-16 ***
+# dependency2                     -1.42085    0.04374 -32.483  < 2e-16 ***
+# environment2                    -0.63089    0.05367 -11.754  < 2e-16 ***
+# environment3                    -1.35344    0.05474 -24.726  < 2e-16 ***
+# panel2                           0.47379    0.20433   2.319  0.02041 *  
+# panel3                           1.06206    0.20069   5.292 1.21e-07 ***
+# panel4                           0.93949    0.20470   4.590 4.44e-06 ***
+# panel5                           1.18149    0.20019   5.902 3.59e-09 ***
+# dependency2:environment2         3.11433    0.10927  28.502  < 2e-16 ***
+# dependency2:environment3         5.05002    0.11454  44.088  < 2e-16 ***
+# dependency2:panel2               2.01759    0.15019  13.434  < 2e-16 ***
+# dependency2:panel3               3.71111    0.15017  24.712  < 2e-16 ***
+# dependency2:panel4               1.07206    0.15127   7.087 1.37e-12 ***
+# dependency2:panel5               2.40435    0.14602  16.466  < 2e-16 ***
+# environment2:panel2              0.28609    0.18756   1.525  0.12718    
+# environment3:panel2              1.84679    0.19050   9.695  < 2e-16 ***
+# environment2:panel3              0.02192    0.18393   0.119  0.90511    
+# environment3:panel3              1.24511    0.18739   6.645 3.04e-11 ***
+# environment2:panel4              0.59403    0.19211   3.092  0.00199 ** 
+# environment3:panel4              2.43975    0.19530  12.493  < 2e-16 ***
+# environment2:panel5              0.42504    0.18172   2.339  0.01933 *  
+# environment3:panel5              1.86025    0.18472  10.071  < 2e-16 ***
+# dependency2:environment2:panel2  0.34970    0.37570   0.931  0.35196    
+# dependency2:environment3:panel2 -2.63469    0.38475  -6.848 7.50e-12 ***
+# dependency2:environment2:panel3  0.49224    0.36844   1.336  0.18154    
+# dependency2:environment3:panel3 -3.93647    0.37914 -10.383  < 2e-16 ***
+# dependency2:environment2:panel4  1.86856    0.38554   4.847 1.26e-06 ***
+# dependency2:environment3:panel4 -3.45240    0.39366  -8.770  < 2e-16 ***
+# dependency2:environment2:panel5 -0.24296    0.36389  -0.668  0.50434    
+# dependency2:environment3:panel5 -4.74176    0.37385 -12.684  < 2e-16 ***
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -6323,153 +7976,53 @@ beep()
 # fit model ...
 
 tic()
-model2 <- clmm(response ~ dependency * environment * group + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_allen_clmm_md2.rds')
+model2 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency | participant) + 
+                 (1 | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_suall_clmm_md2.rds')
 summary(model2)
 toc()
 beep()
 
-# Error: optimizer nlminb failed to converge
-
-#------------------------------------------------------------------------------#
-# + doenen ----
-#------------------------------------------------------------------------------#
-
-# doenen = ORC study (do) + ENS group (en) + English AJT (en)
-
-# load package ...
-
-library(ordinal)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'english',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = as.factor(response, ordered = TRUE))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_doenen_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_doenen_clmm_md1.rds')
-
-# 7096.41 sec elapsed
-# no warnings?
+# 833.28 sec elapsed (13.89 min)
+# no warnings
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -5.8542     0.3791 -15.443  < 2e-16 ***
-# environment2              -0.5718     0.2566  -2.229 0.025834 *  
-# environment3              -2.1130     0.3543  -5.963 2.47e-09 ***
-# dependency2:environment2   1.6434     0.4507   3.646 0.000266 ***
-# dependency2:environment3   6.7497     0.5432  12.425  < 2e-16 ***
-
-# post-hoc tests ...
-
-pairwise <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun      8.65 0.548 Inf  15.786  <.0001
-# long        .          gap - pronoun      7.01 0.483 Inf  14.508  <.0001
-# island      .          gap - pronoun      1.90 0.375 Inf   5.077  <.0001
-# .           gap        short - long       1.39 0.424 Inf   3.283  0.0041
-# .           gap        short - island     5.49 0.500 Inf  10.971  <.0001
-# .           gap        long - island      4.09 0.414 Inf   9.884  <.0001
-# .           pronoun    short - long      -0.25 0.230 Inf  -1.085  0.2779
-# .           pronoun    short - island    -1.26 0.385 Inf  -3.276  0.0041
-# .           pronoun    long - island     -1.01 0.374 Inf  -2.707  0.0136
-# P value adjustment: holm method for 9 tests
-
-# tables ...
-
-model1 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_doenen_clmm_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# 3963.31 sec elapsed
-# no warnings?
-#   Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -5.8438     0.3796 -15.393  < 2e-16 ***
-# environment2              -0.5614     0.2533  -2.217 0.026648 *  
-# environment3              -2.0912     0.3523  -5.936 2.92e-09 ***
-# dependency2:environment2   1.6465     0.4475   3.680 0.000234 ***
-# dependency2:environment3   6.7519     0.5331  12.666  < 2e-16 ***
-  
-# compare models ...
+# dependency2                     -1.53351    0.09556 -16.048  < 2e-16 ***
+# environment2                    -0.63585    0.05444 -11.679  < 2e-16 ***
+# environment3                    -1.37708    0.05643 -24.405  < 2e-16 ***
+# panel2                           0.56680    0.21442   2.643  0.00821 ** 
+# panel3                           1.17387    0.21068   5.572 2.52e-08 ***
+# panel4                           1.06030    0.21497   4.932 8.13e-07 ***
+# panel5                           1.30106    0.21024   6.189 6.07e-10 ***
+# dependency2:environment2         3.23537    0.11077  29.207  < 2e-16 ***
+# dependency2:environment3         5.27068    0.11778  44.752  < 2e-16 ***
+# dependency2:panel2               2.16471    0.25742   8.409  < 2e-16 ***
+# dependency2:panel3               3.98515    0.25497  15.630  < 2e-16 ***
+# dependency2:panel4               1.18050    0.25851   4.567 4.96e-06 ***
+# dependency2:panel5               2.61264    0.25216  10.361  < 2e-16 ***
+# environment2:panel2              0.24935    0.18910   1.319  0.18731    
+# environment3:panel2              1.83066    0.19543   9.367  < 2e-16 ***
+# environment2:panel3             -0.01697    0.18563  -0.091  0.92715    
+# environment3:panel3              1.19832    0.19233   6.231 4.65e-10 ***
+# environment2:panel4              0.58691    0.19449   3.018  0.00255 ** 
+# environment3:panel4              2.44910    0.20076  12.199  < 2e-16 ***
+# environment2:panel5              0.39933    0.18362   2.175  0.02965 *  
+# environment3:panel5              1.84517    0.18986   9.719  < 2e-16 ***
+# dependency2:environment2:panel2  0.51794    0.37853   1.368  0.17122    
+# dependency2:environment3:panel2 -2.51225    0.39129  -6.420 1.36e-10 ***
+# dependency2:environment2:panel3  0.57068    0.37150   1.536  0.12451    
+# dependency2:environment3:panel3 -4.00218    0.38560 -10.379  < 2e-16 ***
+# dependency2:environment2:panel4  2.03307    0.38978   5.216 1.83e-07 ***
+# dependency2:environment3:panel4 -3.42534    0.40119  -8.538  < 2e-16 ***
+# dependency2:environment2:panel5 -0.20752    0.36744  -0.565  0.57222    
+# dependency2:environment3:panel5 -4.80077    0.38075 -12.609  < 2e-16 ***
 
 anova(model1, model2)
 
-# no.par    AIC  logLik LR.stat df Pr(>Chisq)
-# model2     41 5533.3 -2725.7                      
-# model1     52 5553.3 -2724.7  2.0167 11     0.9984
-
-install.packages("RVAideMemoire") 
-library(RVAideMemoire) 
-install.packages("car") 
-library(car)
-
-Anova(model1, type="II")
+# model1     36 26983 -13455                          
+# model2     38 26585 -13254  402.28  2  < 2.2e-16 ***
 
 #------------------------------------------------------------------------------#
 # + + model 3
@@ -6478,2540 +8031,53 @@ Anova(model1, type="II")
 # fit model ...
 
 tic()
-model3 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
+model3 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + environment | participant) + 
                  (1 | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_doenen_clmm_md3.rds')
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_suall_clmm_md3.rds')
 summary(model3)
 toc()
 beep()
 
-class(model3)
-
-# 807.76 sec elapsed (13 min)
-# no warnings?
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -5.7936     0.3702 -15.650  < 2e-16 ***
-# environment2              -0.5868     0.2478  -2.369 0.017860 *  
-# environment3              -2.0901     0.3503  -5.966 2.43e-09 ***
-# dependency2:environment2   1.6515     0.4448   3.713 0.000205 ***
-# dependency2:environment3   6.7123     0.5298  12.669  < 2e-16 ***
-
-# compare models ...
-
-anova(model3, model6)
-
-# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
-# model6     12 6232.5 -3104.3                          
-# model3     32 5520.2 -2728.1   752.3 20  < 2.2e-16 ***
-
-anova(model2, model3)
-
-# no.par    AIC  logLik LR.stat df Pr(>Chisq)
-# model3     32 5520.2 -2728.1                      
-# model2     41 5533.3 -2725.7  4.8992  9      0.843
-
-# post-hoc tests ...
-
-model3 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun     8.582 0.542 Inf  15.845  <.0001
-# long        .          gap - pronoun     6.930 0.473 Inf  14.644  <.0001
-# island      .          gap - pronoun     1.869 0.356 Inf   5.252  <.0001
-# .           gap        short - long      1.413 0.414 Inf   3.415  0.0026
-# .           gap        short - island    5.446 0.493 Inf  11.049  <.0001
-# .           gap        long - island     4.034 0.407 Inf   9.909  <.0001
-# .           pronoun    short - long     -0.239 0.225 Inf  -1.063  0.2879
-# .           pronoun    short - island   -1.266 0.378 Inf  -3.350  0.0026
-# .           pronoun    long - island    -1.027 0.360 Inf  -2.851  0.0087
-# P value adjustment: holm method for 9 tests 
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_doenen_clmm_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 952.84 sec elapsed
-# no warnings?
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -5.4166     0.3405 -15.907  < 2e-16 ***
-# environment2              -0.6767     0.1758  -3.849 0.000119 ***
-# environment3              -2.0481     0.3306  -6.195 5.81e-10 ***
-# dependency2:environment2   1.5568     0.2719   5.725 1.03e-08 ***
-# dependency2:environment3   5.6509     0.2888  19.568  < 2e-16 ***
-
-anova(model3, model4)
-
-# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
-# model4     30 5608.2 -2774.1                          
-# model3     32 5520.2 -2728.1   91.91  2  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_doenen_clmm_md5.rds')
-summary(model5)
-toc()
-beep()
-
-tic()
-model5 <- clmm(response ~ dependency * environment +
-                 (1 + dependency + environment | participant) +
-                 (1 | item),
-               data = md)
-toc()
-beep()
-
-# does not converge
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- clmm(response ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-               data = md, Hess = TRUE) %>%
-  write_rds('models/ajt_doenen_clmm_md6.rds')
-summary(model6)
-toc()
-beep()
-
-model6 <- read_rds('models/ajt_doenen_clmm_md6.rds')
-
-# 19.08 sec elapsed
+# 1680.64 sec elapsed (28.01 min)
 # no warnings
 # Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -3.8823     0.1114 -34.848  < 2e-16 ***
-# environment2              -0.6673     0.1109  -6.017 1.78e-09 ***
-# environment3              -1.6386     0.1102 -14.871  < 2e-16 ***
-# dependency2:environment2   1.4595     0.2222   6.570 5.04e-11 ***
-# dependency2:environment3   4.9034     0.2297  21.349  < 2e-16 ***
-
-# compare models ...
-
-anova(model5, model6)
-
-# pairwise comparisons ...
-
-model6 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun    6.0033 0.202 Inf  29.756  <.0001
-# long        .          gap - pronoun    4.5437 0.166 Inf  27.433  <.0001
-# island      .          gap - pronoun    1.0999 0.129 Inf   8.529  <.0001
-# .           gap        short - long     1.3971 0.178 Inf   7.867  <.0001
-# .           gap        short - island   4.0903 0.182 Inf  22.498  <.0001
-# .           gap        long - island    2.6932 0.148 Inf  18.224  <.0001
-# .           pronoun    short - long    -0.0625 0.133 Inf  -0.469  0.6391
-# .           pronoun    short - island  -0.8131 0.133 Inf  -6.128  <.0001
-# .           pronoun    long - island   -0.7506 0.131 Inf  -5.738  <.0001
-# P value adjustment: holm method for 9 tests 
-
-# visualize ...
-
-emmip(model6, dependency ~ environment)
-
-#------------------------------------------------------------------------------#
-# + dokoen ----
-#------------------------------------------------------------------------------#
-
-# doenen = ORC study (do) + KLE group (ko) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'korean',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, task, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dokoen_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# Error: optimizer nlminb failed to converge
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -5.8542     0.3791 -15.443  < 2e-16 ***
-# environment2              -0.5718     0.2566  -2.229 0.025834 *  
-# environment3              -2.1130     0.3543  -5.963 2.47e-09 ***
-# dependency2:environment2   1.6434     0.4507   3.646 0.000266 ***
-# dependency2:environment3   6.7497     0.5432  12.425  < 2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dokoen_clmm_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# 263.66 sec elapsed
-# Error: optimizer nlminb failed to converge
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dokoen_clmm_md3.rds')
-summary(model3)
-toc()
-beep()
-
-# 91.1 sec elapsed
-# Error: optimizer nlminb failed to converge
-
-#------------------------------------------------------------------------------#
-# + + model 4 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dokoen_clmm_md4.rds')
-summary(model4)
-toc()
-beep()
-
-model4 <- read_rds('models/ajt_dokoen_clmm_md4.rds')
-
-# 422.53 sec elapsed
-# no warnings?
-# Coefficients:
-# Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -3.1573     0.6242  -5.058 4.23e-07 ***
-# environment2              -0.2709     0.1937  -1.399    0.162    
-# environment3               0.1804     0.2380   0.758    0.448    
-# dependency2:environment2   1.0374     0.2507   4.138 3.50e-05 ***
-# dependency2:environment3   2.4998     0.2597   9.625  < 2e-16 ***
-
-# post-hoc tests ...
-
-pairwise <- model4 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun     4.336 0.647 Inf   6.702  <.0001
-# long        .          gap - pronoun     3.299 0.639 Inf   5.163  <.0001
-# island      .          gap - pronoun     1.837 0.637 Inf   2.885  0.0117
-# .           gap        short - long      0.790 0.239 Inf   3.307  0.0038
-# .           gap        short - island    1.069 0.278 Inf   3.852  0.0006
-# .           gap        long - island     0.280 0.239 Inf   1.172  0.4826
-# .           pronoun    short - long     -0.248 0.222 Inf  -1.114  0.4826
-# .           pronoun    short - island   -1.430 0.264 Inf  -5.408  <.0001
-# .           pronoun    long - island    -1.183 0.236 Inf  -5.013  <.0001
-
-# tables ...
-
-model4 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dokoen_clmm_md5.rds')
-summary(model5)
-toc()
-beep()
-
-# 256.72 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -3.1415     0.6184  -5.080 3.78e-07 ***
-# environment2              -0.2640     0.1872  -1.411    0.158    
-# environment3               0.1792     0.2351   0.762    0.446    
-# dependency2:environment2   1.0262     0.2489   4.123 3.73e-05 ***
-# dependency2:environment3   2.4868     0.2578   9.647  < 2e-16 ***
-
-# compare models ...
-
-anova(model4, model5)
-
-# model5     21 4750.9 -2354.4                      
-# model4     30 4767.3 -2353.7  1.5345  9     0.9969
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- clmm(response ~ dependency * environment + 
-                 (1 | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dokoen_clmm_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 21.58 sec elapsed
-# no warnings?
-#   Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2              -1.61107    0.09002 -17.897  < 2e-16 ***
-# environment2             -0.10419    0.10652  -0.978  0.32797    
-# environment3              0.18816    0.10602   1.775  0.07593 .  
-# dependency2:environment2  0.68207    0.21317   3.200  0.00138 ** 
-# dependency2:environment3  1.61348    0.21335   7.563 3.95e-14 *** 
-
-# compare models ...
-
-anova(model5, model6)
-
-# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
-# model6     12 5744.0 -2860.0                          
-# model5     21 4750.9 -2354.4  1011.2  9  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + dozhen ----
-#------------------------------------------------------------------------------#
-
-# doenen = ORC study (do) + MLE group (zh) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'mandarin',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dozhen_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_dozhen_clmm_md1.rds')
-
-# 3857.24 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -2.2364     0.4093  -5.464 4.66e-08 ***
-# environment2              -0.4381     0.2507  -1.747 0.080600 .  
-# environment3              -0.5533     0.2351  -2.354 0.018593 *  
-# dependency2:environment2   0.7095     0.3366   2.108 0.035060 *  
-# dependency2:environment3   1.4366     0.3980   3.610 0.000306 ***
-
-# post-hoc tests ...
-
-pairwise <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun    2.9517 0.506 Inf   5.837  <.0001
-# long        .          gap - pronoun    2.2423 0.437 Inf   5.135  <.0001
-# island      .          gap - pronoun    1.5151 0.426 Inf   3.556  0.0023
-# .           gap        short - long     0.7928 0.339 Inf   2.340  0.0965
-# .           gap        short - island   1.2716 0.346 Inf   3.670  0.0017
-# .           gap        long - island    0.4787 0.297 Inf   1.612  0.4283
-# .           pronoun    short - long     0.0834 0.260 Inf   0.321  1.0000
-# .           pronoun    short - island  -0.1651 0.264 Inf  -0.625  1.0000
-# .           pronoun    long - island   -0.2484 0.207 Inf  -1.199  0.6912
-# P value adjustment: holm method for 9 tests
-
-# tables ...
-
-model1 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# + dokoko ----
-#------------------------------------------------------------------------------#
-
-# doenen = ORC study (do) + KLE group (ko) + Korean AJT (ko)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'korean',
-         task == 'korean_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dokoko_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_dokoko_clmm_md1.rds')
-
-class(model1)
-
-# 5593.59 sec elapsed (93 min)
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -3.4746     0.3705  -9.377  < 2e-16 ***
-# environment2              -0.8452     0.2924  -2.890  0.00385 ** 
-# environment3              -0.3697     0.3025  -1.222  0.22172    
-# dependency2:environment2   5.5128     0.5947   9.270  < 2e-16 ***
-# dependency2:environment3   6.9773     0.6469  10.785  < 2e-16 ***
-
-# post-hoc tests ...
-
-pairwise <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun     7.638 0.683 Inf  11.187  <.0001
-# long        .          gap - pronoun     2.125 0.363 Inf   5.850  <.0001
-# island      .          gap - pronoun     0.661 0.322 Inf   2.049  0.0809
-# .           gap        short - long      3.602 0.460 Inf   7.831  <.0001
-# .           gap        short - island    3.858 0.476 Inf   8.108  <.0001
-# .           gap        long - island     0.257 0.249 Inf   1.033  0.3017
-# .           pronoun    short - long     -1.911 0.369 Inf  -5.176  <.0001
-# .           pronoun    short - island   -3.119 0.407 Inf  -7.658  <.0001
-# .           pronoun    long - island    -1.208 0.290 Inf  -4.162  0.0001
-# P value adjustment: holm method for 9 tests 
-
-# tables ...
-
-model1 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# + dozhzh ----
-#------------------------------------------------------------------------------#
-
-# doenen = ORC study (do) + MLE group (zh) + Mandarin AJT (zh)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'mandarin',
-         task == 'mandarin_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6), Hess = TRUE) %>%
-  write_rds('models/ajt_dozhzh_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_dozhzh_clmm_md1.rds')
-
-# 3246.32 sec elapsed (54 min)
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -1.1400     0.2311  -4.934 8.05e-07 ***
-# environment2               0.1582     0.2162   0.732 0.464400    
-# environment3              -0.7796     0.2396  -3.254 0.001137 ** 
-# dependency2:environment2   1.1921     0.3198   3.728 0.000193 ***
-# dependency2:environment3   2.1916     0.3269   6.704 2.02e-11 ***
-
-# post-hoc tests ...
-
-pairwise <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun    2.2680 0.372 Inf   6.094  <.0001
-# long        .          gap - pronoun    1.0758 0.283 Inf   3.797  0.0009
-# island      .          gap - pronoun    0.0764 0.209 Inf   0.366  0.7146
-# .           gap        short - long     0.4379 0.305 Inf   1.434  0.4548
-# .           gap        short - island   1.8754 0.322 Inf   5.818  <.0001
-# .           gap        long - island    1.4376 0.256 Inf   5.607  <.0001
-# .           pronoun    short - long    -0.7543 0.227 Inf  -3.327  0.0044
-# .           pronoun    short - island  -0.3162 0.254 Inf  -1.247  0.4548
-# .           pronoun    long - island    0.4381 0.233 Inf   1.883  0.2387
-
-# tables ...
-
-model1 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# + suenen ----
-#------------------------------------------------------------------------------#
-
-# suenen = SRC study (su) + ENS group (en) + English AJT (en)
-
-# load package ...
-
-library(ordinal)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'english',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suenen_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_suenen_clmm_md1.rds')
-
-# 8168.43 sec elapsed
-# In summary.clmm(model1) :
-#   Variance-covariance matrix of the parameters is not defined
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suenen_clmm_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# 3191.14 sec elapsed
-# Warning message:
-#   In summary.clmm(model2) :
-#   Variance-covariance matrix of the parameters is not defined
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suenen_clmm_md3.rds')
-summary(model3)
-toc()
-beep()
-
-# 381.79 sec elapsed
-# In summary.clmm(model3) :
-#   Variance-covariance matrix of the parameters is not defined
-
-#------------------------------------------------------------------------------#
-# + + model 4 (final?) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suenen_clmm_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 439.31 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -4.5712     0.2841 -16.092  < 2e-16 ***
-# environment2              -1.0337     0.2080  -4.969 6.73e-07 ***
-# environment3              -3.9264     0.3461 -11.345  < 2e-16 ***
-# dependency2:environment2   2.9205     0.3919   7.452 9.18e-14 ***
-# dependency2:environment3  10.1551     0.4700  21.604  < 2e-16 ***
-
-# post-hoc tests ...
-
-pairwise <- model4 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun     8.930 0.448 Inf  19.949  <.0001
-# long        .          gap - pronoun     6.009 0.343 Inf  17.496  <.0001
-# island      .          gap - pronoun    -1.225 0.301 Inf  -4.072  0.0002
-# .           gap        short - long      2.494 0.319 Inf   7.807  <.0001
-# .           gap        short - island    9.004 0.477 Inf  18.888  <.0001
-# .           gap        long - island     6.510 0.362 Inf  17.986  <.0001
-# .           pronoun    short - long     -0.426 0.248 Inf  -1.722  0.0850
-# .           pronoun    short - island   -1.151 0.350 Inf  -3.285  0.0031
-# .           pronoun    long - island    -0.725 0.309 Inf  -2.349  0.0377
-# P value adjustment: holm method for 9 tests
-
-# tables ...
-
-model4 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suenen_clmm_md5.rds')
-summary(model5)
-toc()
-beep()
-
-# 217.5 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -4.5563     0.2853 -15.970  < 2e-16 ***
-# environment2              -1.0206     0.2024  -5.042 4.61e-07 ***
-# environment3              -3.9052     0.3437 -11.362  < 2e-16 ***
-# dependency2:environment2   2.9390     0.3850   7.635 2.27e-14 ***
-# dependency2:environment3  10.1142     0.4660  21.704  < 2e-16 ***
-
-# compare models ...
-
-anova(model4, model5)
-
-#        no.par    AIC  logLik LR.stat df Pr(>Chisq)
-# model5     21 3206.1 -1582.0                      
-# model4     30 3221.8 -1580.9  2.3157  9     0.9854
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- clmm(response ~ dependency * environment + 
-                 (1 | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suenen_clmm_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 12.73 sec elapsed
-# no warnings
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -4.0739     0.1621  -25.14  < 2e-16 ***
-# environment2              -1.0084     0.1573   -6.41 1.46e-10 ***
-# environment3              -3.4756     0.1798  -19.33  < 2e-16 ***
-# dependency2:environment2   3.0050     0.3170    9.48  < 2e-16 ***
-# dependency2:environment3   9.7638     0.3899   25.04  < 2e-16 ***
-
-# compare models ...
-
-anova(model5, model6)
-
-# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
-# model6     12 3307.8 -1641.9                          
-# model5     21 3206.1 -1582.0  119.74  9  < 2.2e-16 ***
-  
-#------------------------------------------------------------------------------#
-# + sukoen ----
-#------------------------------------------------------------------------------#
-
-# sukoen = SRC study (su) + KLE group (ko) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'korean',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_sukoen_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_sukoen_clmm_md1.rds')
-
-# 10246.95 sec elapsed (171 min)
-# no warnings
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -2.0987     0.4301  -4.880 1.06e-06 ***
-#   environment2              -1.0019     0.3453  -2.901  0.00372 ** 
-#   environment3              -1.6287     0.3585  -4.544 5.53e-06 ***
-#   dependency2:environment2   5.2669     0.6599   7.981 1.45e-15 ***
-#   dependency2:environment3   9.1706     0.8962  10.232  < 2e-16 ***
-  
-# post-hoc tests ...
-
-pairwise <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun      6.91 0.756 Inf   9.143  <.0001
-# long        .          gap - pronoun      1.64 0.591 Inf   2.782  0.0054
-# island      .          gap - pronoun     -2.26 0.410 Inf  -5.505  <.0001
-# .           gap        short - long       3.64 0.553 Inf   6.580  <.0001
-# .           gap        short - island     6.21 0.650 Inf   9.565  <.0001
-# .           gap        long - island      2.58 0.459 Inf   5.617  <.0001
-# .           pronoun    short - long      -1.63 0.389 Inf  -4.199  0.0001
-# .           pronoun    short - island    -2.96 0.486 Inf  -6.079  <.0001
-# .           pronoun    long - island     -1.33 0.245 Inf  -5.416  <.0001
-# P value adjustment: holm method for 9 tests 
-
-# tables ...
-
-model1 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# + suzhen ----
-#------------------------------------------------------------------------------#
-
-# suzhen = SRC study (su) + MLE group (zh) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'mandarin',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suzhen_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_suzhen_clmm_md1.rds')
-
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2                0.7984     0.2491   3.205 0.001351 ** 
-# environment2              -1.0650     0.2870  -3.711 0.000206 ***
-# environment3              -2.1160     0.2853  -7.417 1.19e-13 ***
-# dependency2:environment2   4.3907     0.4721   9.300  < 2e-16 ***
-# dependency2:environment3   5.9950     0.7094   8.451  < 2e-16 ***
-
-# post-hoc tests ...
-
-pairwise <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun     2.663 0.403 Inf   6.611  <.0001
-# long        .          gap - pronoun    -1.727 0.395 Inf  -4.376  <.0001
-# island      .          gap - pronoun    -3.331 0.474 Inf  -7.030  <.0001
-# .           gap        short - long      3.260 0.411 Inf   7.927  <.0001
-# .           gap        short - island    5.114 0.498 Inf  10.265  <.0001
-# .           gap        long - island     1.853 0.380 Inf   4.878  <.0001
-# .           pronoun    short - long     -1.130 0.327 Inf  -3.455  0.0016
-# .           pronoun    short - island   -0.881 0.408 Inf  -2.162  0.0612
-# .           pronoun    long - island     0.249 0.387 Inf   0.643  0.5203
-# P value adjustment: holm method for 9 tests 
-
-#------------------------------------------------------------------------------#
-# + sukoko ----
-#------------------------------------------------------------------------------#
-
-# sukoko = SRC study (su) + KLE group (ko) + Korean AJT (ko)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'korean',
-         task == 'korean_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_sukoko_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# Error: optimizer nlminb failed to converge
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_sukoko_clmm_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# 339.42 sec elapsed
-# Error: optimizer nlminb failed to converge
-# Warning message:
-#   In summary.clmm(model2) :
-#   Variance-covariance matrix of the parameters is not defined
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_sukoko_clmm_md3.rds')
-summary(model3)
-toc()
-beep()
-
-# 114.56 sec elapsed
-# Warning message:
-#   In summary.clmm(model3) :
-#   Variance-covariance matrix of the parameters is not defined
-
-#------------------------------------------------------------------------------#
-# + + model 4 (final?) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 + dependency + environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_sukoko_clmm_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# Error: optimizer nlminb failed to converge
-# 277.03 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -4.5712     0.2841 -16.092  < 2e-16 ***
-# environment2              -1.0337     0.2080  -4.969 6.73e-07 ***
-# environment3              -3.9264     0.3461 -11.345  < 2e-16 ***
-# dependency2:environment2   2.9205     0.3919   7.452 9.18e-14 ***
-# dependency2:environment3  10.1551     0.4700  21.604  < 2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency + environment | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_sukoko_clmm_md5.rds')
-summary(model5)
-toc()
-beep()
-
-# 328.39 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2              -3.59565    0.32156 -11.182   <2e-16 ***
-# environment2             -0.08796    0.40177  -0.219    0.827    
-# environment3             -0.38573    0.41238  -0.935    0.350    
-# dependency2:environment2  5.62644    0.30213  18.623   <2e-16 ***
-# dependency2:environment3  5.76669    0.30450  18.938   <2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- clmm(response ~ dependency * environment + 
-                 (1 | participant) + 
-                 (1 | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_sukoko_clmm_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 12.78 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -2.6548     0.1107 -23.978  < 2e-16 ***
-# environment2              -0.3936     0.1298  -3.032 0.002431 ** 
-# environment3              -0.4908     0.1297  -3.783 0.000155 ***
-# dependency2:environment2   5.3694     0.2761  19.444  < 2e-16 ***
-# dependency2:environment3   5.4392     0.2761  19.703  < 2e-16 ***
-  
-# compare models ...
-
-anova(model5, model6)
-
-# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
-# model6     12 5198.3 -2587.2                          
-# model5     21 4728.2 -2343.1  488.16  9  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + suzhzh ----
-#------------------------------------------------------------------------------#
-
-# suzhzh = SRC study (su) + MLE group (zh) + Mandarin AJT (zh)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'mandarin',
-         task == 'mandarin_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# convert response to factor
-
-md <- md %>%
-  mutate(response = ordered(response))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final?) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- clmm(response ~ dependency * environment + 
-                 (1 + dependency * environment | participant) + 
-                 (1 + dependency * environment | item), 
-               data = md, control=clmm.control(grtol=1e6)) %>%
-  write_rds('models/ajt_suzhzh_clmm_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_suzhzh_clmm_md1.rds')
-
-# 7180.05 sec elapsed
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)    
-# dependency2               -1.3274     0.1853  -7.162 7.95e-13 ***
-# environment2              -0.6532     0.3016  -2.166   0.0303 *  
-# environment3              -1.5109     0.3393  -4.453 8.46e-06 ***
-# dependency2:environment2   3.5096     0.4161   8.434  < 2e-16 ***
-# dependency2:environment3   4.9257     0.4953   9.945  < 2e-16 ***
-
-# post-hoc tests ...
-
-pairwise <- model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', simple = 'each', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
-
-# environment dependency contrast       estimate    SE  df z.ratio p.value
-# short       .          gap - pronoun     4.139 0.420 Inf   9.857  <.0001
-# long        .          gap - pronoun     0.630 0.198 Inf   3.180  0.0059
-# island      .          gap - pronoun    -0.786 0.238 Inf  -3.300  0.0048
-# .           gap        short - long      2.408 0.361 Inf   6.665  <.0001
-# .           gap        short - island    3.974 0.430 Inf   9.243  <.0001
-# .           gap        long - island     1.566 0.379 Inf   4.136  0.0002
-# .           pronoun    short - long     -1.102 0.371 Inf  -2.966  0.0091
-# .           pronoun    short - island   -0.952 0.410 Inf  -2.322  0.0404
-# .           pronoun    long - island     0.150 0.284 Inf   0.527  0.5979
-# P value adjustment: holm method for 9 tests 
-
-# tables ...
-
-model1 %>%
-  tidy() %>%
-  kbl(digits = c(2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-pairwise %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-#------------------------------------------------------------------------------#
-# modeling - glmer - critical ----
-#------------------------------------------------------------------------------#
-
-# prep data
-
-temp <- ajt %>%
-  filter(!condition %in% c('grammatical', 'ungrammatical')) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'),
-         dependency = as.factor(dependency))
-
-#------------------------------------------------------------------------------#
-# + doenen ----
-#------------------------------------------------------------------------------#
-
-# doenen = ORC study (do) + ENS group (en) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'english',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model)
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_doenen_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_doenen_acc_md1.rds')
-  
-# 1172.58 sec elapsed (19 min)
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#                          Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.2264     0.2909  -0.778    0.436    
-# dependency2               -5.7529     0.4877 -11.796  < 2e-16 ***
-# environment2              -0.3750     0.5423  -0.692    0.489    
-# environment3              -2.2321     0.5450  -4.096 4.21e-05 ***
-# dependency2:environment2   0.3864     1.0592   0.365    0.715    
-# dependency2:environment3   5.2693     0.9606   5.485 4.12e-08 ***
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_doenen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# 486.71 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.1741     0.2819  -0.618    0.537    
-# dependency2               -5.7319     0.4773 -12.009  < 2e-16 ***
-# environment2              -0.3469     0.5124  -0.677    0.498    
-# environment3              -2.1449     0.5000  -4.290 1.79e-05 ***
-# dependency2:environment2   0.3507     0.9950   0.352    0.724    
-# dependency2:environment3   5.5125     0.8607   6.405 1.50e-10 ***
-
-# compare models ...
-
-anova(model2, model1)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model2   37 1686.7 1904.6 -806.37   1612.7                     
-# model1   48 1706.4 1989.0 -805.22   1610.4 2.3102 11     0.9971
-
-anova(model2, model7)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
-# model7    8 1817.1 1864.2 -900.55   1801.1                         
-# model2   37 1686.7 1904.6 -806.37   1612.7 188.36 29  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_doenen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-# 81.66 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.2878     0.2560  -1.124  0.26097    
-# dependency2               -5.4659     0.4041 -13.525  < 2e-16 ***
-# environment2              -0.8106     0.3119  -2.599  0.00936 ** 
-# environment3              -2.2534     0.4132  -5.453 4.95e-08 ***
-# dependency2:environment2   0.8108     0.6278   1.292  0.19650    
-# dependency2:environment3   5.1341     0.5750   8.928  < 2e-16 ***
-
-# compare models ...
-
-anova (model3, model2)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)  
-# model3   26 1685.3 1838.4 -816.64   1633.3                       
-# model2   37 1686.7 1904.6 -806.37   1612.7 20.537 11     0.0385 *
-
-#------------------------------------------------------------------------------#
-# + + model 4 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_doenen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 62.87 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.2266     0.2728  -0.831    0.406    
-# dependency2               -5.5815     0.4465 -12.500  < 2e-16 ***
-# environment2              -0.4215     0.4944  -0.853    0.394    
-# environment3              -2.0467     0.4858  -4.213 2.52e-05 ***
-# dependency2:environment2   0.4817     0.9571   0.503    0.615    
-# dependency2:environment3   5.4253     0.8499   6.383 1.73e-10 ***
-
-# compare models ...
-
-anova(model2, model4)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model4   28 1673.2 1838.1 -808.61   1617.2                     
-# model2   37 1686.7 1904.6 -806.37   1612.7 4.4896  9     0.8763
-
-# check assumptions ...
-
-check_model(model4)
-ggsave('plots/check_model.png', width=10, height=10, dpi=600)
-
-# pairwise comparisons ...
-
-model4 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short           7.45 0.577 Inf  12.911  <.0001
-# gap - pronoun long            6.64 0.557 Inf  11.922  <.0001
-# gap - pronoun island          2.31 0.426 Inf   5.433  <.0001
-# Results are given on the log odds ratio (not the response) scale. 
-# P value adjustment: holm method for 3 tests 
-
-#------------------------------------------------------------------------------#
-# + + model 5 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_doenen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-model5 <- read_rds('models/ajt_doenen_acc_md5.rds')
-
-# 16.03 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.2812     0.2534  -1.110  0.26714    
-# dependency2               -5.3886     0.3840 -14.033  < 2e-16 ***
-# environment2              -0.8124     0.3049  -2.664  0.00771 ** 
-# environment3              -2.1991     0.3981  -5.524 3.31e-08 ***
-# dependency2:environment2   0.8285     0.6215   1.333  0.18249    
-# dependency2:environment3   5.1405     0.5717   8.991  < 2e-16 ***
-
-# compare models ...
-
-anova(model5, model2)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 1669.5 1769.6 -817.76   1635.5                     
-# model2   37 1686.7 1904.6 -806.37   1612.7 22.788 20     0.2993
-
-anova(model5, model4)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)  
-# model5   17 1669.5 1769.6 -817.76   1635.5                       
-# model4   28 1673.2 1838.1 -808.61   1617.2 18.298 11    0.07492 .
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_doenen_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 2.83 sec elapsed
-# Model failed to converge with max|grad| = 0.0507521 (tol = 0.002, component 1)
-# Model is nearly unidentifiable: very large eigenvalue
-# - Rescale variables?
-
-#------------------------------------------------------------------------------#
-# + dokoen ----
-#------------------------------------------------------------------------------#
-
-# dokoen = ORC study (do) + KLE group (ko) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'korean',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model)
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoen_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-# 782 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.4604     0.2188   2.104   0.0354 *  
-# dependency2               -3.2167     0.7122  -4.516 6.29e-06 ***
-# environment2              -0.5779     0.4026  -1.435   0.1512    
-# environment3               0.1551     0.4141   0.375   0.7080    
-# dependency2:environment2   1.7584     0.7861   2.237   0.0253 *  
-# dependency2:environment3   3.9142     0.8510   4.600 4.23e-06 ***
-
-#------------------------------------------------------------------------------#
-# + + model 2 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-# 307.75 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.4421     0.2120   2.085   0.0371 *  
-# dependency2               -3.1671     0.6985  -4.534 5.79e-06 ***
-# environment2              -0.5421     0.3882  -1.396   0.1626    
-# environment3               0.1800     0.3940   0.457   0.6478    
-# dependency2:environment2   1.6780     0.7375   2.275   0.0229 *  
-# dependency2:environment3   3.8450     0.8066   4.767 1.87e-06 ***
-
-# compare models ...
-
-anova(model1, model2)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model2   37 1770.9 1978.2 -848.43   1696.9                     
-# model1   48 1788.7 2057.6 -846.35   1692.7 4.1682 11     0.9647
-
-#------------------------------------------------------------------------------#
-# + + model 3 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-# 46.16 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.4382     0.2109   2.078   0.0377 *  
-# dependency2               -3.1518     0.6949  -4.536 5.74e-06 ***
-# environment2              -0.5605     0.3820  -1.467   0.1423    
-# environment3               0.1751     0.3924   0.446   0.6554    
-# dependency2:environment2   1.7251     0.7301   2.363   0.0181 *  
-# dependency2:environment3   3.8479     0.8081   4.762 1.92e-06 ***
-
-# compare models ...
+# dependency2                     -1.47214    0.04551 -32.350  < 2e-16 ***
+# environment2                    -0.66275    0.09691  -6.839 7.97e-12 ***
+# environment3                    -1.47833    0.10914 -13.545  < 2e-16 ***
+# panel2                           0.51697    0.21507   2.404   0.0162 *  
+# panel3                           1.15565    0.21135   5.468 4.55e-08 ***
+# panel4                           0.99597    0.21536   4.625 3.75e-06 ***
+# panel5                           1.27559    0.21084   6.050 1.45e-09 ***
+# dependency2:environment2         3.18963    0.11546  27.625  < 2e-16 ***
+# dependency2:environment3         5.24891    0.11984  43.800  < 2e-16 ***
+# dependency2:panel2               2.08084    0.15524  13.404  < 2e-16 ***
+# dependency2:panel3               3.84965    0.15584  24.703  < 2e-16 ***
+# dependency2:panel4               1.10332    0.15579   7.082 1.42e-12 ***
+# dependency2:panel5               2.48384    0.15123  16.425  < 2e-16 ***
+# environment2:panel2              0.23619    0.27065   0.873   0.3828    
+# environment3:panel2              1.89744    0.29914   6.343 2.25e-10 ***
+# environment2:panel3             -0.04880    0.26666  -0.183   0.8548    
+# environment3:panel3              1.24324    0.29501   4.214 2.51e-05 ***
+# environment2:panel4              0.64246    0.27312   2.352   0.0187 *  
+# environment3:panel4              2.60413    0.30202   8.622  < 2e-16 ***
+# environment2:panel5              0.42990    0.26459   1.625   0.1042    
+# environment3:panel5              1.93794    0.29262   6.623 3.53e-11 ***
+# dependency2:environment2:panel2  0.44571    0.39685   1.123   0.2614    
+# dependency2:environment3:panel2 -2.75968    0.39701  -6.951 3.62e-12 ***
+# dependency2:environment2:panel3  0.69617    0.39189   1.776   0.0757 .  
+# dependency2:environment3:panel3 -4.05907    0.39321 -10.323  < 2e-16 ***
+# dependency2:environment2:panel4  2.00849    0.40433   4.968 6.78e-07 ***
+# dependency2:environment3:panel4 -3.70916    0.40497  -9.159  < 2e-16 ***
+# dependency2:environment2:panel5 -0.08499    0.38661  -0.220   0.8260    
+# dependency2:environment3:panel5 -4.89667    0.38698 -12.653  < 2e-16 ***
 
 anova(model1, model3)
 
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model3   28 1753.5 1910.4 -848.75   1697.5                    
-# model1   48 1788.7 2057.6 -846.35   1692.7 4.817 20     0.9998
-
-anova(model2, model3)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model3   28 1753.5 1910.4 -848.75   1697.5                     
-# model2   37 1770.9 1978.2 -848.43   1696.9 0.6488  9     0.9999
-
-# check assumptions ...
-
-check_model(model3)
-ggsave('plots/check_model.png', width=10, height=10, dpi=600)
-
-# pairwise comparisons ...
-
-model3 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short           5.01 0.911 Inf   5.500  <.0001 ***
-# gap - pronoun long            3.28 0.821 Inf   4.001  0.0001 ***
-# gap - pronoun island          1.16 0.673 Inf   1.725  0.0844 .
-# Results are given on the log odds ratio (not the response) scale. 
-# P value adjustment: holm method for 3 tests 
-
-#------------------------------------------------------------------------------#
-# + + model 4 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 113.87 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.4116     0.1786   2.305   0.0212 *  
-# dependency2               -2.7511     0.6248  -4.403 1.07e-05 ***
-# environment2              -0.3941     0.2782  -1.417   0.1565    
-# environment3               0.1761     0.3031   0.581   0.5613    
-# dependency2:environment2   1.5287     0.3798   4.025 5.69e-05 ***
-# dependency2:environment3   3.4847     0.4039   8.627  < 2e-16 ***
-
-# compare models ...
-
-anova(model4, model3)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
-# model4   26 1791.8 1937.5 -869.91   1739.8                         
-# model3   28 1753.5 1910.4 -848.75   1697.5 42.317  2   6.47e-10 ***
-  
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-  
-# fit model ...
-  
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-# 13.24 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.4127     0.1797   2.297   0.0216 *  
-# dependency2               -2.7405     0.6211  -4.412 1.02e-05 ***
-# environment2              -0.4097     0.2690  -1.523   0.1277    
-# environment3               0.1685     0.3000   0.562   0.5743    
-# dependency2:environment2   1.4945     0.3732   4.004 6.22e-05 ***
-# dependency2:environment3   3.4629     0.3969   8.724  < 2e-16 ***
-
-# compare models ...
-
-anova(model1, model5)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)  
-# model5   17 1774.0 1869.3 -870.02   1740.0                      
-# model1   48 1788.7 2057.6 -846.35   1692.7 47.34 31    0.03041 *
-
-anova(model3, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
-# model5   17 1774.0 1869.3 -870.02   1740.0                         
-# model3   28 1753.5 1910.4 -848.75   1697.5 42.523 11  1.315e-05 ***
-  
-#------------------------------------------------------------------------------#
-# + + model 6 
-#------------------------------------------------------------------------------#
-  
-# fit model ...
-  
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoen_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 1.39 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.2784     0.1108   2.513  0.01199 *  
-# dependency2               -1.5165     0.1046 -14.494  < 2e-16 ***
-# environment2              -0.1055     0.1280  -0.824  0.40966    
-# environment3               0.1722     0.1258   1.369  0.17111    
-# dependency2:environment2   0.7723     0.2579   2.995  0.00274 ** 
-# dependency2:environment3   1.7963     0.2528   7.106  1.2e-12 ***
-
-anova(model1, model6)
-
-# npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)    
-# model6    8 2411.2 2456.1 -1197.62   2395.2                         
-# model1   48 1788.7 2057.6  -846.35   1692.7 702.55 40  < 2.2e-16 ***
-
-anova(model3, model6)
-
-# npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)    
-# model6    8 2411.2 2456.1 -1197.62   2395.2                         
-# model3   28 1753.5 1910.4  -848.75   1697.5 697.73 20  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + dozhen ----
-#------------------------------------------------------------------------------#
-
-# dozhen = ORC study (do) + MLE group (zh) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'mandarin',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model) 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_dozhen_acc_md1.rds')
-
-# 2625.09 sec elapsed (43 min)
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                1.2125     0.2305   5.260 1.44e-07 ***
-# dependency2               -2.2188     0.4530  -4.898 9.69e-07 ***
-# environment2              -0.5965     0.3399  -1.755   0.0792 .  
-# environment3              -0.6193     0.3540  -1.749   0.0802 .  
-# dependency2:environment2   1.1327     0.6118   1.851   0.0641 .  
-# dependency2:environment3   1.5160     0.6886   2.202   0.0277 *
-
-#------------------------------------------------------------------------------#
-# + + model 2 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-model2 <- read_rds('models/ajt_dozhen_acc_md2.rds')
-
-# 249.57 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                1.1647     0.2229   5.225 1.74e-07 ***
-# dependency2               -2.1251     0.4407  -4.822 1.42e-06 ***
-# environment2              -0.5357     0.3251  -1.648   0.0993 .  
-# environment3              -0.6232     0.3183  -1.958   0.0502 .  
-# dependency2:environment2   1.0018     0.5691   1.761   0.0783 .  
-# dependency2:environment3   1.5091     0.6025   2.505   0.0123 * 
-
-# compare models ...
-
-anova(model2, model1)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model2   37 2051.3 2261.9 -988.68   1977.3                     
-# model1   48 2064.7 2337.8 -984.34   1968.7 8.6751 11     0.6519
-
-#------------------------------------------------------------------------------#
-# + + model 3 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-model3 <- read_rds('models/ajt_dozhen_acc_md3.rds')
-
-# Model failed to converge with max|grad| = 0.149796 (tol = 0.002, component 1)
-# Model is nearly unidentifiable: very large eigenvalue
-# - Rescale variables?
-#   Model is nearly unidentifiable: large eigenvalue ratio
-# - Rescale variables?
-
-#------------------------------------------------------------------------------#
-# + + model 4 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-model4 <- read_rds('models/ajt_dozhen_acc_md4.rds')
-
-# 95.75 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                1.0859     0.2144   5.064 4.11e-07 ***
-# dependency2               -1.9536     0.4199  -4.652 3.29e-06 ***
-# environment2              -0.3666     0.2649  -1.384   0.1664    
-# environment3              -0.5057     0.2518  -2.008   0.0446 *  
-# dependency2:environment2   0.6642     0.3653   1.818   0.0690 .  
-# dependency2:environment3   1.3859     0.3474   3.989 6.63e-05 ***
-
-# compare models ...
-
-anova(model4, model2)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model4   26 2043.6 2191.5 -995.78   1991.6                     
-# model2   37 2051.3 2261.9 -988.68   1977.3 14.215 11     0.2213
-
-anova(model4, model1)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model4   26 2043.6 2191.5 -995.78   1991.6                    
-# model1   48 2064.7 2337.8 -984.34   1968.7 22.89 22      0.408
-
-#------------------------------------------------------------------------------#
-# + + model 5 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-model5 <- read_rds('models/ajt_dozhen_acc_md5.rds')
-
-# 10.61 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                1.0746     0.2113   5.086 3.66e-07 ***
-# dependency2               -1.9265     0.4133  -4.661 3.14e-06 ***
-# environment2              -0.3514     0.2442  -1.439   0.1501    
-# environment3              -0.4757     0.2214  -2.148   0.0317 *  
-# dependency2:environment2   0.6225     0.3575   1.741   0.0816 .  
-# dependency2:environment3   1.3521     0.3417   3.957 7.60e-05 ***
-
-# compare models ...
-
-anova(model5, model4)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 2028.1 2124.8 -997.04   1994.1                     
-# model4   26 2043.6 2191.5 -995.78   1991.6 2.5195  9     0.9804
-
-anova(model3, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 2028.1 2124.8 -997.04   1994.1                     
-# model3   28 2034.3 2193.6 -989.15   1978.3 15.787 11     0.1492
-
-# check assumptions ...
-
-check_model(model5)
-ggsave('plots/check_model.png', width=10, height=10, dpi=600)
-
-# pairwise comparisons ...
-
-model5 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short           2.58 0.471 Inf   5.492  <.0001 ***
-# gap - pronoun long            1.96 0.460 Inf   4.263  <.0001 ***
-# gap - pronoun island          1.23 0.444 Inf   2.776  0.0055 **
-# Results are given on the log odds ratio (not the response) scale. 
-# P value adjustment: holm method for 3 tests 
-
-#------------------------------------------------------------------------------#
-# + + model 6 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-model6 <- read_rds('models/ajt_dozhen_acc_md6.rds')
-
-# 1.76 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.9219     0.1634   5.643 1.68e-08 ***
-# dependency2               -1.5927     0.1114 -14.298  < 2e-16 ***
-# environment2              -0.2882     0.1345  -2.142  0.03218 *  
-# environment3              -0.4140     0.1326  -3.122  0.00179 ** 
-# dependency2:environment2   0.5891     0.2691   2.189  0.02857 *  
-# dependency2:environment3   1.0564     0.2654   3.980 6.89e-05 ***
-
-# model comparison ...
-
-anova(model6, model5)
-
-# npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)    
-# model6    8 2334.2 2379.7 -1159.08   2318.2                         
-# model5   17 2028.1 2124.8  -997.04   1994.1 324.08  9  < 2.2e-16 ***
-
-anova(model6, model4)
-
-# npar    AIC    BIC   logLik deviance Chisq Df Pr(>Chisq)    
-# model6    8 2334.2 2379.7 -1159.08   2318.2                        
-# model4   26 2043.6 2191.5  -995.78   1991.6 326.6 18  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + + model 5b
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5b <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment || participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhen_acc_md5b.rds')
-summary(model5b)
-toc()
-beep()
-
-model5b <- read_rds('models/ajt_dozhen_acc_md5b.rds')
-
-# 13.83 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                1.0747     0.2100   5.118 3.09e-07 ***
-# dependency2               -1.9212     0.4118  -4.666 3.07e-06 ***
-# environment2              -0.3179     0.2399  -1.325   0.1852    
-# environment3              -0.4611     0.2198  -2.098   0.0359 *  
-# dependency2:environment2   0.5748     0.3532   1.627   0.1037    
-# dependency2:environment3   1.3334     0.3364   3.964 7.38e-05 ***
-
-anova(model5b, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5b   17 2029.0 2125.8 -997.52   1995.0                     
-# model5    17 2028.1 2124.8 -997.04   1994.1 0.9447  0 
-
-#------------------------------------------------------------------------------#
-# + dokoko ----
-#------------------------------------------------------------------------------#
-
-# dokoko = ORC study (do) + KLE group (ko) + Korean AJT (ko)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'korean',
-         task == 'korean_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model) 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoko_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_dokoko_acc_md1.rds')
-
-missing
-
-#------------------------------------------------------------------------------#
-# + + model 3 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoko_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-model3 <- read_rds('models/ajt_dokoko_acc_md3.rds')
-
-# 244.86 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.4714     0.2988   1.578 0.114574    
-# dependency2               -3.3795     0.3788  -8.922  < 2e-16 ***
-# environment2              -1.5673     0.4316  -3.631 0.000282 ***
-# environment3              -1.0878     0.4164  -2.613 0.008982 ** 
-# dependency2:environment2   4.9090     0.7378   6.653 2.86e-11 ***
-# dependency2:environment3   6.9606     0.7173   9.704  < 2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoko_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 243.84 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.8563     0.4827   1.774 0.076095 .  
-# dependency2               -4.5496     0.8412  -5.408 6.36e-08 ***
-# environment2              -2.4650     1.2164  -2.026 0.042724 *  
-# environment3              -2.1469     1.2013  -1.787 0.073909 .  
-# dependency2:environment2   8.4309     2.4190   3.485 0.000492 ***
-# dependency2:environment3  10.5262     2.3954   4.394 1.11e-05 ***
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment || participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoko_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-# Model failed to converge: degenerate  Hessian with 5 negative eigenvalues
-
-#------------------------------------------------------------------------------#
-# + + model 6 ----
-#------------------------------------------------------------------------------#
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dokoko_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-# 14.12 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                0.4665     0.2932   1.591 0.111634    
-# dependency2               -3.2932     0.3425  -9.614  < 2e-16 ***
-# environment2              -1.4717     0.3928  -3.746 0.000179 ***
-# environment3              -1.0543     0.3875  -2.721 0.006517 ** 
-# dependency2:environment2   4.8643     0.6997   6.952 3.59e-12 ***
-# dependency2:environment3   6.7890     0.6828   9.944  < 2e-16 ***
-
-anova(model6, model3)
-
-       npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model6   17 1624.8 1720.1 -795.42   1590.8
-model3   26 1635.9 1781.7 -791.95   1583.9 6.9319  9     0.6442
-
-# check assumptions ...
-
-check_model(model6)
-ggsave('plots/check_model.png', width=10, height=10, dpi=600)
-
-# pairwise comparisons ...
-
-model6 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short          7.178 0.685 Inf  10.477  <.0001 ***
-# gap - pronoun long           2.313 0.377 Inf   6.141  <.0001 ***
-# gap - pronoun island         0.389 0.325 Inf   1.196  0.2316
-# Results are given on the log odds ratio (not the response) scale. 
-# P value adjustment: holm method for 3 tests
-
-#------------------------------------------------------------------------------#
-# + dozhzh ----
-#------------------------------------------------------------------------------#
-
-# dozhzh = ORC study (do) + MLE group (zh) + Mandarin AJT (zh)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_do', 
-         group == 'mandarin',
-         task == 'mandarin_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model) 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhzh_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_dozhzh_acc_md1.rds')
-
-# 1290.69 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.4334     0.2915  -1.487 0.137078    
-# dependency2               -0.9881     0.2287  -4.321 1.55e-05 ***
-# environment2               0.3739     0.3124   1.197 0.231264    
-# environment3              -0.8169     0.2987  -2.735 0.006243 ** 
-# dependency2:environment2   1.5354     0.4195   3.660 0.000252 ***
-# dependency2:environment3   2.6887     0.4684   5.740 9.44e-09 ***
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhzh_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-model2 <- read_rds('models/ajt_dozhzh_acc_md2.rds')
-
-# 688.68 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.4353     0.2884  -1.509  0.13123    
-# dependency2               -0.9786     0.2226  -4.395 1.11e-05 ***
-# environment2               0.4045     0.3061   1.321  0.18636    
-# environment3              -0.7740     0.2862  -2.705  0.00684 ** 
-# dependency2:environment2   1.5288     0.3906   3.914 9.07e-05 ***
-# dependency2:environment3   2.6534     0.4568   5.809 6.30e-09 ***
-
-# compare models ...
-
-anova(model1, model2)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model2   37 2217.6 2429.1 -1071.8   2143.6                     
-# model1   48 2235.2 2509.6 -1069.6   2139.2 4.3718 11     0.9578
-
-#------------------------------------------------------------------------------#
-# + + model 3 (final) ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhzh_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-model3 <- read_rds('models/ajt_dozhzh_acc_md3.rds')
-
-# 257.71 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.4120     0.2806  -1.468 0.142034    
-# dependency2               -0.9008     0.2056  -4.381 1.18e-05 ***
-# environment2               0.3019     0.2790   1.082 0.279210    
-# environment3              -0.9267     0.2739  -3.383 0.000716 ***
-# dependency2:environment2   1.2474     0.3246   3.842 0.000122 ***
-# dependency2:environment3   2.3292     0.3367   6.917 4.60e-12 ***
-
-# compare models ...
-
-anova(model2, model3)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model3   26 2212.5 2361.2 -1080.3   2160.5
-# model2   37 2217.6 2429.1 -1071.8   2143.6 16.977 11     0.1086
-
-# pairwise comparisons ...
-
-model3 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# contrast      environment estimate    SE  df z.ratio p.value
-# gap - pronoun short          2.093 0.287 Inf   7.283  <.0001 ***
-# gap - pronoun long           0.846 0.269 Inf   3.144  0.0033 **
-# gap - pronoun island        -0.236 0.281 Inf  -0.840  0.4009
+# model1     36 26983 -13455                          
+# model3     41 26633 -13275  360.17  5  < 2.2e-16 ***
 
 #------------------------------------------------------------------------------#
 # + + model 4
@@ -9020,44 +8086,54 @@ model3 %>%
 # fit model ...
 
 tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhzh_acc_md4.rds')
+model4 <- clmm(response ~ dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 + dependency | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_suall_clmm_md4.rds')
 summary(model4)
 toc()
 beep()
 
-model4 <- read_rds('models/ajt_dozhzh_acc_md4.rds')
-
-# 112.33 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
+# 2017.05 sec elapsed (33.62 min)
+# no warnings
+# Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.4463     0.2821  -1.582 0.113596    
-# dependency2               -0.9273     0.2128  -4.357 1.32e-05 ***
-# environment2               0.3884     0.2529   1.536 0.124589    
-# environment3              -0.7676     0.2656  -2.890 0.003852 ** 
-# dependency2:environment2   1.2775     0.3650   3.500 0.000466 ***
-# dependency2:environment3   2.4263     0.4300   5.643 1.68e-08 ***
-
-# compare models ...
+# dependency2                     -1.42285    0.04752 -29.943  < 2e-16 ***
+# environment2                    -0.63290    0.05371 -11.783  < 2e-16 ***
+# environment3                    -1.35637    0.05479 -24.754  < 2e-16 ***
+# panel2                           0.47523    0.20477   2.321  0.02030 *  
+# panel3                           1.06110    0.20111   5.276 1.32e-07 ***
+# panel4                           0.93903    0.20514   4.578 4.70e-06 ***
+# panel5                           1.18150    0.20061   5.889 3.88e-09 ***
+# dependency2:environment2         3.11889    0.10938  28.514  < 2e-16 ***
+# dependency2:environment3         5.05718    0.11472  44.081  < 2e-16 ***
+# dependency2:panel2               2.01773    0.15025  13.429  < 2e-16 ***
+# dependency2:panel3               3.71094    0.15020  24.706  < 2e-16 ***
+# dependency2:panel4               1.07040    0.15135   7.072 1.52e-12 ***
+# dependency2:panel5               2.40391    0.14607  16.457  < 2e-16 ***
+# environment2:panel2              0.28301    0.18772   1.508  0.13164    
+# environment3:panel2              1.84963    0.19062   9.703  < 2e-16 ***
+# environment2:panel3              0.01527    0.18407   0.083  0.93387    
+# environment3:panel3              1.23967    0.18745   6.613 3.76e-11 ***
+# environment2:panel4              0.59164    0.19229   3.077  0.00209 ** 
+# environment3:panel4              2.44323    0.19539  12.505  < 2e-16 ***
+# environment2:panel5              0.42430    0.18182   2.334  0.01961 *  
+# environment3:panel5              1.85903    0.18479  10.060  < 2e-16 ***
+# dependency2:environment2:panel2  0.35329    0.37603   0.940  0.34745    
+# dependency2:environment3:panel2 -2.63994    0.38498  -6.857 7.01e-12 ***
+# dependency2:environment2:panel3  0.50509    0.36879   1.370  0.17081    
+# dependency2:environment3:panel3 -3.93006    0.37931 -10.361  < 2e-16 ***
+# dependency2:environment2:panel4  1.88760    0.38605   4.890 1.01e-06 ***
+# dependency2:environment3:panel4 -3.45347    0.39386  -8.768  < 2e-16 ***
+# dependency2:environment2:panel5 -0.24011    0.36406  -0.660  0.50955    
+# dependency2:environment3:panel5 -4.74304    0.37398 -12.683  < 2e-16 ***
 
 anova(model1, model4)
 
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model4   28 2218.5 2378.5 -1081.2   2162.5
-# model1   48 2235.2 2509.6 -1069.6   2139.2 23.295 20     0.2745
-
-anova(model3, model4)
-
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model3   26 2212.5 2361.2 -1080.3   2160.5
-# model4   28 2218.5 2378.5 -1081.2   2162.5     0  2          1
+# no.par   AIC logLik LR.stat df Pr(>Chisq)
+# model1     36 26983 -13455                      
+# model4     38 26984 -13454  2.6226  2     0.2695
 
 #------------------------------------------------------------------------------#
 # + + model 5
@@ -9066,49 +8142,54 @@ anova(model3, model4)
 # fit model ...
 
 tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhzh_acc_md5.rds')
+model5 <- clmm(response ~ dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 + environment | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_suall_clmm_md5.rds')
 summary(model5)
 toc()
 beep()
 
-model5 <- read_rds('models/ajt_dozhzh_acc_md5.rds')
-
-# 24.87 sec elapsed
+# 1941.85 sec elapsed (32.36 min)
 # no warnings
-# Fixed effects:
+# Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.4260     0.2763  -1.542 0.123156    
-# dependency2               -0.8603     0.1979  -4.346 1.39e-05 ***
-# environment2               0.2817     0.2302   1.224 0.221136    
-# environment3              -0.9214     0.2626  -3.509 0.000450 ***
-# dependency2:environment2   1.0653     0.3119   3.415 0.000638 ***
-# dependency2:environment3   2.1691     0.3225   6.726 1.74e-11 ***
-
-# compare models ...
+# dependency2                     -1.42408    0.04382 -32.501  < 2e-16 ***
+# environment2                    -0.63041    0.05722 -11.017  < 2e-16 ***
+# environment3                    -1.35344    0.06680 -20.261  < 2e-16 ***
+# panel2                           0.47633    0.20463   2.328  0.01992 *  
+# panel3                           1.06372    0.20101   5.292 1.21e-07 ***
+# panel4                           0.94215    0.20501   4.596 4.31e-06 ***
+# panel5                           1.18308    0.20048   5.901 3.61e-09 ***
+# dependency2:environment2         3.12161    0.10958  28.486  < 2e-16 ***
+# dependency2:environment3         5.06011    0.11485  44.059  < 2e-16 ***
+# dependency2:panel2               2.01364    0.15028  13.400  < 2e-16 ***
+# dependency2:panel3               3.71515    0.15027  24.722  < 2e-16 ***
+# dependency2:panel4               1.07272    0.15140   7.086 1.38e-12 ***
+# dependency2:panel5               2.40483    0.14608  16.462  < 2e-16 ***
+# environment2:panel2              0.28569    0.18773   1.522  0.12805    
+# environment3:panel2              1.85112    0.19063   9.710  < 2e-16 ***
+# environment2:panel3              0.02363    0.18416   0.128  0.89789    
+# environment3:panel3              1.24674    0.18753   6.648 2.96e-11 ***
+# environment2:panel4              0.58986    0.19232   3.067  0.00216 ** 
+# environment3:panel4              2.43678    0.19543  12.469  < 2e-16 ***
+# environment2:panel5              0.42370    0.18184   2.330  0.01980 *  
+# environment3:panel5              1.85753    0.18481  10.051  < 2e-16 ***
+# dependency2:environment2:panel2  0.35731    0.37633   0.949  0.34240    
+# dependency2:environment3:panel2 -2.63032    0.38521  -6.828 8.59e-12 ***
+# dependency2:environment2:panel3  0.49101    0.36883   1.331  0.18310    
+# dependency2:environment3:panel3 -3.94519    0.37946 -10.397  < 2e-16 ***
+# dependency2:environment2:panel4  1.89026    0.38639   4.892 9.98e-07 ***
+# dependency2:environment3:panel4 -3.42012    0.39475  -8.664  < 2e-16 ***
+# dependency2:environment2:panel5 -0.23587    0.36419  -0.648  0.51720    
+# dependency2:environment3:panel5 -4.74090    0.37407 -12.674  < 2e-16 ***
 
 anova(model1, model5)
 
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 2212.6 2309.7 -1089.3   2178.6
-# model1   48 2235.2 2509.6 -1069.6   2139.2 39.356 31     0.1442
-
-anova(model4, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 2212.6 2309.7 -1089.3   2178.6
-# model4   28 2218.5 2378.5 -1081.2   2162.5 16.061 11     0.1389
-
-anova(model3, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 2212.6 2309.7 -1089.3   2178.6
-# model3   26 2212.5 2361.2 -1080.3   2160.5 18.008  9    0.03509 *
+# no.par   AIC logLik LR.stat df Pr(>Chisq)
+# model1     36 26983 -13455                      
+# model5     41 26989 -13454   3.669  5      0.598
 
 #------------------------------------------------------------------------------#
 # + + model 6
@@ -9117,1169 +8198,142 @@ anova(model3, model5)
 # fit model ...
 
 tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_dozhzh_acc_md6.rds')
+model6 <- clmm(response ~ dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 + panel | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_suall_clmm_md6.rds')
 summary(model6)
 toc()
 beep()
 
-model6 <- read_rds('models/ajt_dozhzh_acc_md6.rds')
-
-# 1.72 sec elapsed
-# no warnings
-# Fixed effects:
+# 1830.93 sec elapsed (30.52 min)
+# Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.3257     0.2365  -1.377   0.1684    
-# dependency2               -0.7868     0.1101  -7.146 8.92e-13 ***
-# environment2               0.3056     0.1340   2.280   0.0226 *  
-# environment3              -0.5689     0.1363  -4.175 2.98e-05 ***
-# dependency2:environment2   1.1340     0.2662   4.260 2.05e-05 ***
-# dependency2:environment3   1.9809     0.2732   7.252 4.12e-13 ***
-
-# compare models ...
+# dependency2                     -1.42961    0.04395 -32.530  < 2e-16 ***
+# environment2                    -0.63156    0.05384 -11.730  < 2e-16 ***
+# environment3                    -1.35660    0.05493 -24.697  < 2e-16 ***
+# panel2                           0.47843    0.20653   2.317  0.02053 *  
+# panel3                           1.06986    0.20554   5.205 1.94e-07 ***
+# panel4                           0.94708    0.20795   4.554 5.26e-06 ***
+# panel5                           1.19183    0.20821   5.724 1.04e-08 ***
+# dependency2:environment2         3.12635    0.10965  28.511  < 2e-16 ***
+# dependency2:environment3         5.07254    0.11500  44.109  < 2e-16 ***
+# dependency2:panel2               2.03345    0.15097  13.469  < 2e-16 ***
+# dependency2:panel3               3.73765    0.15092  24.765  < 2e-16 ***
+# dependency2:panel4               1.08185    0.15207   7.114 1.13e-12 ***
+# dependency2:panel5               2.41288    0.14681  16.436  < 2e-16 ***
+# environment2:panel2              0.29864    0.18821   1.587  0.11257    
+# environment3:panel2              1.85992    0.19108   9.734  < 2e-16 ***
+# environment2:panel3              0.02611    0.18476   0.141  0.88761    
+# environment3:panel3              1.26041    0.18840   6.690 2.23e-11 ***
+# environment2:panel4              0.60876    0.19263   3.160  0.00158 ** 
+# environment3:panel4              2.46237    0.19593  12.568  < 2e-16 ***
+# environment2:panel5              0.44841    0.18252   2.457  0.01402 *  
+# environment3:panel5              1.87799    0.18543  10.128  < 2e-16 ***
+# dependency2:environment2:panel2  0.31650    0.37710   0.839  0.40130    
+# dependency2:environment3:panel2 -2.66958    0.38623  -6.912 4.78e-12 ***
+# dependency2:environment2:panel3  0.47642    0.36981   1.288  0.19765    
+# dependency2:environment3:panel3 -3.96899    0.38076 -10.424  < 2e-16 ***
+# dependency2:environment2:panel4  1.85267    0.38699   4.787 1.69e-06 ***
+# dependency2:environment3:panel4 -3.47748    0.39527  -8.798  < 2e-16 ***
+# dependency2:environment2:panel5 -0.26516    0.36538  -0.726  0.46802    
+# dependency2:environment3:panel5 -4.77313    0.37552 -12.711  < 2e-16 ***
 
 anova(model1, model6)
 
-# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-# model6    8 2293.8 2339.5 -1138.9   2277.8
-# model1   48 2235.2 2509.6 -1069.6   2139.2 138.6 40  8.481e-13 ***
-
-anova(model5, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model6    8 2293.8 2339.5 -1138.9   2277.8
-# model5   17 2212.6 2309.7 -1089.3   2178.6 99.243  9  < 2.2e-16 ***
-
-anova(model3, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
-# model6    8 2293.8 2339.5 -1138.9   2277.8                         
-# model3   26 2212.5 2361.2 -1080.3   2160.5 117.25 18  < 2.2e-16 ***
+# no.par   AIC logLik LR.stat df Pr(>Chisq)
+# model1     36 26983 -13455                      
+# model6     50 26993 -13447  17.682 14     0.2216
 
 #------------------------------------------------------------------------------#
-# + suenen ----
-#------------------------------------------------------------------------------#
-
-# suenen = SRC study (su) + ENS group (en) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'english',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (final) ----
+# + + model 7 (final?) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
 
 tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suenen_acc_md1.rds')
-summary(model1)
+model7 <- clmm(response ~ dependency * environment * panel + 
+                 (1 + dependency + environment | participant) + 
+                 (1 + dependency + environment + panel | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_suall_clmm_md7.rds')
+summary(model7)
 toc()
 beep()
 
-model1 <- read_rds('models/ajt_suenen_acc_md1.rds')
-
-# 29465.95 sec elapsed (8 hours)
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
+# 23904.05 sec elapsed (6.64 hours)
+# Coefficients:
 #   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                          17.616890   0.002214    7957   <2e-16 ***
-# dependencypronoun                   -24.162444   0.002335  -10350   <2e-16 ***
-# environmentlong                     -12.782311   0.002392   -5343   <2e-16 ***
-# environmentisland                   -34.776498   0.002335  -14896   <2e-16 ***
-# dependencypronoun:environmentlong    15.395926   0.002293    6715   <2e-16 ***
-# dependencypronoun:environmentisland  38.085710   0.002335   16314   <2e-16 ***
-
-# pairwise comparisons ...
-
-model1 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# contrast      environment estimate        SE  df   z.ratio p.value
-# gap - pronoun short        24.1624 0.0023346 Inf 10349.850  <.0001
-# gap - pronoun long          8.7665 0.0032720 Inf  2679.232  <.0001
-# gap - pronoun island      -13.9233 0.0033015 Inf -4217.253  <.0001
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suenen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-5199.58 sec elapsed (86 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error
-(Intercept)                            8.320      1.426
-dependencypronoun                    -15.607      2.318
-environmentlong                       -3.523      1.831
-environmentisland                    -14.887      2.164
-dependencypronoun:environmentlong      6.179      2.629
-dependencypronoun:environmentisland   18.915      2.982
-z value Pr(>|z|)
-(Intercept)                           5.834 5.41e-09 ***
-  dependencypronoun                    -6.732 1.67e-11 ***
-  environmentlong                      -1.923   0.0544 .
-environmentisland                    -6.880 5.98e-12 ***
-  dependencypronoun:environmentlong     2.351   0.0187 *
-  dependencypronoun:environmentisland   6.343 2.26e-10 ***
-
-# compare models ...
-
-anova(model1, model2)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model2   37 802.68 1006.3 -364.34   728.68
-model1   48 804.68 1068.8 -354.34   708.68 19.993 11    0.04543 *
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suenen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-model3 <- read_rds('models/ajt_suenen_acc_md3.rds')
-
-# 128.85 sec elapsed
-# optimizer (bobyqa) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.9966     0.4037  -2.469  0.01355 *  
-# dependency2               -5.4468     0.5792  -9.405  < 2e-16 ***
-# environment2              -1.1272     0.5137  -2.194  0.02820 *  
-# environment3              -5.2881     0.8619  -6.135  8.5e-10 ***
-# dependency2:environment2   4.1446     1.4652   2.829  0.00467 ** 
-# dependency2:environment3  13.8977     1.7035   8.158  3.4e-16 ***
-
-# compare models ...
-
-anova(model1, model3)
-
-# npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)    
-# model3   26 819.65  962.71 -383.83   767.65                         
-# model1   48 804.68 1068.79 -354.34   708.68 58.972 22  3.168e-05 ***
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suenen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-# 118.24 sec elapsed
-# Model failed to converge with max|grad| = 0.0424997 (tol = 0.002, component 1)
-
-#------------------------------------------------------------------------------#
-# + + model 5 (maybe?)
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suenen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-model5 <- read_rds('models/ajt_suenen_acc_md5.rds')
-
-# 50.84 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.9332     0.3992  -2.338 0.019400 *  
-# dependency2               -5.3905     0.5562  -9.691  < 2e-16 ***
-# environment2              -0.9651     0.4726  -2.042 0.041145 *  
-# environment3              -5.2713     0.8109  -6.500 8.01e-11 ***
-# dependency2:environment2   5.1344     1.4094   3.643 0.000269 ***
-# dependency2:environment3  14.2322     1.6855   8.444  < 2e-16 ***
-
-# compare models ...
-
-anova(model1, model5)
-
-# npar    AIC     BIC  logLik deviance  Chisq Df Pr(>Chisq)    
-# model5   17 805.80  899.34 -385.90   771.80                         
-# model1   48 804.68 1068.79 -354.34   708.68 63.119 31  0.0005698 ***
-
-anova(model3, model5)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-# model5   17 805.80 899.34 -385.90   771.80                     
-# model3   26 819.65 962.71 -383.83   767.65 4.1477  9     0.9014
-  
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suenen_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-model6 <- read_rds('models/ajt_suenen_acc_md6.rds')
-
-# 2.03 sec elapsed
-# no warnings
-# Fixed effects:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)               -0.6943     0.3028  -2.293  0.02187 *  
-# dependency2               -5.0061     0.3465 -14.447  < 2e-16 ***
-# environment2              -1.0421     0.3740  -2.786  0.00533 ** 
-# environment3              -3.8746     0.4045  -9.579  < 2e-16 ***
-# dependency2:environment2   3.4680     0.7511   4.617 3.89e-06 ***
-# dependency2:environment3  12.1821     0.8887  13.707  < 2e-16 ***
-
-# compare models ...
-
-anova(model5, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)    
-# model6    8 819.54 863.55 -401.77   803.54                         
-# model5   17 805.80 899.34 -385.90   771.80 31.735  9  0.0002212 ***
-
-anova(model3, model6)
-
-# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)   
-# model6    8 819.54 863.55 -401.77   803.54                        
-# model3   26 819.65 962.71 -383.83   767.65 35.883 18   0.007304 **
-
-#------------------------------------------------------------------------------#
-# + sukoen ----
-#------------------------------------------------------------------------------#
-
-# sukoen = SRC study (su) + KLE group (ko) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'korean',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model) 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoen_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_sukoen_acc_md1.rds')
-
-1828.64 sec elapsed (30 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                            8.097      2.444   3.314 0.000921 ***
-dependencypronoun                    -11.656      2.601  -4.481 7.44e-06 ***
-environmentlong                       -6.985      2.463  -2.836 0.004570 **
-environmentisland                    -10.189      2.494  -4.085 4.40e-05 ***
-dependencypronoun:environmentlong      9.287      2.597   3.576 0.000348 ***
-dependencypronoun:environmentisland   14.150      2.667   5.306 1.12e-07 ***
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-446.64 sec elapsed (7 min)
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                            6.118      1.979   3.091 0.001992 **
-dependencypronoun                     -9.606      2.169  -4.429 9.45e-06 ***
-environmentlong                       -4.982      2.016  -2.471 0.013461 *
-environmentisland                     -8.154      2.048  -3.982 6.84e-05 ***
-dependencypronoun:environmentlong      7.227      2.172   3.328 0.000875 ***
-dependencypronoun:environmentisland   12.040      2.255   5.338 9.39e-08 ***
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-45.31 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           5.0599     0.5928   8.536  < 2e-16 ***
-dependencypronoun                    -7.8789     0.7520 -10.477  < 2e-16 ***
-environmentlong                      -4.2566     0.5560  -7.656 1.93e-14 ***
-environmentisland                    -6.7924     0.6427 -10.568  < 2e-16 ***
-dependencypronoun:environmentlong     6.0719     0.6548   9.272  < 2e-16 ***
-dependencypronoun:environmentisland  10.1546     0.7258  13.990  < 2e-16 ***
-
-# compare models ...
-
-anova(model1, model3)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   26 1752.6 1898.0 -850.31   1700.6
-model1   48 1701.6 1969.9 -802.79   1605.6 95.035 22  4.698e-11 ***
-
-#------------------------------------------------------------------------------#
-# + + model 4 ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-78.66 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                            5.931      1.904   3.115 0.001842 **
-dependencypronoun                     -9.382      2.089  -4.490 7.11e-06 ***
-environmentlong                       -4.826      1.944  -2.483 0.013044 *
-environmentisland                     -7.949      1.971  -4.033 5.51e-05 ***
-dependencypronoun:environmentlong      7.040      2.092   3.365 0.000766 ***
-dependencypronoun:environmentisland   11.800      2.176   5.423 5.86e-08 ***
-
-# compare models ...
-
-anova(model1, model4)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   28 1667.5 1824.1 -805.77   1611.5
-model1   48 1701.6 1969.9 -802.79   1605.6 5.9504 20      0.999
-
-anova(model2, model4)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   28 1667.5 1824.1 -805.77   1611.5
-model2   37 1684.6 1891.5 -805.30   1610.6 0.9349  9     0.9996
-
-anova(model3, model4)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model3   26 1752.6 1898.0 -850.31   1700.6
-model4   28 1667.5 1824.1 -805.77   1611.5 89.084  2  < 2.2e-16 ***
-
-# pairwise comparisons ...
-
-model4 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# generate table ...
-
-kbl(summary(model4)$coefficients, digits = c(2, 2, 2, 3))
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-10.41 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           5.0444     0.5873   8.590  < 2e-16 ***
-dependencypronoun                    -7.8500     0.7426 -10.571  < 2e-16 ***
-environmentlong                      -4.2437     0.5523  -7.683 1.55e-14 ***
-environmentisland                    -6.7752     0.6384 -10.613  < 2e-16 ***
-dependencypronoun:environmentlong     6.0457     0.6449   9.374  < 2e-16 ***
-dependencypronoun:environmentisland  10.1235     0.7168  14.124  < 2e-16 ***
-
-# compare models ...
-
-anova(model1, model5)
-
-npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-model5   17 1734.8 1829.8 -850.40   1700.8
-model1   48 1701.6 1969.9 -802.79   1605.6 95.22 31  1.894e-08 ***
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoen_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-2.12 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.0997     0.2730  11.355   <2e-16 ***
-dependencypronoun                    -4.6805     0.2907 -16.100   <2e-16 ***
-environmentlong                      -2.5546     0.2706  -9.439   <2e-16 ***
-environmentisland                    -4.1934     0.2817 -14.888   <2e-16 ***
-dependencypronoun:environmentlong     3.4429     0.3346  10.289   <2e-16 ***
-dependencypronoun:environmentisland   6.0653     0.3493  17.362   <2e-16 ***
-
-# compare models ...
-
-anova(model1, model6)
-
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model6    8 2053.6 2098.3 -1018.80   2037.6
-model1   48 1701.6 1969.9  -802.79   1605.6 432.02 40  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + suzhen ----
-#------------------------------------------------------------------------------#
-
-# suzhen = SRC study (su) + MLE group (zh) + English AJT (en)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'mandarin',
-         task == 'english_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model) 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhen_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_suzhen_acc_md1.rds')
-
-541.27 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.3386     0.5540   6.027 1.68e-09 ***
-dependencypronoun                    -2.9492     0.6260  -4.711 2.46e-06 ***
-environmentlong                      -3.6073     0.5756  -6.267 3.69e-10 ***
-environmentisland                    -5.3472     0.6617  -8.081 6.44e-16 ***
-dependencypronoun:environmentlong     5.0827     0.6939   7.325 2.39e-13 ***
-dependencypronoun:environmentisland   6.3267     0.8115   7.797 6.35e-15 ***
-
-#------------------------------------------------------------------------------#
-# + + model 2
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model2 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhen_acc_md2.rds')
-summary(model2)
-toc()
-beep()
-
-169.15 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.3012     0.5361   6.158 7.35e-10 ***
-dependencypronoun                    -2.9123     0.6085  -4.786 1.70e-06 ***
-environmentlong                      -3.5766     0.5666  -6.313 2.74e-10 ***
-environmentisland                    -5.2864     0.6478  -8.161 3.32e-16 ***
-dependencypronoun:environmentlong     5.0150     0.6724   7.458 8.78e-14 ***
-dependencypronoun:environmentisland   6.2694     0.7996   7.840 4.50e-15 ***
-
-# compare models ...
-
-anova(model1, model2)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model2   37 2056.3 2265.3 -991.16   1982.3
-model1   48 2077.3 2348.4 -990.63   1981.3 1.0652 11     0.9999
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhen_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-50.09 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.9350     0.3327   8.821  < 2e-16 ***
-dependencypronoun                    -2.5634     0.3607  -7.106 1.19e-12 ***
-environmentlong                      -3.1900     0.3800  -8.394  < 2e-16 ***
-environmentisland                    -4.7980     0.4093 -11.722  < 2e-16 ***
-dependencypronoun:environmentlong     4.4065     0.3787  11.636  < 2e-16 ***
-dependencypronoun:environmentisland   5.5696     0.4096  13.598  < 2e-16 ***
-
-# compare models ...
-
-anova(model2, model3)
-
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model3   26 2110.8 2257.6 -1029.38   2058.8
-model2   37 2056.3 2265.3  -991.16   1982.3 76.429 11  7.205e-12 ***
-
-#------------------------------------------------------------------------------#
-# + + model 4 ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhen_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-34.38 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.3139     0.5358   6.185 6.23e-10 ***
-dependencypronoun                    -2.9216     0.6075  -4.809 1.51e-06 ***
-environmentlong                      -3.5764     0.5572  -6.418 1.38e-10 ***
-environmentisland                    -5.2409     0.6373  -8.224  < 2e-16 ***
-dependencypronoun:environmentlong     5.0092     0.6696   7.481 7.38e-14 ***
-dependencypronoun:environmentisland   6.2246     0.7950   7.830 4.88e-15 ***
-
-# compare models ...
-
-anova(model1, model4)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   28 2041.9 2200.1 -992.94   1985.9
-model1   48 2077.3 2348.4 -990.63   1981.3 4.6243 20     0.9998
-
-anova(model2, model4)
-
-npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
-model4   28 2041.9 2200.1 -992.94   1985.9
-model2   37 2056.3 2265.3 -991.16   1982.3 3.5592  9      0.938
-
-anova(model5, model4)
-
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model5   17 2096.0 2192.0 -1030.98   2062.0
-model4   28 2041.9 2200.1  -992.94   1985.9 76.079 11  8.411e-12 ***
-
-# pairwise comparisons ...
-
-model4 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhen_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-8.73 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.9267     0.3308   8.847  < 2e-16 ***
-dependencypronoun                    -2.5554     0.3561  -7.175 7.22e-13 ***
-environmentlong                      -3.1733     0.3743  -8.479  < 2e-16 ***
-environmentisland                    -4.7520     0.4015 -11.834  < 2e-16 ***
-dependencypronoun:environmentlong     4.3842     0.3766  11.641  < 2e-16 ***
-dependencypronoun:environmentisland   5.5197     0.4045  13.645  < 2e-16 ***
-
-# compare models ...
-
-anova(model1, model5)
-  
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model5   17 2096.0 2192.0 -1030.98   2062.0
-model1   48 2077.3 2348.4  -990.63   1981.3 80.704 31  2.634e-06 ***
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhen_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-1.5 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           2.5102     0.2287   10.98   <2e-16 ***
-dependencypronoun                    -2.2151     0.2212  -10.01   <2e-16 ***
-environmentlong                      -2.7001     0.2234  -12.09   <2e-16 ***
-environmentisland                    -3.9516     0.2405  -16.43   <2e-16 ***
-dependencypronoun:environmentlong     3.5348     0.2879   12.28   <2e-16 ***
-dependencypronoun:environmentisland   4.5614     0.2996   15.23   <2e-16 ***
-
-# compare models ...
-
-anova(model1, model6)
-  
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model6    8 2239.2 2284.4 -1111.58   2223.2
-model1   48 2077.3 2348.4  -990.63   1981.3 241.91 40  < 2.2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + sukoko ----
-#------------------------------------------------------------------------------#
-
-# sukoko = SRC study (su) + KLE group (ko) + Korean AJT (ko)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'korean',
-         task == 'korean_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model) 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoko_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-1618.44 sec elapsed
-Model failed to converge with max|grad| = 0.0540659 (tol = 0.002, component 1)
-Model is nearly unidentifiable: very large eigenvalue
-- Rescale variables?
-  Model is nearly unidentifiable: large eigenvalue ratio
-- Rescale variables?
-
-#------------------------------------------------------------------------------#
-# + + model 3
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model3 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 + dependency + environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoko_acc_md3.rds')
-summary(model3)
-toc()
-beep()
-
-38.71 sec elapsed
-Model failed to converge with max|grad| = 0.13897 (tol = 0.002, component 1)
-Model is nearly unidentifiable: very large eigenvalue
-- Rescale variables?
-
-#------------------------------------------------------------------------------#
-# + + model 4
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model4 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoko_acc_md4.rds')
-summary(model4)
-toc()
-beep()
-
-56.32 sec elapsed
-Model failed to converge with max|grad| = 0.131685 (tol = 0.002, component 1)
-Model is nearly unidentifiable: very large eigenvalue
-- Rescale variables?
-
-#------------------------------------------------------------------------------#
-# + + model 5 ----
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoko_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-16 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           5.5694     0.6828   8.157 3.44e-16 ***
-dependencypronoun                    -8.3793     0.8100 -10.345  < 2e-16 ***
-environmentlong                      -3.4099     0.7583  -4.497 6.89e-06 ***
-environmentisland                    -3.9077     0.7722  -5.060 4.19e-07 ***
-dependencypronoun:environmentlong     6.3096     0.8070   7.819 5.32e-15 ***
-dependencypronoun:environmentisland   6.7195     0.8131   8.264  < 2e-16 ***
-
-# compare models ...
-
-anova(model5, model6)
-
-npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
-model6    8 1640.0 1684.7 -811.98   1624.0
-model5   17 1473.9 1568.9 -719.93   1439.9 184.1  9  < 2.2e-16 ***
-
-# check assumptions ...
-
-check_model(model5)
-ggsave('plots/check_model.png', width=10, height=10, dpi=600)
-
-# pairwise comparisons ...
-
-model5 %>%
-  emmeans(~ dependency * environment) %>%
-  contrast('pairwise', by = 'environment') %>%
-  summary(by = NULL, adjust = 'holm')
-
-# generate table ...
-
-kbl(summary(model5)$coefficients, digits = c(2, 2, 2, 3))
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_sukoko_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-1.77 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           5.7806     0.6001   9.633  < 2e-16 ***
-dependencypronoun                    -8.2492     0.6113 -13.495  < 2e-16 ***
-environmentlong                      -4.3531     0.5815  -7.486 7.12e-14 ***
-environmentisland                    -4.6260     0.5824  -7.943 1.97e-15 ***
-dependencypronoun:environmentlong     6.9052     0.6311  10.942  < 2e-16 ***
-dependencypronoun:environmentisland   7.0871     0.6319  11.216  < 2e-16 ***
-
-#------------------------------------------------------------------------------#
-# + suzhzh ----
-#------------------------------------------------------------------------------#
-
-# suzhzh = SRC study (su) + MLE group (zh) + Mandarin AJT (zh)
-
-# filter for analysis ...
-
-md <- temp %>% 
-  filter(study == '210510_su', 
-         group == 'mandarin',
-         task == 'mandarin_ajt')
-
-check <- md %>% 
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-
-#------------------------------------------------------------------------------#
-# + + model 1 (maximal model) 
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model1 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency * environment | participant) + 
-                  (1 + dependency * environment | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhzh_acc_md1.rds')
-summary(model1)
-toc()
-beep()
-
-model1 <- read_rds('models/ajt_suzhzh_acc_md1.rds')
-
-569.18 sec elapsed
-optimizer (bobyqa) convergence code: 0 (OK)
-boundary (singular) fit: see help('isSingular')
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           4.6374     0.8093   5.730 1.00e-08 ***
-dependencypronoun                    -5.1865     0.8298  -6.250 4.10e-10 ***
-environmentlong                      -3.0617     0.8998  -3.403 0.000667 ***
-environmentisland                    -4.7561     0.8867  -5.364 8.16e-08 ***
-dependencypronoun:environmentlong     4.6731     0.8738   5.348 8.88e-08 ***
-dependencypronoun:environmentisland   6.2212     0.8490   7.327 2.35e-13 ***
-
-#------------------------------------------------------------------------------#
-# + + model 5
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model5 <- glmer(acceptance ~ dependency * environment + 
-                  (1 + dependency + environment | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhzh_acc_md5.rds')
-summary(model5)
-toc()
-beep()
-
-14.05 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           4.4561     0.4587   9.714  < 2e-16 ***
-dependencypronoun                    -4.9133     0.4511 -10.891  < 2e-16 ***
-environmentlong                      -2.9448     0.5747  -5.125 2.98e-07 ***
-environmentisland                    -4.5467     0.5466  -8.318  < 2e-16 ***
-dependencypronoun:environmentlong     4.5429     0.5027   9.036  < 2e-16 ***
-dependencypronoun:environmentisland   5.9150     0.4929  12.000  < 2e-16 ***
-
-# compare models ...
-
-anova()
-
-#------------------------------------------------------------------------------#
-# + + model 6
-#------------------------------------------------------------------------------#
-
-# fit model ...
-
-tic()
-model6 <- glmer(acceptance ~ dependency * environment + 
-                  (1 | participant) + 
-                  (1 | item), 
-                data = md, family = binomial, 
-                control = glmerControl(optimizer = "bobyqa",
-                                       optCtrl=list(maxfun = 1e6))) %>%
-  write_rds('models/ajt_suzhzh_acc_md6.rds')
-summary(model6)
-toc()
-beep()
-
-1.81 sec elapsed
-no warnings
-Fixed effects:
-  Estimate Std. Error z value Pr(>|z|)
-(Intercept)                           3.7410     0.3206  11.670   <2e-16 ***
-dependencypronoun                    -4.1345     0.3112 -13.286   <2e-16 ***
-environmentlong                      -2.7422     0.3070  -8.932   <2e-16 ***
-environmentisland                    -3.8508     0.3090 -12.461   <2e-16 ***
-dependencypronoun:environmentlong     3.7957     0.3563  10.654   <2e-16 ***
-dependencypronoun:environmentisland   4.8649     0.3594  13.537   <2e-16 ***
-
-# compare models ...
-
-anova(model1, model6)
-  
-npar    AIC    BIC   logLik deviance  Chisq Df Pr(>Chisq)
-model6    8 2250.7 2296.1 -1117.35   2234.7
-model1   48 2057.8 2330.4  -980.92   1961.8 272.87 40  < 2.2e-16 ***
+# dependency2                     -1.61025    0.10660 -15.106  < 2e-16 ***
+# environment2                    -0.66637    0.10577  -6.300 2.98e-10 ***
+# environment3                    -1.52287    0.12411 -12.271  < 2e-16 ***
+# panel2                           0.61877    0.22717   2.724  0.00645 ** 
+# panel3                           1.26828    0.22827   5.556 2.76e-08 ***
+# panel4                           1.12877    0.22986   4.911 9.08e-07 ***
+# panel5                           1.40765    0.22933   6.138 8.35e-10 ***
+# dependency2:environment2         3.31736    0.11900  27.876  < 2e-16 ***
+# dependency2:environment3         5.46688    0.12550  43.562  < 2e-16 ***
+# dependency2:panel2               2.26788    0.27295   8.309  < 2e-16 ***
+# dependency2:panel3               4.20352    0.27049  15.540  < 2e-16 ***
+# dependency2:panel4               1.23790    0.27415   4.515 6.32e-06 ***
+# dependency2:panel5               2.73294    0.26744  10.219  < 2e-16 ***
+# environment2:panel2              0.23639    0.28303   0.835  0.40360    
+# environment3:panel2              1.93791    0.31685   6.116 9.59e-10 ***
+# environment2:panel3             -0.05653    0.27932  -0.202  0.83960    
+# environment3:panel3              1.23569    0.31254   3.954 7.69e-05 ***
+# environment2:panel4              0.66753    0.28626   2.332  0.01971 *  
+# environment3:panel4              2.65741    0.32027   8.298  < 2e-16 ***
+# environment2:panel5              0.46966    0.27720   1.694  0.09021 .  
+# environment3:panel5              1.98157    0.31007   6.391 1.65e-10 ***
+# dependency2:environment2:panel2  0.68100    0.40216   1.693  0.09039 .  
+# dependency2:environment3:panel2 -2.53735    0.40675  -6.238 4.43e-10 ***
+# dependency2:environment2:panel3  0.87486    0.39668   2.205  0.02742 *  
+# dependency2:environment3:panel3 -3.98220    0.40270  -9.889  < 2e-16 ***
+# dependency2:environment2:panel4  2.34233    0.41257   5.677 1.37e-08 ***
+# dependency2:environment3:panel4 -3.46841    0.41742  -8.309  < 2e-16 ***
+# dependency2:environment2:panel5 -0.01723    0.39174  -0.044  0.96491    
+# dependency2:environment3:panel5 -4.86149    0.39659 -12.258  < 2e-16 *** 
+
+anova(model1, model7)
+
+# no.par   AIC logLik LR.stat df Pr(>Chisq)    
+# model1     36 26983 -13455                          
+# model7     80 26248 -13044  822.72 44  < 2.2e-16 ***
+
+# plot ...
+
+plot <- plot(emmeans(model7, ~ dependency * environment * panel), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log odds ratio") +
+  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
+  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  theme(text = element_text(size = 12), 
+        legend.position = c(.15, .22),
+        legend.margin = margin(-10, 0, 0, 0),
+        axis.title.y = element_text(hjust = .99)) +
+  facet_manual(~panel, design = design, axes = 'all', remove_labels = FALSE,
+               labeller = as_labeller(c(`enen` = 'ENS on English AJT', `enko` = 'KLE on English AJT', `enzh` = 'MLE on English AJT', `koko` = 'KLE on Korean AJT', `zhzh` = 'MLE on Mandarin AJT')))
+
+ggsave("plots/src/ajt_clmm_emmeans_md7.png", width=6.5, height=3.5, dpi=600)
 
 #------------------------------------------------------------------------------#
 # interaction plots for fillers ----
 #------------------------------------------------------------------------------#
 
-# filter to filler trials
-fill <- ajt %>% filter(cond %in% c('grammatical', 'ungrammatical', 'gram', 'ungr')) %>%
-  mutate(cond = case_when(cond == 'gram' ~ 'grammatical',
-                          cond == 'ungr' ~ 'ungrammatical',
-                          TRUE ~ cond))
+# filter to filler trials ...
 
-# create 'set' factor
+fill <- ajt %>% filter(condition %in% c('grammatical', 'ungrammatical'))
+
+# create 'set' factor ...
+
 fill <- fill %>%
   mutate(set = case_when(item %in% c('item31', 'item32', 'item33', 'item34', 'item35', 'item36', 'item37') ~ 'set1',
                          item %in% c('item38', 'item39', 'item40', 'item41', 'item42', 'item43', 'item44') ~ 'set2',
@@ -10288,236 +8342,262 @@ fill <- fill %>%
                          item %in% c('item59', 'item60', 'item61', 'item62', 'item63', 'item64', 'item65') ~ 'set5',
                          item %in% c('item66', 'item67', 'item68', 'item69', 'item70', 'item71', 'item72') ~ 'set6'))
 
-# create 'superset' factor
+# create 'superset' factor ...
+
 fill <- fill %>%
   mutate(superset = case_when(set %in% c('set1', 'set2') ~ 'superset1',
                               set %in% c('set3', 'set4') ~ 'superset2',
                               set == 'set5' ~ 'superset3',
                               set == 'set6' ~ 'superset4'))
 
-# summarize data for plotting by group
+# summarize for plotting ...
+
 plot <- fill %>%
-  mutate(cond = fct_drop(cond),
+  mutate(condition = fct_drop(condition),
          set = fct_drop(superset)) %>%
-  group_by(group, task, superset, cond) %>%
-  summarise(mean = mean(zscore, na.rm=T),
-            sd = sd(zscore, na.rm=T),
+  group_by(study, group, task, superset, condition) %>%
+  summarise(mean = mean(response, na.rm=T),
+            sd = sd(response, na.rm=T),
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
-  filter(cond != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE on Mandarin AJT'))
+  filter(condition != 'NA') %>%
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS on English AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE on English AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE on Korean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE on English AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE on Mandarin AJT')) %>%
+  mutate(panel = fct_relevel(panel, 'ENS on English AJT', 'KLE on English AJT', 'MLE on English AJT', 'KLE on Korean AJT', 'MLE on Mandarin AJT'))
 
-# add styling
+# generate plot ...
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=superset, y=mean, group=condition, col=condition, shape=condition))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=superset, y=mean, group=condition, col=condition, shape=condition))
+
+design <- "
+ ABC
+ #DE
+"
+
 s <- list(
-  annotate("rect", xmin = 0, xmax = 5, ymin = -1.3+(2.6/3), ymax = -1.3+(2.6/3)+(2.6/3), alpha = .15),
-  geom_hline(yintercept=0),
-  geom_line(lwd = 1),
-  geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
+  annotate('rect', 
+           xmin = .5, xmax = 4.5, 
+           ymin = 1+(5/3), 
+           ymax = 1+(5/3)+(5/3), 
+           alpha = .1),
+  geom_hline(yintercept = 3.5),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
   theme_classic(),
-  scale_x_discrete(name="type", limits = c("superset1", "superset2", "superset3", "superset4"), labels = c("F1", "F2", "F3", "F4")),
-  scale_y_continuous(name="mean z-score", limits=c(-1.3, 1.3), breaks=c(-1.5, -1, -.5, 0, .5, 1, 1.5)),
-  scale_colour_manual(name="condition", values=c('#648fff', '#ffb000'), labels=c("grammatical", "ungrammatical")),
-  scale_shape_manual(name="condition", values=c(16, 15), labels=c("grammatical", "ungrammatical")),
+  scale_x_discrete(name="type", 
+                   limits = c("superset1", "superset2", "superset3", "superset4"), 
+                   labels = c("F1", "F2", "F3", "F4"),
+                   expand = c(0, 0)),
+  scale_y_continuous(name='rating', 
+                     limits=c(1, 6), breaks = c(1, 2, 3, 4, 5, 6)),
+  scale_colour_manual(name='condition', 
+                      values=c('#40B0A6', '#E1BE6A'), 
+                      labels=c('grammatical', 'ungrammatical')),
+  scale_shape_manual(name='condition', 
+                     values=c(17, 18), 
+                     labels=c('grammatical', 'ungrammatical')),
   theme(text = element_text(size = 12),
+        legend.position = c(.15, .22),
+        legend.margin = margin(-10, 0, 0, 0),
+        axis.title.y = element_text(hjust = .88),
         plot.title = element_text(size = 12, hjust = .5)),
-  facet_wrap(~panel)
+  facet_manual(~panel, design = design, axes = 'all', remove_labels = FALSE)
 )
 
-# define data for panels
-p1 <- ggplot(data=filter(plot, group == 'english' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p2 <- ggplot(data=filter(plot, group == 'korean' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p3 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p4 <- ggplot(data=filter(plot, group == 'korean' & task == 'Korean AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p5 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'Korean AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
+p1 + s
+ggsave("plots/orc/ajt_filler_rating.png", width=6.5, height=3.5, dpi=600)
 
-# arrange and print
-p1 + s + theme(legend.position="none", axis.title.x = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.8, .65), axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank())
+p2 + s
+ggsave("plots/src/ajt_filler_rating.png", width=6.5, height=3.5, dpi=600)
 
-# save plot
-ggsave("data/objects/plots/ajt_fillers_zscore.png", width=6.5, height=3.5, dpi=600)
+#------------------------------------------------------------------------------#
+# modeling - clmm - filler ----
+#------------------------------------------------------------------------------#
 
-# summarize data for plotting by participant
-plot <- fill %>%
-  mutate(cond = fct_drop(cond),
-         set = fct_drop(superset)) %>%
-  group_by(task, run_id, participant, superset, cond) %>%
-  summarise(mean = mean(zscore, na.rm=T),
-            sd = sd(zscore, na.rm=T),
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() %>%
-  filter(cond != 'NA')
+# prep data ...
 
-# create plot faceted by participant
-ggplot(data=plot, aes(x=superset, y=mean, group=cond, col=cond, shape=cond)) +
-  geom_hline(yintercept=0) +
-  geom_line(lwd = 1) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1) +
+ajt_filler <- ajt %>%
+  filter(condition %in% c('grammatical', 'ungrammatical'))
+
+# create 'panel' factor ...
+
+ajt_filler <- ajt_filler %>% 
+  mutate(panel = case_when(task == 'english_ajt' & group == 'english' ~ 'EE',
+                           task == 'english_ajt' & group == 'korean' ~ 'KE',
+                           task == 'english_ajt' & group == 'mandarin' ~ 'ME',
+                           task == 'korean_ajt' & group == 'korean' ~ 'KK',
+                           task == 'mandarin_ajt' & group == 'mandarin' ~ 'MM'))
+
+# create 'set' factor ...
+
+ajt_filler <- ajt_filler %>%
+  mutate(set = case_when(item %in% c('item31', 'item32', 'item33', 'item34', 'item35', 'item36', 'item37') ~ 'set1',
+                         item %in% c('item38', 'item39', 'item40', 'item41', 'item42', 'item43', 'item44') ~ 'set2',
+                         item %in% c('item45', 'item46', 'item47', 'item48', 'item49', 'item50', 'item51') ~ 'set3',
+                         item %in% c('item52', 'item53', 'item54', 'item55', 'item56', 'item57', 'item58') ~ 'set4',
+                         item %in% c('item59', 'item60', 'item61', 'item62', 'item63', 'item64', 'item65') ~ 'set5',
+                         item %in% c('item66', 'item67', 'item68', 'item69', 'item70', 'item71', 'item72') ~ 'set6'))
+
+# create 'superset' factor ...
+
+ajt_filler <- ajt_filler %>%
+  mutate(superset = case_when(set %in% c('set1', 'set2') ~ 'superset1',
+                              set %in% c('set3', 'set4') ~ 'superset2',
+                              set == 'set5' ~ 'superset3',
+                              set == 'set6' ~ 'superset4'))
+
+# write to csv ...
+
+write_csv(ajt_filler, 'data/ajt_filler.csv')
+
+# read in data ...
+
+ajt_filler <- read_csv('data/ajt_filler.csv')
+
+# adjust column classes ...
+
+ajt_filler <- ajt_filler %>%
+  mutate_at(c('condition', 'superset', 'panel', 'participant', 'item'), as.factor) %>%
+  mutate(response = ordered(response)) %>%
+  mutate(panel = fct_relevel(panel, 'EE', 'KE', 'ME', 'KK', 'MM'))
+
+class(ajt_filler$condition)
+
+#------------------------------------------------------------------------------#
+# + orc ----
+#------------------------------------------------------------------------------#
+
+# filter for analysis ...
+
+md <- ajt_filler %>%
+  filter(study == '210510_do',
+         superset %in% c('superset1', 'superset2')) %>%
+  mutate(superset = fct_drop(superset))
+
+# apply deviation coding ...
+
+contrasts(md$condition) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol = 1)
+contrasts(md$superset) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol = 1)
+contrasts(md$panel) <- contr.treatment(5) - matrix(rep(1/5, 20), ncol = 4)
+
+# view contrasts ...
+
+contrasts(md$condition)
+contrasts(md$superset)
+contrasts(md$panel)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ condition * superset * panel + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md, control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_filler_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 142.26 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# condition2                  -3.75820    0.12447 -30.193  < 2e-16 ***
+# superset2                    0.77001    0.11976   6.430 1.28e-10 ***
+# panel2                       0.85312    0.15960   5.346 9.02e-08 ***
+# panel3                       1.03728    0.15682   6.614 3.73e-11 ***
+# panel4                      -0.85141    0.15970  -5.331 9.75e-08 ***
+# panel5                      -0.10191    0.15453  -0.660 0.509574    
+# condition2:superset2         0.97008    0.23944   4.052 5.09e-05 ***
+# condition2:panel2            3.26849    0.16652  19.629  < 2e-16 ***
+# condition2:panel3            3.14597    0.16679  18.862  < 2e-16 ***
+# condition2:panel4            0.97805    0.16761   5.835 5.37e-09 ***
+# condition2:panel5            1.51144    0.15999   9.447  < 2e-16 ***
+# superset2:panel2             0.80421    0.15364   5.234 1.65e-07 ***
+# superset2:panel3             0.97867    0.15436   6.340 2.30e-10 ***
+# superset2:panel4            -0.54265    0.15532  -3.494 0.000476 ***
+# superset2:panel5            -0.95350    0.14768  -6.457 1.07e-10 ***
+# condition2:superset2:panel2  1.76502    0.30729   5.744 9.26e-09 ***
+# condition2:superset2:panel3  0.56217    0.30801   1.825 0.067979 .  
+# condition2:superset2:panel4 -0.70559    0.31063  -2.271 0.023119 *  
+# condition2:superset2:panel5  0.08883    0.29513   0.301 0.763416 
+
+# plot ...
+
+plot <- plot(emmeans(model1, ~ condition * superset * panel), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = superset, y = the.emmean, group = condition, col = condition, shape = condition)) +
+  geom_hline(yintercept = 0) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
   theme_classic() +
-  scale_x_discrete(name="set", limits = c("superset1", "superset2", "superset3", "superset4"), labels = c("set1", "set2", "set3", "set4")) +
-  scale_y_continuous(name="mean z-score", limits=c(-4, 4)) +
-  scale_colour_manual(name="condition", values=c('#648fff', '#ffb000'), labels=c("grammatical", "ungrammatical")) +
-  scale_shape_manual(name="condition", values=c(16, 15), labels=c("grammatical", "ungrammatical")) +
-  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, -5)) +
-  facet_grid(task~participant)
+  scale_y_continuous(name="log odds ratio") +
+  scale_colour_manual(name="condition", values=c('#40B0A6', '#E1BE6A'), labels=c("grammatical", "ungrammatical")) +
+  scale_shape_manual(name="condition", values=c(17, 18), labels=c("grammatical", "ungrammatical")) +
+  theme(text = element_text(size = 12), 
+        legend.position = c(.15, .22),
+        legend.margin = margin(-10, 0, 0, 0),
+        axis.title.y = element_text(hjust = .99)) +
+  facet_manual(~panel, design = design, axes = 'all', remove_labels = FALSE,
+               labeller = as_labeller(c(`EE` = 'ENS on English AJT', `KE` = 'KLE on English AJT', `ME` = 'MLE on English AJT', `KK` = 'KLE on Korean AJT', `MM` = 'MLE on Mandarin AJT')))
 
-# save plot faceted by participant
-ggsave("data/objects/snulife/plots/ajt_fillers_zscore_ppt.png", width=5.5, height=3.5, dpi=600)
-
-# summarize data for plotting by raw ratings
-plot <- fill %>%
-  mutate(cond = fct_drop(cond),
-         set = fct_drop(superset)) %>%
-  group_by(group, task, superset, cond) %>%
-  summarise(mean = mean(button_pressed, na.rm=T),
-            sd = sd(button_pressed, na.rm=T),
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() %>%
-  filter(cond != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE on Mandarin AJT'))
-
-# add styling
-s <- list(
-  annotate("rect", xmin = 0, xmax = 5, ymin = 1+(5/3), ymax = 1+(5/3)+(5/3), alpha = .15),
-  geom_hline(yintercept=3.5),
-  geom_line(lwd = 1),
-  geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
-  theme_classic(),
-  scale_x_discrete(name="type", limits = c("superset1", "superset2", "superset3", "superset4"), labels = c("F1", "F2", "F3", "F4")),
-  scale_y_continuous(name="mean rating", limits=c(1, 6), breaks=c(1, 2, 3, 4, 5, 6)),
-  scale_colour_manual(name="condition", values=c('#648fff', '#ffb000'), labels=c("grammatical", "ungrammatical")),
-  scale_shape_manual(name="condition", values=c(16, 15), labels=c("grammatical", "ungrammatical")),
-  theme(text = element_text(size = 12),
-        plot.title = element_text(size = 12, hjust = .5)),
-  facet_wrap(~panel)
-)
-
-# define data for panels
-p1 <- ggplot(data=filter(plot, group == 'english' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p2 <- ggplot(data=filter(plot, group == 'korean' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p3 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p4 <- ggplot(data=filter(plot, group == 'korean' & task == 'Korean AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p5 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'Korean AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-
-# arrange and print
-p1 + s + theme(legend.position="none", axis.title.x = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.8, .65), axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank())
-
-# save plot
-ggsave("data/objects/plots/ajt_fillers_raw.png", width=6.5, height=3.5, dpi=600)
-
-# summarize data for plotting by acceptance
-plot <- fill %>%
-  mutate(cond = fct_drop(cond),
-         set = fct_drop(set),
-         acceptance = case_when(button_pressed > 3.5 ~ TRUE,
-                                button_pressed < 3.5 ~ FALSE)) %>%
-  group_by(task, group, superset, cond) %>%
-  summarise(mean = mean(acceptance, na.rm=T) * 100,
-            sd = sd(acceptance, na.rm=T) * 100,
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() %>%
-  filter(cond != 'NA') %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE on Mandarin AJT'))
-
-# define data for panels
-p1 <- ggplot(data=filter(plot, group == 'english' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p2 <- ggplot(data=filter(plot, group == 'korean' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p3 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'English AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p4 <- ggplot(data=filter(plot, group == 'korean' & task == 'Korean AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-p5 <- ggplot(data=filter(plot, group == 'mandarin' & task == 'Korean AJT'), aes(x=superset, y=mean, group=cond, col=cond, shape=cond))
-
-# add styling
-s <- list(
-  annotate("rect", xmin = 0, xmax = 5, ymin = (100/3), ymax = (100/3)+(100/3), alpha = .15),
-  geom_hline(yintercept=50),
-  geom_line(lwd = 1),
-  geom_point(size = 2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.2, lwd=1, linetype=1),
-  theme_classic(),
-  scale_x_discrete(name="type", limits = c("superset1", "superset2", "superset3", "superset4"), labels = c("F1", "F2", "F3", "F4")),
-  scale_y_continuous(name='% acceptance', limits=c(0, 100)),
-  scale_colour_manual(name="condition", values=c('#648fff', '#ffb000'), labels=c("grammatical", "ungrammatical")),
-  scale_shape_manual(name="condition", values=c(16, 15), labels=c("grammatical", "ungrammatical")),
-    theme(text = element_text(size = 12),
-        plot.title = element_text(size = 12, hjust = .5)),
-  facet_wrap(~panel)
-)
-
-# arrange and print
-p1 + s + theme(legend.position="none", axis.title.x = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.8, .65), axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank())
-
-# save plot
-ggsave("data/objects/plots/ajt_fillers_acceptance.png", width=6.5, height=3.5, dpi=600)
-
-# clear objects from workspace
-rm(plot, check)
+ggsave("plots/orc/ajt_filler_clmm_emmeans_md1.png", width=6.5, height=3.5, dpi=600)
 
 #------------------------------------------------------------------------------#
 # density plots for ajt critical trials ----
 #------------------------------------------------------------------------------#
 
-# density plot of z-score data
+# density plot of z-score data ...
+
 density <- crit %>%
-  filter(!cond %in% c('gram', 'ungr')) %>%
-  mutate(cond = fct_drop(cond),
+  filter(!condition %in% c('grammatical', 'ungrammatical')) %>%
+  mutate(condition = fct_drop(condition),
          environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS\nEnglish AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE\nEnglish AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE\nKorean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE\nEnglish AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE\nMandarin AJT'))
-ggplot(density, aes(x=zscore, fill=dependency)) + 
-  geom_vline(xintercept=0) +
-  geom_density(alpha=.7) +
-  theme_classic() +
-  scale_x_continuous(name="z-score", limits = c(-3, 3)) +
-  scale_fill_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "RP")) +
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS\nEnglish AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE\nEnglish AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE\nEnglish AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE\nKorean AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE\nMandarin AJT')) %>%
+  mutate(panel = fct_relevel(panel, 'ENS\nEnglish AJT', 'KLE\nEnglish AJT', 'MLE\nEnglish AJT', 'KLE\nKorean AJT', 'MLE\nMandarin AJT'))
+
+p1 <- ggplot(data = filter(density, study == '210510_do'), aes(x = zscore, fill = dependency))
+p2 <- ggplot(data = filter(density, study == '210510_su'), aes(x = zscore, fill = dependency))
+
+s <- list(
+  geom_vline(xintercept=0),
+  geom_density(alpha=.7, col = NA),
+  theme_classic(),
+  scale_x_continuous(name="z-score", limits = c(-3, 3)),
+  scale_fill_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "RP")),
   theme(text = element_text(size = 12), 
         plot.title = element_text(size = 12, hjust = .5), 
         legend.position = "bottom", 
         legend.margin=margin(0, 0, 0, 0),
-        legend.box.margin = margin(-10, -10, 0, -10)) +
+        legend.box.margin = margin(-10, -10, 0, -10)),
   facet_grid(environment ~ panel)
+)
 
-#save plot
-ggsave("data/objects/plots/ajt_density_crit_zscore.png", width=6.5, height=3.5, dpi=600)
+p1 + s
+ggsave('plots/orc/ajt_density_crit_zscore.png', width=6.5, height=3.5, dpi=600)
+
+p2 + s
+ggsave('plots/orc/ajt_density_crit_zscore.png', width=6.5, height=3.5, dpi=600)
+
+
 
 # density plot of raw ratings
 density <- crit %>%
@@ -10580,86 +8660,53 @@ ggplot(plot, aes(x=mean, fill=dependency)) +
 # bar plot of rating distributions ----
 #------------------------------------------------------------------------------#
 
-# summarise for plotting by panel
+# summarise ...
+
 plot <- ajt %>%
-  mutate(panel = case_when(group == 'english' & task == 'English AJT' ~ 'ENS on English AJT',
-                           group == 'korean' & task == 'English AJT' ~ 'KLE on English AJT',
-                           group == 'korean' & task == 'Korean AJT' ~ 'KLE on Korean AJT',
-                           group == 'mandarin' & task == 'English AJT' ~ 'MLE on English AJT',
-                           group == 'mandarin' & task == 'Korean AJT' ~ 'MLE on Mandarin AJT'))
+  mutate(panel = case_when(group == 'english' & task == 'english_ajt' ~ 'ENS\nEnglish AJT',
+                           group == 'korean' & task == 'english_ajt' ~ 'KLE\nEnglish AJT',
+                           group == 'korean' & task == 'korean_ajt' ~ 'KLE\nKorean AJT',
+                           group == 'mandarin' & task == 'english_ajt' ~ 'MLE\nEnglish AJT',
+                           group == 'mandarin' & task == 'mandarin_ajt' ~ 'MLE\nMandarin AJT'))
 
-# check proportion of responses for each value on rating scale by panel
-check <- plot %>%
-  mutate(button_pressed = factor(button_pressed)) %>%
-  group_by(panel) %>%
-  mutate(tot = n()) %>%
+plot2 <- plot %>%
+  group_by(study, panel, response) %>%
+  summarise(n = n()) %>%
   ungroup() %>%
-  group_by(panel, button_pressed) %>%
-  summarise(perc = n() / tot) %>%
+  group_by(study, panel) %>%
+  mutate(sum = sum(n)) %>%
   ungroup() %>%
-  group_by(panel, button_pressed, perc) %>%
-  summarise() %>%
-  ungroup() %>%
-  group_by(panel) %>%
-  mutate(tot = sum(perc)) %>%
-  ungroup()
+  mutate(percent = n / sum * 100)
 
-# check proportion of responses for highest and lowest values on rating scale
-check <- check %>%
-  filter(button_pressed %in% c('1', '6')) %>%
-  group_by(panel) %>%
-  summarise(sum = sum(perc)) %>%
-  ungroup() %>%
-  mutate(mean = mean(sum))
+# plot ...
 
-# check proportion of responses for middle values on rating scale
-check <- check %>%
-  filter(button_pressed %in% c('3', '4')) %>%
-  group_by(panel) %>%
-  summarise(sum = sum(perc)) %>%
-  ungroup() %>%
-  mutate(mean = mean(sum))
+ggplot(data = filter(plot2, study == '210510_do'), aes(x = response, y = percent)) +
+  geom_bar(stat = 'identity', col = 'black', fill = NA, width = 1) +
+  theme_classic() +
+  scale_x_continuous(name="rating", breaks = c(1, 2, 3, 4, 5, 6)) +
+  scale_y_continuous(name="% responses", limits = c(0, 60)) +
+  theme(text = element_text(size = 12),
+      plot.title = element_text(size = 12, hjust = .5),
+      legend.position = "bottom", 
+      legend.margin=margin(0, 0, 0, 0),
+      legend.box.margin = margin(-10, -10, 0, -10)) +
+  facet_wrap(~panel, ncol = 5)
 
+ggsave("plots/orc/ajt_rating_distribution.png", width=6.5, height=2, dpi=600)
 
-# define data for panels
-p1 <- ggplot(data=filter(plot, panel == 'ENS on English AJT'), aes(x=button_pressed))
-p2 <- ggplot(data=filter(plot, panel == 'KLE on English AJT'), aes(x=button_pressed))
-p3 <- ggplot(data=filter(plot, panel == 'MLE on English AJT'), aes(x=button_pressed))
-p4 <- ggplot(data=filter(plot, panel == 'KLE on Korean AJT'), aes(x=button_pressed))
-p5 <- ggplot(data=filter(plot, panel == 'MLE on Mandarin AJT'), aes(x=button_pressed))
+ggplot(data = filter(plot2, study == '210510_su'), aes(x = response, y = percent)) +
+  geom_bar(stat = 'identity', col = 'black', fill = NA, width = 1) +
+  theme_classic() +
+  scale_x_continuous(name="rating", breaks = c(1, 2, 3, 4, 5, 6)) +
+  scale_y_continuous(name="% responses", limits = c(0, 60)) +
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5),
+        legend.position = "bottom", 
+        legend.margin=margin(0, 0, 0, 0),
+        legend.box.margin = margin(-10, -10, 0, -10)) +
+  facet_wrap(~panel, ncol = 5)
 
-# add styling
-s <- list(
-  # geom_vline(xintercept=3.5),
-  geom_bar(aes(y = (..count..) / sum(..count..) * 100), col = 'black', fill = 'lightblue'),
-    #geom_bar(stat = "identity", col = "black", fill = 'lightblue', width = .5, alpha=.8),
-    theme_classic(),
-    scale_x_continuous(name="rating", breaks = c(1, 2, 3, 4, 5, 6)),
-    scale_y_continuous(name="% responses", limits = c(0, 60)),
-    theme(text = element_text(size = 12), 
-          plot.title = element_text(size = 12, hjust = .5), 
-          legend.position = "bottom", 
-          legend.margin=margin(0, 0, 0, 0),
-          legend.box.margin = margin(-10, -10, 0, -10)),
-    facet_wrap(~panel)
-)
-
-# arrange plots
-p1 + s + theme(legend.position="none", axis.title.x = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p2 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  p3 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank(), plot.margin = margin(0, 0, -2, 0, "cm")) + 
-  patchwork::plot_spacer() + 
-  p4 + s + theme(legend.position = c(-.85, .65), axis.title.y = element_blank()) + 
-  p5 + s + theme(legend.position="none", axis.title.x = element_blank(), axis.title.y = element_blank())
-
-#save plot
-ggsave("data/objects/plots/ajt_rating_distribution.png", width=6.5, height=3.5, dpi=600)
-
-
-
-
-#save plot
-ggsave("data/objects/plots/ajt_rating_distribution_everyone.png", width=5, height=1.5, dpi=600)
+ggsave("plots/src/ajt_rating_distribution.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
 # corrections to files 
@@ -10692,9 +8739,297 @@ sub <- read_csv('data/objects/korean/payment-korea.csv', col_types = cols(.defau
 # tidy up
 rm(sub)
 
+#------------------------------------------------------------------------------#
+# rating distribution plot ----
+#------------------------------------------------------------------------------#
+
+# read in data ...
+
+ajt_crit <- read_csv('data/ajt_crit.csv')
+
+# create panel factor ...
+
+temp <- ajt_crit %>% 
+  mutate(panel = case_when(task == 'english_ajt' & group == 'english' ~ 'EE',
+                           task == 'english_ajt' & group == 'korean' ~ 'KE',
+                           task == 'english_ajt' & group == 'mandarin' ~ 'ME',
+                           task == 'korean_ajt' & group == 'korean' ~ 'KK',
+                           task == 'mandarin_ajt' & group == 'mandarin' ~ 'MM')) %>%
+  mutate(panel = fct_relevel(panel, 'EE', 'KE', 'ME', 'KK', 'MM'))
+
+# select columns ...
+
+temp <- temp %>%
+  select(study, group, panel, participant, item, dependency, environment, response)
+
+# adjust column classes ...
+
+temp <- temp %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  mutate_at(c('dependency', 'item', 'panel', 'participant', 'group', 'study'), as.factor) %>%
+  mutate(response = as.numeric(response)) %>%
+  mutate(response_fct = factor(response))
+
+summary(temp)
+
+plot <- temp %>%
+  group_by(study, panel, participant, dependency, environment) %>%
+  summarise(mean = mean(response, na.rm = TRUE),
+            sd = sd(response, na.rm = TRUE)) %>%
+  ungroup()
+
+# plot by dependency
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=mean, y=sd, group = dependency, col = dependency, fill = dependency, linetype = dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=mean, y=sd, group = dependency, col = dependency, fill = dependency, linetype = dependency))
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  stat_smooth(method = "loess", formula = y ~ x, size = 1),
+  theme_classic(),
+  scale_x_continuous(name='mean rating', breaks = c(1, 3.5, 6)),
+  scale_y_continuous(name='standard deviation'),
+  scale_linetype_manual(values = c('longdash', 'solid')),
+  scale_color_manual(values = c('#648fff', '#ffb000')),
+  scale_fill_manual(values = c('#648fff', '#ffb000')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_grid2(vars(environment), vars(panel), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`short` = 'short', `long` = 'long', `island` = 'island',
+                                       `EE` = 'ENS in\nEnglish', `KE` = 'KLE in\nEnglish', `ME` = 'MLE in\nEnglish', `KK` = 'KLE in\nKorean', `MM` = 'MLE in\nMandarin')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_sd_environment.png", width=6.5, height=3.5, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_orc_rating_sd_environment.png", width=6.5, height=3.5, dpi=600)
+
+
+#------------------------------------------------------------------------------#
+# standard deviation plot ----
+#------------------------------------------------------------------------------#
+
+# read in data ...
+
+ajt_crit <- read_csv('data/ajt_crit.csv')
+
+# create panel factor ...
+
+temp <- ajt_crit %>% 
+  mutate(panel = case_when(task == 'english_ajt' & group == 'english' ~ 'EE',
+                           task == 'english_ajt' & group == 'korean' ~ 'KE',
+                           task == 'english_ajt' & group == 'mandarin' ~ 'ME',
+                           task == 'korean_ajt' & group == 'korean' ~ 'KK',
+                           task == 'mandarin_ajt' & group == 'mandarin' ~ 'MM')) %>%
+  mutate(panel = fct_relevel(panel, 'EE', 'KE', 'ME', 'KK', 'MM'))
+
+# select columns ...
+
+temp <- temp %>%
+  select(study, group, panel, participant, item, dependency, environment, response)
+
+# adjust column classes ...
+
+temp <- temp %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  mutate_at(c('dependency', 'item', 'panel', 'participant', 'group', 'study'), as.factor) %>%
+  mutate(response = as.numeric(response)) %>%
+  mutate(response_fct = factor(response))
+
+summary(temp)
+
+plot <- temp %>%
+  group_by(study, panel, participant, dependency, environment) %>%
+  summarise(mean = mean(response, na.rm = TRUE),
+            sd = sd(response, na.rm = TRUE)) %>%
+  ungroup()
+
+# plot by dependency
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=mean, y=sd, group = dependency, col = dependency, fill = dependency, linetype = dependency))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=mean, y=sd, group = dependency, col = dependency, fill = dependency, linetype = dependency))
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  stat_smooth(method = "loess", formula = y ~ x, size = 1),
+  theme_classic(),
+  scale_x_continuous(name='mean rating', breaks = c(1, 3.5, 6)),
+  scale_y_continuous(name='standard deviation'),
+  scale_linetype_manual(values = c('longdash', 'solid')),
+  scale_color_manual(values = c('#648fff', '#ffb000')),
+  scale_fill_manual(values = c('#648fff', '#ffb000')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_grid2(vars(environment), vars(panel), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`short` = 'short', `long` = 'long', `island` = 'island',
+                                       `EE` = 'ENS in\nEnglish', `KE` = 'KLE in\nEnglish', `ME` = 'MLE in\nEnglish', `KK` = 'KLE in\nKorean', `MM` = 'MLE in\nMandarin')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_sd_environment.png", width=6.5, height=3.5, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_orc_rating_sd_environment.png", width=6.5, height=3.5, dpi=600)
+
+# plot by dependency
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=mean, y=sd, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=mean, y=sd, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  stat_smooth(method = "loess", formula = y ~ x, size = 1),
+  #geom_smooth(method=lm, lwd = 1, alpha = .2), 
+  theme_classic(),
+  scale_x_continuous(name='rating'),
+  scale_y_continuous(name='standard deviation'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_grid2(vars(dependency), vars(panel), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', 
+                                       `EE` = 'ENS in\nEnglish', `KE` = 'KLE in\nEnglish', `ME` = 'MLE in\nEnglish', `KK` = 'KLE in\nKorean', `MM` = 'MLE in\nMandarin')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_sd_dependency.png", width=6.5, height=3, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_orc_rating_sd_dependency.png", width=6.5, height=3, dpi=600)
+
+# plot of rating distributions by environment
+
+plot <- temp %>%
+  group_by(study, panel, participant, response, environment) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  group_by(study, panel, participant, response, environment) %>%
+  mutate(sum = sum(n)) %>%
+  ungroup() %>%
+  mutate(percent = n / sum * 100)
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=response, y=sum, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=response, y=sum, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  #geom_point(alpha = .1, shape = 16, size = 2),
+  stat_smooth(method = "loess", formula = y ~ x, size = 1),
+  theme_classic(),
+  scale_x_continuous(name='rating'),
+  scale_y_continuous(name='count'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_wrap(~panel, ncol = 5,
+             labeller = as_labeller(c(`EE` = 'ENS in\nEnglish', `KE` = 'KLE in\nEnglish', `ME` = 'MLE in\nEnglish', `KK` = 'KLE in\nKorean', `MM` = 'MLE in\nMandarin')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_distribution_environment.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_orc_rating_distribution_environment.png", width=6.5, height=2, dpi=600)
+
+# plot of rating distributions overall (averaged by participant)
+
+plot <- temp %>%
+  group_by(study, panel, participant) %>%
+  mutate(tot = n()) %>%
+  ungroup() %>%
+  group_by(study, panel, participant, response, tot) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  group_by(study, panel, participant, response) %>%
+  mutate(sum = sum(n),
+         percent = sum(n) / tot * 100) %>%
+  ungroup()
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=response, y=percent))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=response, y=percent))
+
+s <- list(
+  stat_smooth(method = "loess", formula = y ~ x, size = 1),
+  theme_classic(),
+  scale_x_continuous(name='rating', breaks = c(1, 2, 3, 4, 5, 6)),
+  scale_y_continuous(name='% responses'),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_wrap(~panel, ncol = 5,
+             labeller = as_labeller(c(`EE` = 'ENS in\nEnglish', `KE` = 'KLE in\nEnglish', `ME` = 'MLE in\nEnglish', `KK` = 'KLE in\nKorean', `MM` = 'MLE in\nMandarin')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_distribution.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_orc_rating_distribution.png", width=6.5, height=2, dpi=600)
+
+# plot of rating distributions overall
+
+plot <- temp %>%
+  group_by(study, panel) %>%
+  mutate(tot = n()) %>%
+  ungroup() %>%
+  group_by(study, panel, response, tot) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  group_by(study, panel, response) %>%
+  mutate(sum = sum(n),
+         percent = sum(n) / tot * 100) %>%
+  ungroup()
+
+p1 <- ggplot(data=filter(temp, study == '210510_do'), aes(x=response, y=n))
+p2 <- ggplot(data=filter(temp, study == '210510_su'), aes(x=response, y=percent))
+
+s <- list(
+  stat_smooth(method = "loess", formula = y ~ x, size = 1),
+  theme_classic(),
+  scale_x_continuous(name='rating', breaks = c(1, 2, 3, 4, 5, 6)),
+  scale_y_continuous(name='percent'),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_wrap(~panel, ncol = 5,
+             labeller = as_labeller(c(`EE` = 'ENS in\nEnglish', `KE` = 'KLE in\nEnglish', `ME` = 'MLE in\nEnglish', `KK` = 'KLE in\nKorean', `MM` = 'MLE in\nMandarin')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_distribution_overall.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_orc_rating_distribution_overall.png", width=6.5, height=2, dpi=600)
+
 
 #==============================================================================#
-# ::::: ajt data vs. spr data ::::: ----
+# ::::: ajt data vs. ept data ::::::::::::::::::::::::::::::::::::::::::::: ----
+#==============================================================================#
+
+# insert here
+
+#==============================================================================#
+# ::::: ajt data vs. spr data ::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 #------------------------------------------------------------------------------#
@@ -11104,8 +9439,774 @@ summary(model)
 #   rt_dif        1.6109     1.0132    1.59    0.117 
 
 #==============================================================================#
-# ::::: ajt data vs. c-test data ::::: ----
+# ::::: ajt data vs. c-test data :::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
+
+#------------------------------------------------------------------------------#
+# modeling: proficiency - clmm - critical ----
+#------------------------------------------------------------------------------#
+
+# read in data ...
+
+ajt_crit <- read_csv('data/ajt_crit.csv')
+
+# create panel factor ...
+
+md <- ajt_crit %>% 
+  mutate(panel = case_when(task == 'english_ajt' & group == 'english' ~ 'EE',
+                           task == 'english_ajt' & group == 'korean' ~ 'KE',
+                           task == 'english_ajt' & group == 'mandarin' ~ 'ME',
+                           task == 'korean_ajt' & group == 'korean' ~ 'KK',
+                           task == 'mandarin_ajt' & group == 'mandarin' ~ 'MM')) %>%
+  mutate(panel = fct_relevel(panel, 'EE', 'KE', 'ME', 'KK', 'MM'))
+
+# add proficiency scores
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+# select columns ...
+
+md <- md %>%
+  select(study, group, panel, participant, proficiency, item, dependency, environment, response)
+
+# filter ...
+
+md <- md %>%
+  filter(panel %in% c('KE', 'ME')) %>%
+  mutate(panel = fct_drop(panel))
+
+# adjust column classes ...
+
+md <- md %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  mutate_at(c('dependency', 'item', 'panel', 'participant', 'group', 'study'), as.factor) %>%
+  mutate(response = ordered(response))
+
+summary(md)
+
+#------------------------------------------------------------------------------#
+# + plot ratings ----
+#------------------------------------------------------------------------------#
+
+plot <- md %>%
+  group_by(study, panel, participant, dependency, environment, proficiency) %>%
+  summarise(response = mean(as.numeric(response), na.rm = TRUE))
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=response, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=response, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  geom_smooth(method=lm, lwd = 1, alpha = .2), 
+  theme_classic(),
+  scale_x_continuous(name='mean-centered proficiency score'),
+  scale_y_continuous(name='rating'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_grid2(vars(dependency), vars(panel), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `KE` = 'KLE', `ME` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_proficiency_effect.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_orc_rating_proficiency_effect.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + clmm: orc ratings ----
+#------------------------------------------------------------------------------#
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol = 1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol = 2)
+contrasts(md$panel) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol = 1)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+contrasts(md$panel)
+
+#------------------------------------------------------------------------------#
+# + + model 1 
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ proficiency * environment * panel + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do', dependency == 'pronoun'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 45.2 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                     -0.063650   0.025074  -2.538  0.01113 *  
+# environment2                     0.211151   0.125213   1.686  0.09173 .  
+# environment3                     0.968910   0.128425   7.545 4.54e-14 ***
+# panel2                           1.090366   0.372909   2.924  0.00346 ** 
+# proficiency:environment2         0.008346   0.014276   0.585  0.55882    
+# proficiency:environment3         0.021507   0.014604   1.473  0.14083    
+# proficiency:panel2               0.027460   0.044813   0.613  0.54004    
+# environment2:panel2             -0.459063   0.249562  -1.839  0.06585 .  
+# environment3:panel2             -1.686510   0.255371  -6.604 4.00e-11 ***
+# proficiency:environment2:panel2 -0.010658   0.028131  -0.379  0.70479    
+# proficiency:environment3:panel2 -0.075003   0.028803  -2.604  0.00921 ** 
+
+#------------------------------------------------------------------------------#
+# + + model 2 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ proficiency * environment * panel + 
+                 (1 + environment | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do', dependency == 'pronoun'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 173.83 sec elapsed
+# no warnings
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                     -0.069666   0.027398  -2.543  0.01100 *  
+# environment2                     0.237384   0.194893   1.218  0.22322    
+# environment3                     1.101228   0.221959   4.961 7.00e-07 ***
+# panel2                           1.213751   0.470890   2.578  0.00995 ** 
+# proficiency:environment2         0.007872   0.021555   0.365  0.71497    
+# proficiency:environment3         0.021903   0.025019   0.875  0.38134    
+# proficiency:panel2               0.031109   0.054658   0.569  0.56925    
+# environment2:panel2             -0.570797   0.382258  -1.493  0.13538    
+# environment3:panel2             -1.949877   0.438649  -4.445 8.78e-06 ***
+# proficiency:environment2:panel2 -0.018321   0.042637  -0.430  0.66742    
+# proficiency:environment3:panel2 -0.091164   0.049775  -1.832  0.06702 . 
+
+anova(model1, model2)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)    
+# model1     18 5477.1 -2720.5                          
+# model2     23 5425.5 -2689.7  61.576  5  5.738e-12 ***
+
+trends <- emtrends(model2, ~ panel * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# panel environment proficiency.trend     SE  df z.ratio p.value
+# KE    short                 -0.1134 0.0464 Inf  -2.445  0.0643 .
+# ME    short                 -0.0458 0.0435 Inf  -1.053  0.7506
+# KE    long                  -0.0964 0.0428 Inf  -2.252  0.1035
+# ME    long                  -0.0471 0.0404 Inf  -1.166  0.6732
+# KE    island                -0.0459 0.0417 Inf  -1.100  0.7190
+# ME    island                -0.0695 0.0401 Inf  -1.733  0.3023
+# P value adjustment: mvt method for 6 tests
+
+# plot ...
+
+plot <- emmip(model2, environment ~ proficiency | panel, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='log odds ratio') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_wrap(~panel, labeller = as_labeller(c(`ME` = 'MLE', `KE` = 'KLE')))
+
+ggsave("plots/orc/ajt_rp_rating_proficiency_emmeans_md2.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- clmm(response ~ proficiency * environment * panel + 
+                 (1 + environment | participant) + 
+                 (1 + environment | item), 
+               data = filter(md, study == '210510_do', dependency == 'pronoun'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 439.66 sec elapsed
+# singular fit, despite no warning
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                     -0.069694   0.027438  -2.540   0.0111 *  
+# environment2                     0.238037   0.195294   1.219   0.2229    
+# environment3                     1.101656   0.225304   4.890 1.01e-06 ***
+# panel2                           1.212026   0.471584   2.570   0.0102 *  
+# proficiency:environment2         0.007897   0.021588   0.366   0.7145    
+# proficiency:environment3         0.022097   0.025059   0.882   0.3779    
+# proficiency:panel2               0.030967   0.054734   0.566   0.5715    
+# environment2:panel2             -0.570555   0.382838  -1.490   0.1361    
+# environment3:panel2             -1.962995   0.439710  -4.464 8.03e-06 ***
+# proficiency:environment2:panel2 -0.018288   0.042701  -0.428   0.6685    
+# proficiency:environment3:panel2 -0.091666   0.049826  -1.840   0.0658 . 
+
+anova(model2, model3)
+
+# no.par    AIC  logLik LR.stat df Pr(>Chisq)
+# model2     23 5425.5 -2689.7                      
+# model3     28 5435.1 -2689.5  0.3886  5     0.9956
+
+#------------------------------------------------------------------------------#
+# + + model 1 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 133.41 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                                  0.003019   0.010926   0.276 0.782315    
+# dependency2                                 -1.884259   0.071453 -26.371  < 2e-16 ***
+# environment2                                -0.235993   0.084128  -2.805 0.005029 ** 
+# environment3                                -0.182199   0.083037  -2.194 0.028222 *  
+# panel2                                       0.238446   0.187679   1.271 0.203906  
+# proficiency:dependency2                     -0.098535   0.007895 -12.481  < 2e-16 ***
+# proficiency:environment2                    -0.009470   0.009571  -0.989 0.322430    
+# proficiency:environment3                    -0.028423   0.009539  -2.980 0.002887 ** 
+# dependency2:environment2                     0.733247   0.168354   4.355 1.33e-05 ***
+# dependency2:environment3                     1.653619   0.166811   9.913  < 2e-16 ***
+# proficiency:panel2                          -0.030378   0.021859  -1.390 0.164614    
+# dependency2:panel2                           0.879427   0.136606   6.438 1.21e-10 ***
+# environment2:panel2                         -0.201291   0.168180  -1.197 0.231354    
+# environment3:panel2                         -0.471279   0.166103  -2.837 0.004550 ** 
+# proficiency:dependency2:environment2         0.025422   0.019136   1.328 0.184017    
+# proficiency:dependency2:environment3         0.074731   0.019045   3.924 8.71e-05 ***
+# proficiency:dependency2:panel2               0.086638   0.015618   5.547 2.90e-08 ***
+# proficiency:environment2:panel2             -0.009265   0.019141  -0.484 0.628349    
+# proficiency:environment3:panel2              0.007641   0.019071   0.401 0.688653    
+# dependency2:environment2:panel2             -0.179203   0.336353  -0.533 0.594185    
+# dependency2:environment3:panel2             -1.249653   0.332090  -3.763 0.000168 ***
+# proficiency:dependency2:environment2:panel2  0.023038   0.038276   0.602 0.547237    
+# proficiency:dependency2:environment3:panel2 -0.092777   0.038075  -2.437 0.014822 *
+ 
+trends <- emtrends(model1, ~ panel * dependency * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# panel dependency environment proficiency.trend     SE  df z.ratio p.value
+# KE    gap        short                0.123999 0.0214 Inf   5.796  <.0001 ***
+# ME    gap        short                0.039220 0.0200 Inf   1.956  0.3613
+# KE    pronoun    short               -0.062862 0.0200 Inf  -3.138  0.0179 *
+# ME    pronoun    short               -0.037757 0.0190 Inf  -1.989  0.3405
+# KE    gap        long                 0.112210 0.0204 Inf   5.492  <.0001 ***
+# ME    gap        long                 0.006647 0.0192 Inf   0.347  1.0000
+# KE    pronoun    long                -0.060748 0.0199 Inf  -3.053  0.0232 *
+# ME    pronoun    long                -0.033389 0.0187 Inf  -1.787  0.4786
+# KE    gap        island               0.031195 0.0198 Inf   1.576  0.6387
+# ME    gap        island               0.000446 0.0191 Inf   0.023  1.0000
+# KE    pronoun    island              -0.034546 0.0199 Inf  -1.732  0.5191
+# ME    pronoun    island              -0.048188 0.0188 Inf  -2.557  0.0969 .
+# P value adjustment: mvt method for 12 tests
+
+#------------------------------------------------------------------------------#
+# + + model 2 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 + dependency | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 873.17 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                                  0.006762   0.014466   0.467 0.640203    
+# dependency2                                 -2.963256   0.347320  -8.532  < 2e-16 ***
+#   environment2                                -0.276590   0.094404  -2.930 0.003391 ** 
+#   environment3                                -0.204519   0.094876  -2.156 0.031111 *  
+#   panel2                                       0.417834   0.251342   1.662 0.096431 . 
+# proficiency:dependency2                     -0.140508   0.039710  -3.538 0.000403 ***
+#   proficiency:environment2                    -0.011732   0.010474  -1.120 0.262678    
+# proficiency:environment3                    -0.038704   0.010618  -3.645 0.000267 ***
+#   dependency2:environment2                     0.973123   0.189038   5.148 2.64e-07 ***
+#   dependency2:environment3                     2.369132   0.191699  12.359  < 2e-16 ***
+#   proficiency:panel2                          -0.033293   0.028851  -1.154 0.248502    
+# dependency2:panel2                           1.387020   0.685809   2.022 0.043129 *  
+#   environment2:panel2                         -0.273861   0.188599  -1.452 0.146479    
+# environment3:panel2                         -0.648957   0.189387  -3.427 0.000611 ***
+#   proficiency:dependency2:environment2         0.040294   0.020951   1.923 0.054451 .  
+# proficiency:dependency2:environment3         0.120408   0.021259   5.664 1.48e-08 ***
+#   proficiency:dependency2:panel2               0.122370   0.079243   1.544 0.122533    
+# proficiency:environment2:panel2             -0.016772   0.020943  -0.801 0.423234    
+# proficiency:environment3:panel2              0.005905   0.021199   0.279 0.780590    
+# dependency2:environment2:panel2             -0.360201   0.377158  -0.955 0.339557    
+# dependency2:environment3:panel2             -2.116774   0.379287  -5.581 2.39e-08 ***
+#   proficiency:dependency2:environment2:panel2  0.012567   0.041890   0.300 0.764175    
+# proficiency:dependency2:environment3:panel2 -0.162880   0.042446  -3.837 0.000124 ***
+
+anova(model1, model2)
+
+# no.par   AIC  logLik LR.stat df Pr(>Chisq)    
+# model1     30 11858 -5899.0                          
+# model2     32 10487 -5211.7  1374.8  2  < 2.2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 3 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 1168.68 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                                  0.008767   0.015404   0.569 0.569248    
+# dependency2                                 -3.164194   0.370699  -8.536  < 2e-16 ***
+#   environment2                                -0.399455   0.165712  -2.411 0.015929 *  
+#   environment3                                -0.308124   0.165420  -1.863 0.062507 .  
+# panel2                                       0.417016   0.267930   1.556 0.119605
+# proficiency:dependency2                     -0.150122   0.042333  -3.546 0.000391 ***
+#   proficiency:environment2                    -0.015642   0.017859  -0.876 0.381105    
+# proficiency:environment3                    -0.048693   0.018167  -2.680 0.007357 ** 
+#   dependency2:environment2                     1.046320   0.206102   5.077 3.84e-07 ***
+#   dependency2:environment3                     2.518649   0.206934  12.171  < 2e-16 ***
+#   proficiency:panel2                          -0.039247   0.030738  -1.277 0.201668    
+# dependency2:panel2                           1.507380   0.730961   2.062 0.039190 *  
+#   environment2:panel2                         -0.221398   0.318165  -0.696 0.486517    
+# environment3:panel2                         -0.583920   0.320635  -1.821 0.068586 .  
+# proficiency:dependency2:environment2         0.041308   0.022439   1.841 0.065641 .  
+# proficiency:dependency2:environment3         0.127351   0.022536   5.651 1.60e-08 ***
+#   proficiency:dependency2:panel2               0.134002   0.084478   1.586 0.112684    
+# proficiency:environment2:panel2             -0.009134   0.035692  -0.256 0.798012    
+# proficiency:environment3:panel2              0.018980   0.036276   0.523 0.600825    
+# dependency2:environment2:panel2             -0.493176   0.402968  -1.224 0.221005    
+# dependency2:environment3:panel2             -2.313160   0.402369  -5.749 8.99e-09 ***
+#   proficiency:dependency2:environment2:panel2 -0.010148   0.044674  -0.227 0.820299    
+# proficiency:dependency2:environment3:panel2 -0.192535   0.044957  -4.283 1.85e-05 ***
+  
+anova(model2, model3)
+
+# no.par   AIC  logLik LR.stat df Pr(>Chisq)    
+# model2     32 10487 -5211.7                          
+# model3     39 10391 -5156.3  110.66  7  < 2.2e-16 ***
+
+#------------------------------------------------------------------------------#
+# + + model 4 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 + dependency * environment | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md4.rds')
+summary(model4)
+toc()
+beep()
+
+# 2948.36 sec elapsed (49.14 min)
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                                  0.010748   0.016297   0.659 0.509596    
+# dependency2                                 -3.406502   0.390935  -8.714  < 2e-16 ***
+# environment2                                -0.437655   0.196766  -2.224 0.026132 *  
+# environment3                                -0.388038   0.194971  -1.990 0.046565 *  
+# panel2                                       0.434982   0.282226   1.541 0.123255 
+# proficiency:dependency2                     -0.163106   0.044714  -3.648 0.000265 ***
+# proficiency:environment2                    -0.015546   0.019323  -0.805 0.421072    
+# proficiency:environment3                    -0.051875   0.019505  -2.660 0.007826 ** 
+# dependency2:environment2                     1.360681   0.320804   4.241 2.22e-05 ***
+# dependency2:environment3                     3.052787   0.389471   7.838 4.57e-15 ***
+# proficiency:panel2                          -0.041736   0.032471  -1.285 0.198668    
+# dependency2:panel2                           1.641946   0.764767   2.147 0.031794 *  
+# environment2:panel2                         -0.251413   0.340788  -0.738 0.460672    
+# environment3:panel2                         -0.662698   0.343437  -1.930 0.053656 .  
+# proficiency:dependency2:environment2         0.056670   0.027899   2.031 0.042229 *  
+# proficiency:dependency2:environment3         0.153915   0.038579   3.990 6.62e-05 ***
+# proficiency:dependency2:panel2               0.151224   0.089159   1.696 0.089863 .  
+# proficiency:environment2:panel2             -0.009889   0.038001  -0.260 0.794675    
+# proficiency:environment3:panel2              0.018838   0.038508   0.489 0.624706    
+# dependency2:environment2:panel2             -0.794971   0.495051  -1.606 0.108310    
+# dependency2:environment3:panel2             -2.761289   0.678779  -4.068 4.74e-05 ***
+# proficiency:dependency2:environment2:panel2 -0.034529   0.054616  -0.632 0.527253    
+# proficiency:dependency2:environment3:panel2 -0.234475   0.076207  -3.077 0.002092 ** 
+
+anova(model3, model4)
+
+# no.par   AIC  logLik LR.stat df Pr(>Chisq)    
+# model3     39 10391 -5156.3                          
+# model4     50 10333 -5116.3  80.086 11   1.42e-12 ***
+
+trends <- emtrends(model4, ~ panel * dependency * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# panel dependency environment proficiency.trend     SE  df z.ratio p.value
+# KE    gap        short                 0.23245 0.0528 Inf   4.406  0.0001 ***
+# ME    gap        short                 0.06729 0.0464 Inf   1.451  0.7308
+# KE    pronoun    short                -0.12129 0.0480 Inf  -2.528  0.1027
+# ME    pronoun    short                -0.04557 0.0449 Inf  -1.015  0.9539
+# KE    gap        long                  0.18489 0.0443 Inf   4.176  0.0003 ***
+# ME    gap        long                  0.02709 0.0404 Inf   0.670  0.9977
+# KE    pronoun    long                 -0.09493 0.0435 Inf  -2.181  0.2324
+# ME    pronoun    long                 -0.04635 0.0412 Inf  -1.125  0.9169
+# KE    gap        island                0.03558 0.0401 Inf   0.887  0.9806
+# ME    gap        island                0.00649 0.0382 Inf   0.170  1.0000
+# KE    pronoun    island               -0.04701 0.0427 Inf  -1.101  0.9262
+# ME    pronoun    island               -0.06968 0.0411 Inf  -1.695  0.5486
+# P value adjustment: mvt method for 12 tests 
+
+# plot ...
+
+plot <- emmip(model4, environment ~ proficiency | panel ~ dependency, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='log odds ratio') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_grid2(vars(dependency), vars(panel), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `ME` = 'MLE', `KE` = 'KLE')))
+
+ggsave("plots/orc/ajt_rating_proficiency_emmeans_md4.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + model 5 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 + panel | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md5.rds')
+summary(model5)
+toc()
+beep()
+
+# 244.09 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                                  0.002960   0.010928   0.271 0.786470    
+# dependency2                                 -1.883828   0.071446 -26.367  < 2e-16 ***
+# environment2                                -0.235687   0.084119  -2.802 0.005082 ** 
+# environment3                                -0.182175   0.083028  -2.194 0.028225 *  
+# panel2                                       0.238444   0.187717   1.270 0.204001
+# proficiency:dependency2                     -0.098496   0.007895 -12.476  < 2e-16 ***
+# proficiency:environment2                    -0.009447   0.009570  -0.987 0.323569    
+# proficiency:environment3                    -0.028422   0.009539  -2.980 0.002886 ** 
+# dependency2:environment2                     0.731865   0.168336   4.348 1.38e-05 ***
+# dependency2:environment3                     1.651997   0.166791   9.905  < 2e-16 ***
+# proficiency:panel2                          -0.030354   0.021863  -1.388 0.165037    
+# dependency2:panel2                           0.878727   0.136594   6.433 1.25e-10 ***
+# environment2:panel2                         -0.201238   0.168161  -1.197 0.231424    
+# environment3:panel2                         -0.471190   0.166085  -2.837 0.004553 ** 
+# proficiency:dependency2:environment2         0.025342   0.019134   1.324 0.185368    
+# proficiency:dependency2:environment3         0.074644   0.019044   3.920 8.87e-05 ***
+# proficiency:dependency2:panel2               0.086585   0.015617   5.544 2.95e-08 ***
+# proficiency:environment2:panel2             -0.009263   0.019139  -0.484 0.628399    
+# proficiency:environment3:panel2              0.007643   0.019069   0.401 0.688568    
+# dependency2:environment2:panel2             -0.178550   0.336320  -0.531 0.595493    
+# dependency2:environment3:panel2             -1.248115   0.332056  -3.759 0.000171 ***
+# proficiency:dependency2:environment2:panel2  0.023059   0.038273   0.602 0.546846    
+# proficiency:dependency2:environment3:panel2 -0.092744   0.038072  -2.436 0.014850 *
+
+anova(model1, model5)
+
+# no.par   AIC logLik LR.stat df Pr(>Chisq)
+# model1     30 11858  -5899                      
+# model5     32 11862  -5899  -0.001  2          1
+
+#------------------------------------------------------------------------------#
+# + + model 6 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 + dependency | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md6.rds')
+summary(model6)
+toc()
+beep()
+
+# 252.62 sec elapsed
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)    
+# proficiency                                  0.003047   0.010926   0.279 0.780358    
+# dependency2                                 -1.884499   0.071455 -26.373  < 2e-16 ***
+# environment2                                -0.236059   0.084132  -2.806 0.005019 ** 
+# environment3                                -0.182227   0.083041  -2.194 0.028205 * 
+# proficiency:dependency2                     -0.098535   0.007895 -12.480  < 2e-16 ***
+# proficiency:environment2                    -0.009474   0.009571  -0.990 0.322211    
+# proficiency:environment3                    -0.028425   0.009540  -2.980 0.002886 ** 
+# dependency2:environment2                     0.733831   0.168362   4.359 1.31e-05 ***
+# dependency2:environment3                     1.654072   0.166819   9.915  < 2e-16 ***
+# proficiency:panel2                          -0.030386   0.021860  -1.390 0.164520    
+# dependency2:panel2                           0.879606   0.136610   6.439 1.20e-10 ***
+# environment2:panel2                         -0.201452   0.168187  -1.198 0.231000    
+# environment3:panel2                         -0.471098   0.166111  -2.836 0.004568 ** 
+# proficiency:dependency2:environment2         0.025447   0.019136   1.330 0.183588    
+# proficiency:dependency2:environment3         0.074755   0.019046   3.925 8.67e-05 ***
+# proficiency:dependency2:panel2               0.086640   0.015619   5.547 2.90e-08 ***
+# proficiency:environment2:panel2             -0.009268   0.019141  -0.484 0.628237    
+# proficiency:environment3:panel2              0.007648   0.019071   0.401 0.688388    
+# dependency2:environment2:panel2             -0.179326   0.336370  -0.533 0.593950    
+# dependency2:environment3:panel2             -1.250111   0.332108  -3.764 0.000167 ***
+# proficiency:dependency2:environment2:panel2  0.023004   0.038277   0.601 0.547850    
+# proficiency:dependency2:environment3:panel2 -0.092819   0.038076  -2.438 0.014780 *
+
+anova(model1, model6)
+
+# no.par   AIC logLik LR.stat df Pr(>Chisq)
+# model1     30 11858  -5899                      
+# model6     32 11862  -5899   1e-04  2          1
+
+#------------------------------------------------------------------------------#
+# + + model 7 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model7 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 | participant) + 
+                 (1 + environment | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md7.rds')
+summary(model7)
+toc()
+beep()
+
+# 326.22 sec elapsed
+# Coefficients:
+# Estimate Std. Error z value Pr(>|z|)    
+# proficiency                                  0.003040   0.010932   0.278 0.780970    
+# dependency2                                 -1.880941   0.072065 -26.101  < 2e-16 ***
+# environment2                                -0.235954   0.084698  -2.786 0.005339 ** 
+# environment3                                -0.182136   0.083866  -2.172 0.029874 *  
+# panel2                                       0.238078   0.187795   1.268 0.204887 
+# proficiency:dependency2                     -0.098300   0.007922 -12.409  < 2e-16 ***
+# proficiency:environment2                    -0.009482   0.009573  -0.991 0.321918    
+# proficiency:environment3                    -0.028379   0.009547  -2.972 0.002954 ** 
+# dependency2:environment2                     0.732236   0.168656   4.342 1.41e-05 ***
+# dependency2:environment3                     1.658690   0.167517   9.902  < 2e-16 ***
+# proficiency:panel2                          -0.030410   0.021871  -1.390 0.164394    
+# dependency2:panel2                           0.877945   0.136700   6.422 1.34e-10 ***
+# environment2:panel2                         -0.202147   0.168212  -1.202 0.229466    
+# environment3:panel2                         -0.472230   0.166568  -2.835 0.004582 ** 
+# proficiency:dependency2:environment2         0.025139   0.019169   1.311 0.189722    
+# proficiency:dependency2:environment3         0.074938   0.019119   3.920 8.87e-05 ***
+# proficiency:dependency2:panel2               0.086611   0.015628   5.542 2.99e-08 ***
+# proficiency:environment2:panel2             -0.009334   0.019145  -0.488 0.625885    
+# proficiency:environment3:panel2              0.007547   0.019084   0.395 0.692511    
+# dependency2:environment2:panel2             -0.179073   0.336386  -0.532 0.594488    
+# dependency2:environment3:panel2             -1.255246   0.332429  -3.776 0.000159 ***
+# proficiency:dependency2:environment2:panel2  0.023033   0.038287   0.602 0.547439    
+# proficiency:dependency2:environment3:panel2 -0.093353   0.038132  -2.448 0.014359 *
+
+anova(model1, model7)
+
+# no.par   AIC  logLik LR.stat df Pr(>Chisq)
+# model1     30 11858 -5899.0                      
+# model7     35 11868 -5898.9  0.2005  5     0.9991
+
+#------------------------------------------------------------------------------#
+# + + model 8 w/ 'dependency'
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model8 <- clmm(response ~ proficiency * dependency * environment * panel + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency * environment * panel | item), 
+               data = filter(md, study == '210510_do'), 
+               control = clmm.control(grtol = 1e6)) %>%
+  write_rds('models/ajt_orc_proficiency_clmm_full_md8.rds')
+summary(model8)
+toc()
+beep()
+
+#------------------------------------------------------------------------------#
+# + plot and model difference scores ----
+#------------------------------------------------------------------------------#
+
+plot <- md %>%
+  mutate(response = as.numeric(response)) %>%
+  group_by(study, panel, participant, environment, proficiency) %>%
+  summarise(dscore = mean(response[dependency == 'gap'], na.rm = TRUE) - mean(response[dependency == 'pronoun'], na.rm = TRUE)) %>%
+  ungroup()
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=dscore, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=dscore, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  geom_hline(yintercept = 0),
+  geom_vline(xintercept = 0),
+  geom_point(alpha = .1, shape = 16, size = 2),
+  geom_smooth(method=lm, lwd = 1, alpha = .2), 
+  theme_classic(),
+  scale_x_continuous(name='mean-centered proficiency score'),
+  scale_y_continuous(name='gap - RP'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_wrap(~panel,
+              labeller = as_labeller(c(`KE` = 'KLE', `ME` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ajt_orc_rating_proficiency_effect_dscore.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ajt_src_rating_proficiency_effect_dscore.png", width=6.5, height=2, dpi=600)
+
+
+contrasts(plot$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol = 2)
+contrasts(plot$panel) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol = 1)
+
+contrasts(plot$environment)
+contrasts(plot$panel)
+
+tic()
+model1 <- lmer(dscore ~ proficiency * environment * panel + 
+                 (1 | participant),
+               data = filter(plot, study == '210510_do')) %>%
+  write_rds('models/ajt_orc_proficiency_lmer_dscore_md1.rds')
+summary(model1)
+toc()
+beep()
+
+# 0.62 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)    
+# (Intercept)                       1.654813   0.186417 135.999999   8.877 3.54e-15 ***
+# proficiency                       0.081634   0.021748 135.999999   3.754 0.000257 ***
+# environment2                     -0.499810   0.155529 272.000000  -3.214 0.001469 ** 
+# environment3                     -1.278707   0.155529 272.000000  -8.222 8.30e-15 ***
+# panel2                           -0.531251   0.372834 135.999999  -1.425 0.156477    
+# proficiency:environment2         -0.008895   0.018144 272.000000  -0.490 0.624348    
+# proficiency:environment3         -0.046088   0.018144 272.000000  -2.540 0.011639 *  
+# proficiency:panel2               -0.048871   0.043495 135.999999  -1.124 0.263164    
+# environment2:panel2               0.100610   0.311058 272.000000   0.323 0.746607    
+# environment3:panel2               1.017400   0.311058 272.000000   3.271 0.001211 ** 
+# proficiency:environment2:panel2  -0.035042   0.036288 272.000000  -0.966 0.335072    
+# proficiency:environment3:panel2   0.057850   0.036288 272.000000   1.594 0.112055  
+
+trends <- emtrends(model1, ~ panel * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# panel environment proficiency.trend     SE  df t.ratio p.value
+# KE    short                  0.1282 0.0347 201   3.699  0.0014 **
+# ME    short                  0.0717 0.0336 201   2.134  0.1442
+# KE    long                   0.1368 0.0347 201   3.948  0.0006 ***
+# ME    long                   0.0453 0.0336 201   1.348  0.5615
+# KE    island                 0.0532 0.0347 201   1.534  0.4348
+# ME    island                 0.0546 0.0336 201   1.624  0.3791
+
+# plot ...
+
+plot <- emmip(model1, environment ~ proficiency | panel, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = 1) +
+  scale_y_continuous(name='gap - RP') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line"),
+        text = element_text(size = 12)) +
+  facet_wrap(~panel, labeller = as_labeller(c(`ME` = 'MLE', `KE` = 'KLE')))
+
+ggsave("plots/orc/ajt_rating_proficiency_dscore_emmeans_md1.png", width=6.5, height=2, dpi=600)
+
+
+tic()
+model2 <- lmer(dscore ~ proficiency * environment * panel + 
+                 (1 + environment | participant),
+               data = filter(plot, study == '210510_do')) %>%
+  write_rds('models/ajt_orc_proficiency_lmer_dscore_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# does not converge
 
 #------------------------------------------------------------------------------#
 # proficiency effects - all environments - raw ratings ----
@@ -11317,7 +10418,7 @@ model <- lm(mean ~ ctest, data = md)
 summary(model)
 
 #==============================================================================#
-# ::::: key ::::: ----
+# ::::: key ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 # tasks...
@@ -11336,7 +10437,7 @@ summary(model)
 # mle: l1-mandarin l2 learners of english
 
 #==============================================================================#
-# ::::: chopping block ::::: ----
+# ::::: chopping block :::::::::::::::::::::::::::::::::::::::::::::::::::: ----
 #==============================================================================#
 
 #------------------------------------------------------------------------------#
@@ -12595,4 +11696,357 @@ beepr::beep(1)
 # (Intercept)        6.17680    0.03322 67.84903  185.94   <2e-16 ***
 #   environmentlong   -0.01445    0.03283 67.27076   -0.44   0.6614    
 # environmentisland  0.05609    0.03032 68.08138    1.85   0.0687 . 
+
+#------------------------------------------------------------------------------#
+# modeling: ept ~ rate ~ glmer ~ 220622 ----
+#------------------------------------------------------------------------------#
+
+# ::: filter to participants who used resumption at least once and try again :::
+
+# make list of participants who used resumption at least once ...
+
+check <- md %>%
+  filter(type == 'resumption') %>%
+  group_by(participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  mutate(resumer = TRUE)
+
+# english resumers: 13/33 = 0.3939394 = 39%
+# korean resumers: 13/35 = 0.3428571 = 37%
+
+# add information about who used resumption to dataframe ...
+
+md <- md %>%
+  left_join(check, by = 'participant')
+
+# filter to participants who used resumption at least once ...
+
+md2 <- md %>%
+  filter(resumer == TRUE)
+
+# summarise for plotting ...
+
+plot <- md2 %>%
+  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
+  mutate(category = case_when(resumption == TRUE ~ 'resumption',
+                              resumption == FALSE ~ 'other')) %>%
+  mutate(category = as.character(category)) %>%
+  group_by(group, cond) %>%
+  count(category) %>%
+  ungroup() %>%
+  complete(category, nesting(cond), fill = list(n = 0)) %>%
+  group_by(group, cond) %>%
+  mutate(sum = sum(n)) %>%
+  ungroup() %>%
+  mutate(prop = (n/sum)*100) %>%
+  filter(group %in% c('english', 'korean')) %>%
+  mutate(prc = as.character(round(prop))) %>%
+  mutate(category = factor(category, levels = c('other', 'resumption')))
+
+# bar plot ...
+
+ggplot(data=plot, aes(x=cond, y=prop, group=category, fill=category, label=prc)) +
+  geom_bar(stat = "identity", col = "black", width = .5) +
+  geom_text(size = 3.5, col = "black", position = position_stack(vjust = 0.5)) +
+  theme_classic() +
+  scale_x_discrete(name="environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('short', 'long', 'island')) +
+  scale_y_continuous(name="% responses", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)) +
+  scale_fill_manual(name="dependency", values=c("#9b82f3", "#00a78f")) +
+  theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, 1)) +
+  facet_wrap(~group)
+
+# save plot ...
+
+ggsave("data/plots/ept_binary_resumers.png", width=5.5, height=2.5, dpi=600)
+
+# filter for analysis ...
+
+md3 <- md2 %>%
+  filter(group == 'korean') %>%
+  #filter(environment != 'NA') %>%
+  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
+  select(group, participant, item, type, resumption, cond, resumer) %>%
+  mutate(participant = as.factor(participant),
+         item = as.factor(item))
+
+# view contrasts ...
+
+contrasts(md3$environment)
+
+# fit model ...
+
+model1 <- glmer(resumption ~ cond + (cond|participant) + (cond|item), 
+                data = md3, family = binomial, glmerControl(optimizer = "bobyqa"))
+summary(model1)
+
+model2 <- glmer(resumption ~ environment + (1|participant) + (1|item), 
+                data = md3, family = binomial, glmerControl(optimizer = "bobyqa"))
+summary(model2)
+
+model2 <- glm(resumption ~ environment, data = md3, family = binomial)
+summary(model2)
+
+# *** attempt 3 ***
+
+md <- target %>%
+  filter(cond %in% c('cond1', 'cond2', 'cond3')) %>%
+  mutate(cond = fct_drop(cond)) %>%
+  mutate(category = case_when(type == 'gap' ~ 'gap',
+                              type == 'resumption' ~ 'resumption',
+                              TRUE ~ 'other')) %>%
+  mutate(category = as.character(category)) %>%
+  group_by(group, cond, participant) %>%
+  count(category) %>%
+  ungroup() %>%
+  complete(category, nesting(group, cond, participant), fill = list(n = 0)) %>%
+  filter(category == 'resumption')
+
+md <- md %>%
+  mutate(cond = fct_relevel(cond, 'cond1', 'cond2', 'cond3'))
+
+# view contrasts
+contrasts(md$cond)
+
+model1 <- lmer(n ~ cond + (1|participant), data = md)
+summary(model1)
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept) 7.944e-17  1.167e-01 1.777e+02   0.000    1.000    
+# condcond2   1.587e-01  1.533e-01 1.238e+02   1.036    0.302    
+# condcond3   9.543e-01  1.547e-01 1.249e+02   6.170 8.76e-09 ***
+
+#------------------------------------------------------------------------------#
+# modeling: spr ~ raw rt ~ lmer ----
+#------------------------------------------------------------------------------#
+
+# filter data for analysis ...
+
+md <- spr_trim %>%
+  filter(region2 == 2,
+         study == '210510_do',
+         group == 'mandarin')
+
+# check distribution ...
+
+hist(md$rt)
+qqnorm(md$rt)
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+
+# full model ...
+
+mod_spr_1 <- lmer(rt ~ environment*dependency + (environment*dependency|participant) + (environment*dependency|item), data = md)
+summary(mod_spr_1)
+beep(1)
+
+# doen region 1
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)   
+# (Intercept)                           -6.094      8.216  37.583  -0.742  0.46288   
+# environmentlong                        6.518     12.629  40.439   0.516  0.60859   
+# environmentisland                     28.809     11.464  65.225   2.513  0.01446 * 
+# dependencypronoun                      2.508     11.716  93.254   0.214  0.83097   
+# environmentlong:dependencypronoun    -15.898     17.741  44.225  -0.896  0.37507   
+# environmentisland:dependencypronoun  -52.826     16.303 113.487  -3.240  0.00157 **
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region1_mod.rds')
+
+# doen region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                          354.140     12.954  85.520  27.338   <2e-16 ***
+# environmentlong                       -2.863     12.105 128.014  -0.237   0.8134    
+# environmentisland                     29.335     15.576  37.188   1.883   0.0675 .  
+# dependencypronoun                     25.527     16.561  55.505   1.541   0.1289    
+# environmentlong:dependencypronoun    -19.319     21.131  45.512  -0.914   0.3654    
+# environmentisland:dependencypronoun  -54.305     24.577  50.547  -2.210   0.0317 *  
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region2_mod.rds') 
+
+# doen region 3
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error      df t value Pr(>|t|)    
+# (Intercept)                          353.289     11.332  94.850  31.177   <2e-16 ***
+# environmentlong                       -4.343      9.479 152.562  -0.458    0.648    
+# environmentisland                     15.606      9.585 113.045   1.628    0.106    
+# dependencypronoun                     13.880      9.159 198.322   1.516    0.131    
+# environmentlong:dependencypronoun      2.136     15.023  41.767   0.142    0.888    
+# environmentisland:dependencypronoun  -18.094     15.151  46.068  -1.194    0.238 
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doen_region3_mod.rds') 
+
+# doko region 1
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region1_mod.rds') 
+
+# doko region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error     df t value Pr(>|t|)    
+# (Intercept)                           394.87      20.38  51.47  19.372   <2e-16 ***
+#   environmentlong                        38.87      24.93  34.48   1.559    0.128    
+# environmentisland                      38.41      33.69  48.11   1.140    0.260    
+# dependencypronoun                     -27.10      23.70 104.21  -1.143    0.255    
+# environmentlong:dependencypronoun     -55.22      35.00  46.51  -1.578    0.121    
+# environmentisland:dependencypronoun   -22.64      38.64  55.24  -0.586    0.560 
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region2_mod.rds') 
+
+# doko region 3
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_doko_region3_mod.rds') 
+
+# dozh region 1
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region1_mod.rds') 
+
+# dozh region 2
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error     df t value Pr(>|t|)    
+# (Intercept)                           439.15      19.76  56.21  22.221   <2e-16 ***
+# environmentlong                        37.46      29.64  36.78   1.264   0.2143    
+# environmentisland                      39.86      28.87  41.52   1.381   0.1747    
+# dependencypronoun                     -36.68      21.49  92.77  -1.707   0.0912 .  
+# environmentlong:dependencypronoun     -37.57      37.22  41.11  -1.009   0.3187    
+# environmentisland:dependencypronoun   -34.59      35.20  52.20  -0.983   0.3303 
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region2_mod.rds') 
+
+# dozh region 3
+# (skip for now)
+saveRDS(mod_spr_1, file='models/orc_spr_rawrt_dozh_region3_mod.rds') 
+
+# suen region 1
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region1_mod.rds') 
+
+# suen region 2
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region2_mod.rds') 
+
+# suen region 3
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suen_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suen_region3_mod.txt', sep = ''), sep='\n')
+
+# suko region 1
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region1_mod.txt', sep = ''), sep='\n')
+
+# suko region 2
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region2_mod.txt', sep = ''), sep='\n')
+
+# suko region 3
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suko_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suko_region3_mod.txt', sep = ''), sep='\n')
+
+# suzh region 1
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region1_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region1_mod.txt', sep = ''), sep='\n')
+
+# suzh region 2
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region2_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region2_mod.txt', sep = ''), sep='\n')
+
+# suzh region 3
+# boundary (singular) fit: see help('isSingular')
+
+saveRDS(mod_spr_1, file='models/src_spr_rawrt_suzh_region3_mod.rds') 
+cat(capture.output(summary(mod_spr_1)), file = paste('models/src_spr_rawrt_suzh_region3_mod.txt', sep = ''), sep='\n')
+
+# https://marissabarlaz.github.io/portfolio/contrastcoding/
+
+# check assumptions: linearity, normality of the residuals, homogeneity of residual variance (homoscedasticity), no autoccorelation and no multicollinearity (only for models without interaction terms)
+
+performance::check_model(mod_spr_1) # perform checks
+ggsave('plots/check_model.png', width=10, height=10, dpi=600) # save output
+performance::model_performance(mod_spr_1) # check model performance
+lattice::qqmath(mod_spr_1, id = 0.05) # check for normality of residuals (identified outliers)
+car::leveneTest(residuals(mod_spr_1) ~ md$environment * md$dependency) # check homogeneity of residual variance (should not be significant)
+
+# https://easystats.github.io/performance/index.html
+# https://ademos.people.uic.edu/Chapter18.html
+# https://bookdown.org/animestina/phd_july_19/testing-the-assumptions.html
+
+# post-hoc tests: pairwise comparisons of estimated marginal means (see https://stats.stackexchange.com/questions/424304/when-to-correct-for-multiple-comparisons-with-specific-reference-to-emmeans-in)
+
+# pairs(emmeans(mod_spr_1, 'dependency', by = 'environment'))
+
+mod_spr_1 %>%
+  emmeans(~ dependency * environment) %>%
+  contrast('pairwise', by = 'environment') %>%
+  summary(by = NULL, adjust = 'holm')
+beep(1)
+
+# doen region 1
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short          -2.51 11.8 31.1  -0.213  0.8328
+# gap - pronoun long           13.39 11.9 26.9   1.122  0.5437
+# gap - pronoun island         50.32 11.8 29.2   4.247  0.0006 ***
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# doen region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short         -25.53 16.6 46.0  -1.535  0.2630 (rrt: '*')
+# gap - pronoun long           -6.21 14.6 35.9  -0.425  0.6734
+# gap - pronoun island         28.78 16.3 36.4   1.769  0.2558 (rrt: '*')
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# doko region 2
+# contrast      environment estimate   SE   df t.ratio p.value
+# gap - pronoun short           27.1 24.0 26.7   1.131  0.2680
+# gap - pronoun long            82.3 27.8 28.5   2.963  0.0183
+# gap - pronoun island          49.7 31.4 32.8   1.585  0.2452
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: holm method for 3 tests 
+
+# dozh region 1
+
+
+# dozh region 2
+
+
+# suen region 1
+
+
+# suen region 2
+
+
+# suen region 3
+
+
+# suko region 2
+
+
+# suko region 3
+
+
+# suzh region 1
+
+
+# suzh region 2
 
