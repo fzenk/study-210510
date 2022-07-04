@@ -1367,7 +1367,7 @@ p2 + s
 ggsave("plots/src/ept_proficiency.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
-# + modeling: glmer ----
+# + modeling: glmer ~ resumption ----
 #------------------------------------------------------------------------------#
 
 # adjust column classes ...
@@ -1434,7 +1434,7 @@ beep()
 test(emtrends(model, ~ group * environment, var = 'proficiency', adjust = 'mvt'))
 
 #------------------------------------------------------------------------------#
-# + + + model 2 (final?) ----
+# + + + model 2 (final) ----
 #------------------------------------------------------------------------------#
 
 tic()
@@ -1468,7 +1468,23 @@ model2 <- read_rds('models/ept_orc_glmer_md2.rds')
 # group2:environment2             -1.29077    1.70230  -0.758  0.44830    
 # group2:environment3             -1.96666    1.84681  -1.065  0.28692    
 # proficiency:group2:environment2 -0.14976    0.20754  -0.722  0.47055    
-# proficiency:group2:environment3 -0.19141    0.22265  -0.860  0.38994  
+# proficiency:group2:environment3 -0.19141    0.22265  -0.860  0.38994 
+
+summary(model2)$coefficients
+
+# table <- summary(model1)$coefficients$cond %>%
+#   as.data.frame() %>%
+#   rownames_to_column('Parameter') %>%
+#   rename('SE' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
+#   # mutate_at(vars('p'), round, 3) %>%
+#   # mutate_at(vars('Estimate', 'SE', 'z'), round, 2) %>%
+#   mutate_if(is.character, str_replace_all, 
+#             c('dependency2' = 'dependency(resumption)',
+#               'environment2' = 'environment(long)', 'environment3' = 'environment(island)',
+#               'group2' = 'group(KLE)', 'group3' = 'group(KLE)')) %>%
+#   rename('*p*' = 'p', '*z*' = 'z')
+
+table %>% write_rds('tables/ept_orc_glmmtmb_primary.rds')
 
 lme.dscore(model2, data = filter(md, study == '210510_do'), type = 'lme4')
 
@@ -1848,400 +1864,6 @@ ggplot(data=plot, aes(x=condition, y=prop, group=category, fill=category, label=
 ggsave("plots/ept_plot_item.png", width=10, height=5, dpi=600)
 
 #------------------------------------------------------------------------------#
-# modeling: glmmTMB ~ all response types ----
-#------------------------------------------------------------------------------#
-
-# check participants ...
-
-check <- ep %>%
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup() %>% 
-  group_by(study, group) %>%
-  summarise(n = n()) %>%
-  ungroup()
-
-# remove participants who only gave nontarget responses ...
-
-temp <- ep %>%
-  filter(type != 'nontarget') %>%
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup()
-
-md <- ep %>%
-  filter(participant %in% temp$participant)
-
-# check participants ...
-
-check <- md %>%
-  group_by(study, group, participant) %>%
-  summarise() %>%
-  ungroup() %>% 
-  group_by(study, group) %>%
-  summarise(n = n()) %>%
-  ungroup()
-
-# check response types ...
-
-check <- md %>%
-  mutate(type = factor(type))
-
-summary(check$type)
-
-# recode responses ...
-
-md <- md %>%
-  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
-                                TRUE ~ FALSE),
-         gap = case_when(type == 'gap' ~ TRUE,
-                         TRUE ~ FALSE),
-         modified = case_when(type == 'other' ~ TRUE,
-                              TRUE ~ FALSE),
-         nontarget = case_when(type == 'nontarget' ~ TRUE,
-                               TRUE ~ FALSE)) %>%
-  pivot_longer(cols = c('resumption', 'gap', 'modified', 'nontarget'), names_to = 'dependency', values_to = 'response2') %>%
-  filter(group %in% c('english', 'korean', 'mandarin')) %>%
-  mutate(group = fct_drop(group)) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-
-# check counts per variable
-
-check <- md %>%
-  filter(environment %in% c('short', 'long', 'island')) %>%
-  group_by(study, group, environment, dependency) %>%
-  summarise(count = sum(response2)) %>%
-  ungroup()
-
-# summarise to create count data ...
-
-md2 <- md %>%
-  filter(environment %in% c('short', 'long', 'island')) %>%
-  group_by(study, group, participant, environment, dependency) %>%
-  summarise(count = sum(response2))
-
-# plot total counts ...
-
-plot <- md2 %>%
-  group_by(study, group, environment, dependency) %>%
-  summarise(count = sum(count)) %>%
-  ungroup() 
-
-p1 <- ggplot(data = filter(plot, study == '210510_do'))
-p2 <- ggplot(data = filter(plot, study == '210510_su'))
-
-s <- list(
-  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
-  geom_line(lwd = 1, position = position_dodge(width = .4)),
-  geom_point(size = 3, position = position_dodge(width = .4)),
-  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
-  theme_classic(),
-  scale_y_continuous(name='total count', limits = c(0, 400)),
-  scale_colour_manual(name='dependency', 
-                      values=c('#648fff', 'gray85', 'gray60', '#ffb000')),
-  scale_shape_manual(name='dependency', 
-                     values=c(16, 18, 17, 15)),
-  theme(text = element_text(size = 12),
-        legend.position = 'right',
-        legend.margin = margin(t = -.4, unit = 'cm'),
-        plot.title = element_text(size = 12, hjust = .5)),
-  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
-)
-
-p1 + s
-ggsave("plots/orc/ept_total_all.png", width=6.5, height=2, dpi=600)
-
-p2 + s
-ggsave("plots/src/ept_total_all.png", width=6.5, height=2, dpi=600)
-
-# plot mean counts ...
-
-plot <- md2 %>%
-  group_by(study, group, environment, dependency) %>%
-  summarise(mean = mean(count, na.rm=T),
-            sd = sd(count, na.rm=T),
-            n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
-  ungroup() 
-
-p1 <- ggplot(data = filter(plot, study == '210510_do'))
-p2 <- ggplot(data = filter(plot, study == '210510_su'))
-
-s <- list(
-  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
-  geom_line(lwd = 1, position = position_dodge(width = .4)),
-  geom_point(size = 3, position = position_dodge(width = .4)),
-  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
-                width = 0, lwd = 5, linetype = 1, alpha = .5,
-                position = position_dodge(width = .4)),
-  theme_classic(),
-  scale_y_continuous(name="count", limits = c(-.05, 5), breaks = c(0, 1, 2, 3, 4, 5)),
-  scale_colour_manual(name='dependency', 
-                      values=c('#648fff', 'gray85', 'gray60', '#ffb000')),
-  scale_shape_manual(name='dependency', 
-                     values=c(16, 18, 17, 15)),
-  theme(text = element_text(size = 12),
-        legend.position = 'right',
-        legend.margin = margin(t = -.4, unit = 'cm'),
-        plot.title = element_text(size = 12, hjust = .5)),
-  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
-)
-
-p1 + s
-ggsave("plots/orc/ept_count_all.png", width=6.5, height=2, dpi=600)
-
-p2 + s
-ggsave("plots/src/ept_count_all.png", width=6.5, height=2, dpi=600)
-
-# modeling ...
-
-md2 <- md2 %>%
-  mutate_at(c('study', 'group', 'participant', 'dependency', 'environment'), factor)
-
-summary(md2)
-
-# apply deviation coding ...
-
-contrasts(md2$dependency) <- contr.treatment(4) - matrix(rep(1/4, 12), ncol=3)
-contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md2$dependency)
-contrasts(md2$environment)
-contrasts(md2$group)
-
-# load package ...
-
-library(glmmTMB) # (https://fcorowe.github.io/countdata_modelling/)
-
-# fit poisson regression model ...
-
-model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
-                  data = filter(md2, study == '210510_do'),
-                  ziformula = ~0,
-                  family = poisson)
-summary(model1)
-
-# no errors
-
-check_overdispersion(model1)
-
-# Overdispersion detected.
-
-model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
-                  data = filter(md2, study == '210510_su'),
-                  ziformula = ~0,
-                  family = poisson)
-summary(model1)
-
-# no errors
-
-check_overdispersion(model1)
-
-# Overdispersion detected.
-
-# fit zero-inflated poisson regression model ...
-
-model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
-                  data = filter(md2, study == '210510_do'),
-                  ziformula = ~1,
-                  family = poisson)
-summary(model1)
-
-# no errors
-
-check_overdispersion(model1)
-
-# Overdispersion detected.
-
-model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
-                  data = filter(md2, study == '210510_su'),
-                  ziformula = ~1,
-                  family = poisson)
-summary(model1)
-
-# Model convergence problem
-
-# fit negative binomial regression model ...
-
-# + model 1 (final) ----
-
-model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
-                  data = filter(md2, study == '210510_do'),
-                  ziformula = ~0,
-                  family = nbinom2)
-summary(model1)
-
-model1 %>% write_rds('models/ept_orc_count_all_glmmtmb.rds')
-
-model1 <- read_rds('models/ept_orc_count_all_glmmtmb.rds')
-
-# no errors
-# Conditional model:
-#   Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)                     -0.228739   0.036983  -6.185 6.21e-10 ***
-# dependency2                     -1.118095   0.082649 -13.528  < 2e-16 ***
-# dependency3                     -1.893907   0.092653 -20.441  < 2e-16 ***
-# dependency4                     -2.207199   0.110224 -20.025  < 2e-16 ***
-# environment2                     0.118230   0.096008   1.231 0.218152    
-# environment3                     0.399858   0.091585   4.366 1.27e-05 ***
-# group2                           0.381720   0.091642   4.165 3.11e-05 ***
-# group3                           0.278564   0.092227   3.020 0.002524 ** 
-# dependency2:environment2        -0.822963   0.200714  -4.100 4.13e-05 ***
-# dependency3:environment2        -0.088113   0.229356  -0.384 0.700850    
-# dependency4:environment2         0.702865   0.297398   2.363 0.018109 *  
-# dependency2:environment3        -0.530776   0.199803  -2.657 0.007896 ** 
-# dependency3:environment3         0.288344   0.227132   1.269 0.204263    
-# dependency4:environment3         2.104808   0.277818   7.576 3.56e-14 ***
-# dependency2:group2               0.930341   0.202944   4.584 4.56e-06 ***
-# dependency3:group2               0.502497   0.226151   2.222 0.026287 *  
-# dependency4:group2               0.902121   0.274591   3.285 0.001019 ** 
-# dependency2:group3               0.858407   0.198973   4.314 1.60e-05 ***
-# dependency3:group3               0.401533   0.221871   1.810 0.070334 .  
-# dependency4:group3               0.497112   0.280854   1.770 0.076727 .  
-# environment2:group2             -0.020728   0.240543  -0.086 0.931329    
-# environment3:group2             -0.518462   0.226144  -2.293 0.021870 *  
-# environment2:group3             -0.009302   0.242382  -0.038 0.969386    
-# environment3:group3             -0.557179   0.228998  -2.433 0.014969 *  
-# dependency2:environment2:group2  0.442226   0.493862   0.895 0.370550    
-# dependency3:environment2:group2 -0.499532   0.564326  -0.885 0.376057    
-# dependency4:environment2:group2 -0.107482   0.748704  -0.144 0.885850    
-# dependency2:environment3:group2 -0.624536   0.489071  -1.277 0.201608    
-# dependency3:environment3:group2 -0.796025   0.553404  -1.438 0.150317    
-# dependency4:environment3:group2 -2.517266   0.689355  -3.652 0.000261 ***
-# dependency2:environment2:group3 -0.245856   0.484333  -0.508 0.611722    
-# dependency3:environment2:group3 -0.673704   0.547620  -1.230 0.218607    
-# dependency4:environment2:group3 -0.187394   0.770365  -0.243 0.807809    
-# dependency2:environment3:group3 -1.259686   0.477474  -2.638 0.008334 ** 
-# dependency3:environment3:group3 -1.451034   0.547927  -2.648 0.008092 ** 
-# dependency4:environment3:group3 -2.598193   0.709425  -3.662 0.000250 ***
-
-table <- summary(model1)$coefficients$cond %>%
-  as.data.frame() %>%
-  rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
-  mutate_at(vars('p'), round, 3) %>%
-  mutate_at(vars('Estimate', 'SE', 'z'), round, 2) %>%
-  mutate_if(is.character, str_replace_all, 
-            c('dependency2' = 'dependency(modified)', 'dependency3' = 'dependency(nontarget)', 'dependency4' = 'dependency(resumption)',
-              'environment2' = 'environment(long)', 'environment3' = 'environment(island)',
-              'group2' = 'group(KLE)', 'group3' = 'group(KLE)')) %>%
-  rename('*p*' = 'p', '*z*' = 'z')
-
-table %>% write_rds('tables/ept_orc_glmmtmb_primary.rds')
-
-# check for overdispersion ...
-
-check_overdispersion(model1)
-
-# Overdispersion detected.
-
-# pairwise comparisons ...
-
-pairs <- pairs(emmeans(model1, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
-pairs
-
-tibble <- as_tibble(pairs)
-
-table <- tibble %>%
-  mutate_at(vars('p.value'), round, 3) %>%
-  mutate_at(vars('estimate':'t.ratio'), round, 2) %>%
-  rename('*p*' = 'p.value', '*t*' = 't.ratio',
-         'Environment' = 'environment', 'Group' = 'group', 'Dependency' = 'dependency', 
-         'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
-  mutate_if(is.character, str_replace_all, 
-            c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE'))
-
-table %>% write_rds('tables/ept_orc_glmmtmb_pairwise.rds')
-
-# tibble2 <- tibble %>%
-#   mutate(sig = case_when(p.value < .05 & p.value >= .01 ~ ' *', 
-#                          p.value < .01 & p.value >= .001 ~ ' **',
-#                          p.value < .001 ~ ' ***',
-#                          TRUE ~ '')) %>%
-#   mutate_at(vars('p.value'), sprintf, fmt = "%0.3f") %>%
-#   mutate_at(vars('estimate', 'SE', 't.ratio'), sprintf, fmt = "%0.2f") %>%
-#   rename(p = p.value, t = t.ratio) %>%
-#   mutate(p = str_c(p, sig)) %>%
-#   mutate_if(is.character, str_replace_all, 
-#             c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE')) %>%
-#   select(-sig) %>%
-#   mutate_all(as.character)
-
-pairs %>%
-  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
-  remove_column(6)
-
-# plot ...
-
-plot <- plot(emmeans(model1, ~ dependency * environment * group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
-
-ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
-  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
-  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
-  geom_line(lwd = 1, position = position_dodge(width = .4)) +
-  geom_point(size = 3, position = position_dodge(width = .4)) +
-  theme_classic() +
-  scale_y_continuous(name="log count", limits = c(-4, 2)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', 'gray85', 'gray60', '#ffb000')) +
-  scale_shape_manual(name="dependency", values=c(16, 18, 17, 15)) +
-  theme(text = element_text(size = 12), 
-        legend.margin=margin(0, 0, 0, -5)) +
-  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
-
-ggsave("plots/orc/ept_count_all_emmeans.png", width=6.5, height=2, dpi=600)
-
-model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
-                  data = filter(md2, study == '210510_su'),
-                  ziformula = ~0,
-                  family = nbinom2)
-summary(model1)
-
-model1 <- lmer(count ~ dependency * environment * group + (1 | participant),
-               data = filter(md2, study == '210510_su'))
-summary(model1)
-
-# Conditional model:
-#   Estimate Std. Error z value Pr(>|z|)
-# (Intercept)                     -4.099e+00  2.452e+04   0.000    1.000
-# dependency2                     -3.491e+00  4.876e+04   0.000    1.000
-# environment2                     8.130e+00  7.240e+04   0.000    1.000
-# environment3                     4.006e+00  7.314e+04   0.000    1.000
-# group2                           2.941e+00  7.314e+04   0.000    1.000
-# group3                           7.750e+00  1.177e+04   0.001    0.999
-# dependency2:environment2         1.785e+01  1.448e+05   0.000    1.000
-# dependency2:environment3         2.951e+01  1.471e+05   0.000    1.000
-# dependency2:group2              -1.109e+01  1.471e+05   0.000    1.000
-# dependency2:group3              -2.697e-01  2.355e+04   0.000    1.000
-# environment2:group2              6.996e+00  2.172e+05   0.000    1.000
-# environment3:group2              1.842e+01  2.207e+05   0.000    1.000
-# environment2:group3             -8.030e+00  1.756e+03  -0.005    0.996
-# environment3:group3              3.071e+00  3.532e+04   0.000    1.000
-# dependency2:environment2:group2  1.566e+01  4.344e+05   0.000    1.000
-# dependency2:environment3:group2 -1.555e+01  4.388e+05   0.000    1.000
-# dependency2:environment2:group3 -1.338e+01  3.512e+03  -0.004    0.997
-# dependency2:environment3:group3 -4.477e+01  7.064e+04  -0.001    0.999
-
-# fit model with more complex random-effects structure ...
-
-tic()
-model2 <- glmmTMB(count ~ dependency * environment * group + 
-                    (1 + environment | participant),
-                  data = filter(md2, study == '210510_do'),
-                  ziformula = ~0,
-                  family = nbinom2)
-summary(model2)
-toc()
-beep()
-
-# 38.34 sec elapsed
-# Model convergence problem
-
-
-#------------------------------------------------------------------------------#
 # modeling: glmmTMB ~ gap vs. resumption ----
 #------------------------------------------------------------------------------#
 
@@ -2298,8 +1920,6 @@ check <- md %>%
 
 check <- check %>%
   filter(study == '210510_do')
-
-kbl(check)
 
 # summarise to create count data ...
 
@@ -2501,8 +2121,18 @@ model1 %>% write_rds('models/ept_orc_count_glmmtmb.rds')
 
 # table ...
 
-summary(model1)$coefficients$cond %>%
-  kbl(digits = c(2, 2, 2, 3)) 
+table <- summary(model1)$coefficients$cond %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('SE' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
+  mutate_at(vars('p'), round, 3) %>%
+  mutate_at(vars('Estimate', 'SE', 'z'), round, 2) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('dependency2' = 'Dependency(Resumption)',
+              'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
+              'group2' = 'Group(KLE)', 'group3' = 'Group(KLE)')) %>%
+  rename('*p*' = 'p', '*z*' = 'z') %>% 
+  write_rds('tables/ept_orc_glmmtmb_primary.rds')
 
 # check for overdispersion ...
 
@@ -2517,6 +2147,19 @@ check_overdispersion(model1)
 
 pairs <- pairs(emmeans(model1, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
 pairs
+
+table <- pairs %>%
+  as.data.frame() %>%
+  mutate_at(vars('p.value'), round, 3) %>%
+  mutate_at(vars('estimate':'t.ratio'), round, 2) %>%
+  rename('*p*' = 'p.value', '*t*' = 't.ratio',
+         'Environment' = 'environment', 'Group' = 'group', 'Dependency' = 'dependency', 
+         'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
+  mutate_if(is.character, str_replace_all, 
+            c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE',
+              'short' = 'Short', 'long' = 'Long', 'island' = 'Island', 
+              'gap' = 'Gap', 'resumption' = 'Resumption')) %>% 
+  write_rds('tables/ept_orc_glmmtmb_pairwise.rds')
 
 # plot ...
 
@@ -2872,7 +2515,7 @@ contrasts(md2$environment)
 contrasts(md2$group)
 
 #------------------------------------------------------------------------------#
-# + orc model 1 ----
+# + orc model 1 
 #------------------------------------------------------------------------------#
 
 md2 <- md %>%
@@ -2898,7 +2541,7 @@ contrasts(md2$environment)
 contrasts(md2$group)
 
 #------------------------------------------------------------------------------#
-# + + model 2 - orc
+# + model 2 - orc
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -2931,7 +2574,7 @@ model2 <- read_rds('models/ajt_doall_glmer_md2.rds')
 # environment3:group3 -2.709075   0.872339  -3.106  0.00190 ** 
 
 #------------------------------------------------------------------------------#
-# + + model 2 - src
+# + model 2 - src
 #------------------------------------------------------------------------------#
 
 # check ...
@@ -2970,7 +2613,7 @@ beep()
 
 
 #------------------------------------------------------------------------------#
-# + + model 3
+# + model 3
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3008,7 +2651,7 @@ anova(model3, model5)
 # model3   21 1286.4 1415.0 -622.20   1244.4 0.9046  5     0.9699
 
 #------------------------------------------------------------------------------#
-# + + model 4
+# + model 4
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3072,7 +2715,7 @@ anova(model4, model5)
 # model4   21 1282.4 1411.0 -620.21   1240.4 4.8943  5     0.4289
 
 #------------------------------------------------------------------------------#
-# + + model 5 (final) ----
+# + orc model 5 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -3113,7 +2756,16 @@ beep()
 # environment2:group2  0.80797    1.35736   0.595 0.551676    
 # environment3:group2 -3.08800    1.65422  -1.867 0.061938 .  
 # environment2:group3  0.45457    1.43478   0.317 0.751378    
-# environment3:group3 -4.04956    1.67972  -2.411 0.015915 *  
+# environment3:group3 -4.04956    1.67972  -2.411 0.015915 * 
+
+table <- summary(model5)$coefficients %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('SE' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
+  mutate_if(is.character, str_replace_all,
+            c('environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
+              'group2' = 'Group(KLE)', 'group3' = 'Group(KLE)')) %>%
+  write_rds('ept_orc_resumption_glmer_primary.rds') 
 
 anova(model2, model5)
 
@@ -3147,6 +2799,20 @@ pairs
 # .        island      mandarin - korean    -0.439 0.739 Inf  -0.594  0.9988
 # Results are given on the log odds ratio (not the response) scale. 
 # P value adjustment: mvt method for 18 tests 
+
+table <- pairs %>%
+  as.data.frame() %>%
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio',
+         'Environment' = 'environment', 'Group' = 'group', 
+         'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
+  mutate_if(is.character, str_replace_all, 
+            c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE',
+              'short' = 'Short', 'long' = 'Long', 'island' = 'Island')) %>% 
+  select(-df) %>%
+  write_rds('tables/ept_orc_resumption_glmer_pairwise.rds')
+
+table <- table %>%
+  mutate(OR = round(exp(abs(Estimate)), digits = 2))
 
 # effect sizes ...
 
@@ -3191,9 +2857,11 @@ ggsave("plots/orc/ept_rate_emmeans.png", width=6.5, height=2, dpi=600)
 # speaking time - plot - overall ----
 #------------------------------------------------------------------------------#
 
-st <- read_excel('data/speaking_analysis.xlsx')
+# load data ...
 
-# check participants
+st <- read_excel('data/speaking_analysis_220702.xlsx')
+
+# check participants ...
 
 check <- st %>%
   group_by(study, group, participant) %>%
@@ -3201,41 +2869,66 @@ check <- st %>%
   summarise(n = n()) %>%
   ungroup()
 
-# summarise data for plotting by group
+# convert 'NA' to NA_character_ ...
 
-plot <- st %>%
-  mutate(duration = as.numeric(duration) * 1000) %>%
+st <- st %>%
+  mutate_at(c('word', 'duration'), str_replace_all, 'NA', NA_character_)
+
+# remove trials with missing final regions ...
+
+st <- st %>%
+  mutate(complete = case_when(environment == 'short' & region == 'region6' & is.na(duration) == TRUE ~ FALSE,
+                              environment != 'short' & region == 'region7' & is.na(duration) == TRUE ~ FALSE,
+                              TRUE ~ TRUE))
+
+check <- st %>%
+  filter(complete == FALSE)
+
+st_clean <- st %>%
+  group_by(study, group, participant, environment, item) %>%
+  filter(!FALSE %in% complete) %>%
+  ungroup() %>%
+  mutate_at(c('study', 'group', 'participant', 'condition', 'region', 'environment', 'type', 'item'), factor)
+
+check <- st_clean %>%
+  filter(complete == FALSE)
+
+summary(st_clean)
+
+# summarise ...
+
+plot <- st_clean %>%
+  mutate(duration = as.numeric(duration)) %>%
   rename(dependency = type) %>%
-  mutate(environment = as.factor(environment)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
+  group_by(study, group, participant, dependency, environment, item) %>%
+  mutate(sum = sum(duration, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(is.na(sum) == FALSE) %>%
   group_by(study, group, dependency, environment) %>%
-  summarise(mean = mean(duration, na.rm=T),
-            sd = sd(duration, na.rm=T),
+  summarise(mean = mean(sum, na.rm=T),
+            sd = sd(sum, na.rm=T),
             n = n()) %>%
   mutate(se = sd / sqrt(n),
          ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
   ungroup() %>%
   filter(group %in% c('english', 'korean', 'mandarin')) %>%
-  mutate(panel = case_when(group == 'english' ~ 'ENS',
-                           group == 'korean' ~ 'KLE',
-                           group == 'mandarin' ~ 'MLE')) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island')) %>%
-  filter(is.na(mean) == 'FALSE')
+  filter(is.na(mean) == FALSE)
+  
+# plot ...
 
-confint(lm(count ~ 1, md2), level = .95)
-
-# generate plot
-
-p1 <- ggplot(data = filter(plot, study == '210510_do'), aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency))
-p2 <- ggplot(data = filter(plot, study == '210510_su'), aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency))
+p <- ggplot(data = plot, aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency))
 
 s <- list(
-  ggtitle('ORC Speaking Times (Overall)'),
-  geom_line(lwd=1),
-  geom_point(size=2),
-  geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=.5, lwd=1, linetype=1),
+  ggtitle('Speaking Times by Trial'),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
   theme_classic(),
-  scale_y_continuous(name="speaking time (ms)", limits=c(500, 1000)),
+  scale_y_continuous(name="seconds"),
   scale_x_discrete(name="environment", limits=c('short', 'long', 'island')),
   scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
   scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
@@ -3243,14 +2936,13 @@ s <- list(
         legend.position = 'bottom',
         legend.margin = margin(t = -.4, unit = 'cm'),
         plot.title = element_text(size = 12, hjust = .5)),
-  facet_grid2(vars(panel), axes = 'all', remove_labels = 'y')
+  facet_grid2(vars(study), vars(group), axes = 'all', remove_labels = FALSE,
+              labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE', 
+                                       `210510_do` = 'ORC', `210510_su` = 'SRC')))
 )
 
-p1 + s
-ggsave('plots/orc/ept_time_overall.png', width=6.5, height=3.5, dpi=600)
-
-p2 + s
-ggsave('plots/src/ept_time_overall.png', width=6.5, height=3.5, dpi=600)
+p + s
+ggsave('plots/ept_time_overall.png', width=6.5, height=3.5, dpi=600)
 
 #------------------------------------------------------------------------------#
 # speaking time - plot - by region ----
@@ -12050,3 +11742,779 @@ beep(1)
 
 # suzh region 2
 
+#------------------------------------------------------------------------------#
+# ept ~ modeling ~ glmmTMB ~ all response types excluding nontarget ----
+#------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+md <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# check response types ...
+
+check <- md %>%
+  mutate(type = factor(type))
+
+summary(check$type)
+
+# recode responses ...
+
+md <- md %>%
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
+                                TRUE ~ FALSE),
+         gap = case_when(type == 'gap' ~ TRUE,
+                         TRUE ~ FALSE),
+         modified = case_when(type == 'other' ~ TRUE,
+                              TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('resumption', 'gap', 'modified'), names_to = 'dependency', values_to = 'response2') %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check counts per variable
+
+check <- md %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(response2)) %>%
+  ungroup()
+
+# summarise to create count data ...
+
+md2 <- md %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, participant, environment, dependency) %>%
+  summarise(count = sum(response2))
+
+# plot total counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count', limits = c(0, 400)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', 'gray85', '#ffb000')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 17, 15)),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_total_excl_nontar.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_total_excl_nontar.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="count", limits = c(-.05, 5), breaks = c(0, 1, 2, 3, 4, 5)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', 'gray85', '#ffb000')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 17, 15)),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_count_all_excl_nontar.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_count_all_excl_nontar.png", width=6.5, height=2, dpi=600)
+
+# modeling ...
+
+md2 <- md2 %>%
+  mutate_at(c('study', 'group', 'participant', 'dependency', 'environment'), factor)
+
+summary(md2)
+
+# apply deviation coding ...
+
+contrasts(md2$dependency) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md2$dependency)
+contrasts(md2$environment)
+contrasts(md2$group)
+
+# load package ...
+
+library(glmmTMB) # (https://fcorowe.github.io/countdata_modelling/)
+
+# fit poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+# fit zero-inflated poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# Model convergence problem
+
+# fit negative binomial regression model ...
+
+# + model 1 (final) ----
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+# no warnings
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                     -0.03237    0.03965  -0.816 0.414262    
+# dependency2                     -1.11809    0.07418 -15.072  < 2e-16 ***
+# dependency3                     -2.20720    0.10403 -21.218  < 2e-16 ***
+# environment2                     0.13025    0.10533   1.237 0.216242    
+# environment3                     0.45894    0.09883   4.644 3.42e-06 ***
+# group2                           0.40880    0.09899   4.130 3.63e-05 ***
+# group3                           0.29114    0.10084   2.887 0.003887 ** 
+# dependency2:environment2        -0.82295    0.17978  -4.578 4.70e-06 ***
+# dependency3:environment2         0.70286    0.28369   2.478 0.013227 *  
+# dependency2:environment3        -0.53077    0.17876  -2.969 0.002985 ** 
+# dependency3:environment3         2.10481    0.26309   8.000 1.24e-15 ***
+# dependency2:group2               0.93034    0.18268   5.093 3.53e-07 ***
+# dependency3:group2               0.90212    0.25997   3.470 0.000520 ***
+# dependency2:group3               0.85841    0.17932   4.787 1.69e-06 ***
+# dependency3:group3               0.49711    0.26729   1.860 0.062914 .  
+# environment2:group2              0.13205    0.26574   0.497 0.619246    
+# environment3:group2             -0.58127    0.24560  -2.367 0.017945 *  
+# environment2:group3              0.12301    0.27227   0.452 0.651402    
+# environment3:group3             -0.51590    0.25125  -2.053 0.040042 *  
+# dependency2:environment2:group2  0.44224    0.44386   0.996 0.319076    
+# dependency3:environment2:group2 -0.10748    0.71670  -0.150 0.880798    
+# dependency2:environment3:group2 -0.62452    0.43852  -1.424 0.154404    
+# dependency3:environment3:group2 -2.51725    0.65446  -3.846 0.000120 ***
+# dependency2:environment2:group3 -0.24585    0.43586  -0.564 0.572719    
+# dependency3:environment2:group3 -0.18739    0.74085  -0.253 0.800315    
+# dependency2:environment3:group3 -1.25966    0.42823  -2.942 0.003266 ** 
+# dependency3:environment3:group3 -2.59817    0.67726  -3.836 0.000125 ***
+
+model1 %>% write_rds('models/ept_orc_count_all_excl_nontar_glmmtmb.rds')
+
+model1 <- read_rds('models/ept_orc_count_all_excl_nontar_glmmtmb.rds')
+
+table <- summary(model1)$coefficients$cond %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('SE' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
+  mutate_at(vars('p'), round, 3) %>%
+  mutate_at(vars('Estimate', 'SE', 'z'), round, 2) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('dependency2' = 'dependency(modified)', 'dependency3' = 'dependency(resumption)',
+              'environment2' = 'environment(long)', 'environment3' = 'environment(island)',
+              'group2' = 'group(KLE)', 'group3' = 'group(KLE)')) %>%
+  rename('*p*' = 'p', '*z*' = 'z')
+
+table %>% write_rds('tables/ept_orc_glmmtmb_all_excl_nontar_primary.rds')
+
+# check for overdispersion ...
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+# pairwise comparisons ...
+
+pairs <- pairs(emmeans(model1, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+pairs
+
+tibble <- as_tibble(pairs)
+
+table <- tibble %>%
+  mutate_at(vars('p.value'), round, 3) %>%
+  mutate_at(vars('estimate':'t.ratio'), round, 2) %>%
+  rename('*p*' = 'p.value', '*t*' = 't.ratio',
+         'Environment' = 'environment', 'Group' = 'group', 'Dependency' = 'dependency', 
+         'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
+  mutate_if(is.character, str_replace_all, 
+            c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE'))
+
+table %>% write_rds('tables/ept_orc_glmmtmb_all_nontar_pairwise.rds')
+
+# tibble2 <- tibble %>%
+#   mutate(sig = case_when(p.value < .05 & p.value >= .01 ~ ' *', 
+#                          p.value < .01 & p.value >= .001 ~ ' **',
+#                          p.value < .001 ~ ' ***',
+#                          TRUE ~ '')) %>%
+#   mutate_at(vars('p.value'), sprintf, fmt = "%0.3f") %>%
+#   mutate_at(vars('estimate', 'SE', 't.ratio'), sprintf, fmt = "%0.2f") %>%
+#   rename(p = p.value, t = t.ratio) %>%
+#   mutate(p = str_c(p, sig)) %>%
+#   mutate_if(is.character, str_replace_all, 
+#             c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE')) %>%
+#   select(-sig) %>%
+#   mutate_all(as.character)
+
+pairs %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+# plot ...
+
+plot <- plot(emmeans(model1, ~ dependency * environment * group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log count", limits = c(-4, 2)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', 'gray85', 'gray60', '#ffb000')) +
+  scale_shape_manual(name="dependency", values=c(16, 18, 17, 15)) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/ept_count_all_emmeans.png", width=6.5, height=2, dpi=600)
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+model1 <- lmer(count ~ dependency * environment * group + (1 | participant),
+               data = filter(md2, study == '210510_su'))
+summary(model1)
+
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)                     -4.099e+00  2.452e+04   0.000    1.000
+# dependency2                     -3.491e+00  4.876e+04   0.000    1.000
+# environment2                     8.130e+00  7.240e+04   0.000    1.000
+# environment3                     4.006e+00  7.314e+04   0.000    1.000
+# group2                           2.941e+00  7.314e+04   0.000    1.000
+# group3                           7.750e+00  1.177e+04   0.001    0.999
+# dependency2:environment2         1.785e+01  1.448e+05   0.000    1.000
+# dependency2:environment3         2.951e+01  1.471e+05   0.000    1.000
+# dependency2:group2              -1.109e+01  1.471e+05   0.000    1.000
+# dependency2:group3              -2.697e-01  2.355e+04   0.000    1.000
+# environment2:group2              6.996e+00  2.172e+05   0.000    1.000
+# environment3:group2              1.842e+01  2.207e+05   0.000    1.000
+# environment2:group3             -8.030e+00  1.756e+03  -0.005    0.996
+# environment3:group3              3.071e+00  3.532e+04   0.000    1.000
+# dependency2:environment2:group2  1.566e+01  4.344e+05   0.000    1.000
+# dependency2:environment3:group2 -1.555e+01  4.388e+05   0.000    1.000
+# dependency2:environment2:group3 -1.338e+01  3.512e+03  -0.004    0.997
+# dependency2:environment3:group3 -4.477e+01  7.064e+04  -0.001    0.999
+
+# fit model with more complex random-effects structure ...
+
+tic()
+model2 <- glmmTMB(count ~ dependency * environment * group + 
+                    (1 + environment | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model2)
+toc()
+beep()
+
+# 38.34 sec elapsed
+# Model convergence problem
+
+
+
+#------------------------------------------------------------------------------#
+# ept ~ modeling ~ glmmTMB ~ all response types ----
+#------------------------------------------------------------------------------#
+
+# check participants ...
+
+check <- ep %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants who only gave nontarget responses ...
+
+temp <- ep %>%
+  filter(type != 'nontarget') %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup()
+
+md <- ep %>%
+  filter(participant %in% temp$participant)
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>% 
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# check response types ...
+
+check <- md %>%
+  mutate(type = factor(type))
+
+summary(check$type)
+
+# recode responses ...
+
+md <- md %>%
+  mutate(resumption = case_when(type == 'resumption' ~ TRUE,
+                                TRUE ~ FALSE),
+         gap = case_when(type == 'gap' ~ TRUE,
+                         TRUE ~ FALSE),
+         modified = case_when(type == 'other' ~ TRUE,
+                              TRUE ~ FALSE),
+         nontarget = case_when(type == 'nontarget' ~ TRUE,
+                               TRUE ~ FALSE)) %>%
+  pivot_longer(cols = c('resumption', 'gap', 'modified', 'nontarget'), names_to = 'dependency', values_to = 'response2') %>%
+  filter(group %in% c('english', 'korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check counts per variable
+
+check <- md %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(response2)) %>%
+  ungroup()
+
+# summarise to create count data ...
+
+md2 <- md %>%
+  filter(environment %in% c('short', 'long', 'island')) %>%
+  group_by(study, group, participant, environment, dependency) %>%
+  summarise(count = sum(response2))
+
+# plot total counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = count, group = dependency, col = dependency, shape = dependency, label = count),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_text(size = 2.5, col = "black", hjust = .5, vjust = -1, position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name='total count', limits = c(0, 400)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', 'gray85', 'gray60', '#ffb000')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 18, 17, 15)),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_total_all.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_total_all.png", width=6.5, height=2, dpi=600)
+
+# plot mean counts ...
+
+plot <- md2 %>%
+  group_by(study, group, environment, dependency) %>%
+  summarise(mean = mean(count, na.rm=T),
+            sd = sd(count, na.rm=T),
+            n = n()) %>%
+  mutate(se = sd / sqrt(n),
+         ci = qt(1 - (0.05 / 2), n - 1) * se) %>%
+  ungroup() 
+
+p1 <- ggplot(data = filter(plot, study == '210510_do'))
+p2 <- ggplot(data = filter(plot, study == '210510_su'))
+
+s <- list(
+  aes(x = environment, y = mean, group = dependency, col = dependency, shape = dependency),
+  geom_line(lwd = 1, position = position_dodge(width = .4)),
+  geom_point(size = 3, position = position_dodge(width = .4)),
+  geom_errorbar(aes(ymin = mean - ci, ymax = mean + ci), 
+                width = 0, lwd = 5, linetype = 1, alpha = .5,
+                position = position_dodge(width = .4)),
+  theme_classic(),
+  scale_y_continuous(name="count", limits = c(-.05, 5), breaks = c(0, 1, 2, 3, 4, 5)),
+  scale_colour_manual(name='dependency', 
+                      values=c('#648fff', 'gray85', 'gray60', '#ffb000')),
+  scale_shape_manual(name='dependency', 
+                     values=c(16, 18, 17, 15)),
+  theme(text = element_text(size = 12),
+        legend.position = 'right',
+        legend.margin = margin(t = -.4, unit = 'cm'),
+        plot.title = element_text(size = 12, hjust = .5)),
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/ept_count_all.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/ept_count_all.png", width=6.5, height=2, dpi=600)
+
+# modeling ...
+
+md2 <- md2 %>%
+  mutate_at(c('study', 'group', 'participant', 'dependency', 'environment'), factor)
+
+summary(md2)
+
+# apply deviation coding ...
+
+contrasts(md2$dependency) <- contr.treatment(4) - matrix(rep(1/4, 12), ncol=3)
+contrasts(md2$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md2$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+
+# view contrasts ...
+
+contrasts(md2$dependency)
+contrasts(md2$environment)
+contrasts(md2$group)
+
+# load package ...
+
+library(glmmTMB) # (https://fcorowe.github.io/countdata_modelling/)
+
+# fit poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+# fit zero-inflated poisson regression model ...
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# no errors
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant), 
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~1,
+                  family = poisson)
+summary(model1)
+
+# Model convergence problem
+
+# fit negative binomial regression model ...
+
+# + model 1 (final) ----
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+model1 %>% write_rds('models/ept_orc_count_all_glmmtmb.rds')
+
+model1 <- read_rds('models/ept_orc_count_all_glmmtmb.rds')
+
+# no errors
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                     -0.228739   0.036983  -6.185 6.21e-10 ***
+# dependency2                     -1.118095   0.082649 -13.528  < 2e-16 ***
+# dependency3                     -1.893907   0.092653 -20.441  < 2e-16 ***
+# dependency4                     -2.207199   0.110224 -20.025  < 2e-16 ***
+# environment2                     0.118230   0.096008   1.231 0.218152    
+# environment3                     0.399858   0.091585   4.366 1.27e-05 ***
+# group2                           0.381720   0.091642   4.165 3.11e-05 ***
+# group3                           0.278564   0.092227   3.020 0.002524 ** 
+# dependency2:environment2        -0.822963   0.200714  -4.100 4.13e-05 ***
+# dependency3:environment2        -0.088113   0.229356  -0.384 0.700850    
+# dependency4:environment2         0.702865   0.297398   2.363 0.018109 *  
+# dependency2:environment3        -0.530776   0.199803  -2.657 0.007896 ** 
+# dependency3:environment3         0.288344   0.227132   1.269 0.204263    
+# dependency4:environment3         2.104808   0.277818   7.576 3.56e-14 ***
+# dependency2:group2               0.930341   0.202944   4.584 4.56e-06 ***
+# dependency3:group2               0.502497   0.226151   2.222 0.026287 *  
+# dependency4:group2               0.902121   0.274591   3.285 0.001019 ** 
+# dependency2:group3               0.858407   0.198973   4.314 1.60e-05 ***
+# dependency3:group3               0.401533   0.221871   1.810 0.070334 .  
+# dependency4:group3               0.497112   0.280854   1.770 0.076727 .  
+# environment2:group2             -0.020728   0.240543  -0.086 0.931329    
+# environment3:group2             -0.518462   0.226144  -2.293 0.021870 *  
+# environment2:group3             -0.009302   0.242382  -0.038 0.969386    
+# environment3:group3             -0.557179   0.228998  -2.433 0.014969 *  
+# dependency2:environment2:group2  0.442226   0.493862   0.895 0.370550    
+# dependency3:environment2:group2 -0.499532   0.564326  -0.885 0.376057    
+# dependency4:environment2:group2 -0.107482   0.748704  -0.144 0.885850    
+# dependency2:environment3:group2 -0.624536   0.489071  -1.277 0.201608    
+# dependency3:environment3:group2 -0.796025   0.553404  -1.438 0.150317    
+# dependency4:environment3:group2 -2.517266   0.689355  -3.652 0.000261 ***
+# dependency2:environment2:group3 -0.245856   0.484333  -0.508 0.611722    
+# dependency3:environment2:group3 -0.673704   0.547620  -1.230 0.218607    
+# dependency4:environment2:group3 -0.187394   0.770365  -0.243 0.807809    
+# dependency2:environment3:group3 -1.259686   0.477474  -2.638 0.008334 ** 
+# dependency3:environment3:group3 -1.451034   0.547927  -2.648 0.008092 ** 
+# dependency4:environment3:group3 -2.598193   0.709425  -3.662 0.000250 ***
+
+table <- summary(model1)$coefficients$cond %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('SE' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
+  mutate_at(vars('p'), round, 3) %>%
+  mutate_at(vars('Estimate', 'SE', 'z'), round, 2) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('dependency2' = 'dependency(modified)', 'dependency3' = 'dependency(nontarget)', 'dependency4' = 'dependency(resumption)',
+              'environment2' = 'environment(long)', 'environment3' = 'environment(island)',
+              'group2' = 'group(KLE)', 'group3' = 'group(KLE)')) %>%
+  rename('*p*' = 'p', '*z*' = 'z')
+
+table %>% write_rds('tables/ept_orc_glmmtmb_primary.rds')
+
+# check for overdispersion ...
+
+check_overdispersion(model1)
+
+# Overdispersion detected.
+
+# pairwise comparisons ...
+
+pairs <- pairs(emmeans(model1, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+pairs
+
+tibble <- as_tibble(pairs)
+
+table <- tibble %>%
+  mutate_at(vars('p.value'), round, 3) %>%
+  mutate_at(vars('estimate':'t.ratio'), round, 2) %>%
+  rename('*p*' = 'p.value', '*t*' = 't.ratio',
+         'Environment' = 'environment', 'Group' = 'group', 'Dependency' = 'dependency', 
+         'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
+  mutate_if(is.character, str_replace_all, 
+            c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE'))
+
+table %>% write_rds('tables/ept_orc_glmmtmb_pairwise.rds')
+
+# tibble2 <- tibble %>%
+#   mutate(sig = case_when(p.value < .05 & p.value >= .01 ~ ' *', 
+#                          p.value < .01 & p.value >= .001 ~ ' **',
+#                          p.value < .001 ~ ' ***',
+#                          TRUE ~ '')) %>%
+#   mutate_at(vars('p.value'), sprintf, fmt = "%0.3f") %>%
+#   mutate_at(vars('estimate', 'SE', 't.ratio'), sprintf, fmt = "%0.2f") %>%
+#   rename(p = p.value, t = t.ratio) %>%
+#   mutate(p = str_c(p, sig)) %>%
+#   mutate_if(is.character, str_replace_all, 
+#             c('english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE')) %>%
+#   select(-sig) %>%
+#   mutate_all(as.character)
+
+pairs %>%
+  kbl(digits = c(2, 2, 2, 2, 2, 2, 2, 3)) %>%
+  remove_column(6)
+
+# plot ...
+
+plot <- plot(emmeans(model1, ~ dependency * environment * group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name="log count", limits = c(-4, 2)) +
+  scale_colour_manual(name="dependency", values=c('#648fff', 'gray85', 'gray60', '#ffb000')) +
+  scale_shape_manual(name="dependency", values=c(16, 18, 17, 15)) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/ept_count_all_emmeans.png", width=6.5, height=2, dpi=600)
+
+model1 <- glmmTMB(count ~ dependency * environment * group + (1 | participant),
+                  data = filter(md2, study == '210510_su'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model1)
+
+model1 <- lmer(count ~ dependency * environment * group + (1 | participant),
+               data = filter(md2, study == '210510_su'))
+summary(model1)
+
+# Conditional model:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)                     -4.099e+00  2.452e+04   0.000    1.000
+# dependency2                     -3.491e+00  4.876e+04   0.000    1.000
+# environment2                     8.130e+00  7.240e+04   0.000    1.000
+# environment3                     4.006e+00  7.314e+04   0.000    1.000
+# group2                           2.941e+00  7.314e+04   0.000    1.000
+# group3                           7.750e+00  1.177e+04   0.001    0.999
+# dependency2:environment2         1.785e+01  1.448e+05   0.000    1.000
+# dependency2:environment3         2.951e+01  1.471e+05   0.000    1.000
+# dependency2:group2              -1.109e+01  1.471e+05   0.000    1.000
+# dependency2:group3              -2.697e-01  2.355e+04   0.000    1.000
+# environment2:group2              6.996e+00  2.172e+05   0.000    1.000
+# environment3:group2              1.842e+01  2.207e+05   0.000    1.000
+# environment2:group3             -8.030e+00  1.756e+03  -0.005    0.996
+# environment3:group3              3.071e+00  3.532e+04   0.000    1.000
+# dependency2:environment2:group2  1.566e+01  4.344e+05   0.000    1.000
+# dependency2:environment3:group2 -1.555e+01  4.388e+05   0.000    1.000
+# dependency2:environment2:group3 -1.338e+01  3.512e+03  -0.004    0.997
+# dependency2:environment3:group3 -4.477e+01  7.064e+04  -0.001    0.999
+
+# fit model with more complex random-effects structure ...
+
+tic()
+model2 <- glmmTMB(count ~ dependency * environment * group + 
+                    (1 + environment | participant),
+                  data = filter(md2, study == '210510_do'),
+                  ziformula = ~0,
+                  family = nbinom2)
+summary(model2)
+toc()
+beep()
+
+# 38.34 sec elapsed
+# Model convergence problem

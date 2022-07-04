@@ -1,14 +1,12 @@
 ---
 title: 'Resumptive Relative Clause Dependencies in the Processing of Second Language English'
 author: 'Fred Zenker'
-date: 7/3/2022
 documentclass: book
 output:
   bookdown::html_document2:
     number_sections: TRUE
     fig_caption: TRUE
 mainfont: Times New Roman
-appendix_name: "Appendix "
 ---
 
 ```{css, echo = FALSE}
@@ -31,25 +29,50 @@ library(kableExtra)
 
 ## Elicited Production Task
 
-```{r table1, echo = FALSE}
+```{r echo = FALSE}
+
+read_rds('ept_orc_resumption_glmer_primary.rds') %>%
+  kable(caption = 'Summary of Logistic Regression Model on Resumption Rates',
+        digits = c(2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = 'Model formula: Resumption ~ Environment + (1 + Environment | Participant) + (1 | Item). Reference level: Long + ENS. Estimate unit: logit.',
+           footnote_as_chunk = TRUE)
+
+```
+
+```{r echo = FALSE}
+
+read_rds('tables/ept_orc_resumption_glmer_pairwise.rds') %>%
+  kable(caption = 'Pairwise Comparisons for Logistic Regression Model on Resumption Rates',
+        digits = c(2, 2, 2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = '*P*-value adjustment: multivariate *t*.',
+           footnote_as_chunk = TRUE)
+
+```
+
+
+```{r echo = FALSE}
 
 table <- read_rds('tables/ept_orc_glmmtmb_primary.rds')
 
 kable(table, caption = 'Summary of Negative Binomial Regression Model on Count Data') %>% 
   kable_classic(bootstrap_options = c('condensed')) %>%
-  footnote(general = 'Model formula: count ~ dependency * environment * group + (1 | participant).',
-           footnote_as_chunk = T)
+  footnote(general = 'Model formula: Count ~ Dependency * Environment * Group + (1 | Participant). Reference level: Gap + Short + ENS. Estimate unit: log count.',
+           footnote_as_chunk = TRUE)
 
 ```
 
-```{r table2, echo = FALSE}
+```{r echo = FALSE}
 
 table <- read_rds('tables/ept_orc_glmmtmb_pairwise.rds')
 
 kable(table, caption = 'Pairwise Comparisons for Binomial Regression Model on Count Data') %>% 
   kable_classic(bootstrap_options = c('condensed')) %>%
-  footnote(general = 'Estimate are log counts. *P*-value adjustment: multivariate *t* method for 126 tests. ', 
-           footnote_as_chunk = T)
+  footnote(general = '*P*-value adjustment: multivariate *t*.',
+           footnote_as_chunk = TRUE)
 
 ```
 
@@ -59,9 +82,5 @@ kable(table, caption = 'Pairwise Comparisons for Binomial Regression Model on Co
 
 ```{r echo = FALSE, out.width="75%", fig.cap="English Version of the Language Background Questionnaire"}
 knitr::include_graphics('images/lbq.png')
-```
-
-```{r echo = FALSE}
-knitr::include_url('https://www.mozilla.org')
 ```
 
