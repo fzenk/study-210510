@@ -21,13 +21,15 @@ mainfont: Times New Roman
 
 # set global options ...
 
-knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 # load packages ...
 
 library(tidyverse)
 library(kableExtra)
 library(emmeans)
+library(ggh4x)
+library(magick)
 
 ```
 
@@ -72,22 +74,92 @@ ajt <- df %>%
 
 ```
 
-# (APPENDIX) Appendices {-}
+# (APPENDIX) Results Tables from the ORC and SRC Studies {-}
 
-# Results Tables from the ORC Study
+# ORC Study
+
+## C-Test
+
+```{r ctest-plot-setup, eval = FALSE, include = FALSE}
+
+# summarise ...
+
+plot <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise(accuracy = mean(accuracy)) %>%
+  ungroup()
+
+check <- plot %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(accuracy),
+            min = min(accuracy),
+            max = max(accuracy)) %>%
+  ungroup()
+
+check <- ct %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(accuracy)) %>%
+  ungroup()
+
+# define plot data ...
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=group, y=accuracy*100, fill=group, label=participant))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=group, y=accuracy*100, fill=group, label=participant))
+
+# define plot styling ...
+
+s <- list(
+  geom_hline(yintercept=50),
+  geom_violin(col = NA),
+  geom_boxplot(width = .1, fill='white'),
+  #geom_jitter(size=1, shape=1, alpha=.25, position = position_jitter(seed=2, width=.15)),
+  #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)),
+  theme_classic(),
+  scale_x_discrete(name='Group',
+                   limits = c('english', 'korean', 'mandarin'), labels = c('ENS', 'KLE', 'MLE')),
+  scale_y_continuous(name="Accuracy (%)",
+                     limits=c(0, 100)),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5),
+        legend.position = "hide")
+)
+
+# print and save ...
+
+p1 + s
+ggsave('plots/orc/ctest.png', width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave('plots/src/ctest.png', width=6.5, height=2, dpi=600)
+
+```
+
+```{r ctest-figure, echo = FALSE, out.width = '624px', fig.cap = 'Accuracy rates on the English C-test. Center lines mark median values; boxes represent interquartile ranges; whiskers extend to the furthest data points within 1.5 times the interquartile range from the box; points are outliers.'}
+
+knitr::include_graphics('plots/orc/ctest.png')
+
+```
 
 ## Elicited Production Task
 
+### Descriptive Statistics
+
+```{r ept-rate-descriptive, echo = FALSE, out.width = '624px', fig.cap = 'Response rate by type.'}
+
+knitr::include_graphics('plots/orc/ept_barplot_with_nontarget.png')
+
+```
+
 ### Resumption Rates
 
-```{r echo = FALSE}
+```{r ept-rate-primary, echo = FALSE}
 
 model <- read_rds('models/ajt_doall_glmer_md5.rds')
 
 table <- summary(model)$coefficients %>%
   as.data.frame() %>%
   rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
+  rename('*SE*' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
   mutate_if(is.character, str_replace_all,
             c('environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
               'group2' = 'Group(KLE)', 'group3' = 'Group(MLE)'))
@@ -102,13 +174,13 @@ table %>%
 
 ```
 
-```{r echo = FALSE}
+```{r ept-rate-posthoc, echo = FALSE}
 
 pairs <- pairs(emmeans(model, ~ environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
 
 table <- pairs %>%
   as.data.frame() %>%
-  rename('*p*' = 'p.value', '*z*' = 'z.ratio',
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
          'Environment' = 'environment', 'Group' = 'group', 
          'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
   mutate_if(is.character, str_replace_all, 
@@ -126,7 +198,7 @@ table %>%
 
 ```
 
-```{r echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from logistic regression model on resumption rates. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+```{r ept-rate-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from logistic regression model on resumption rates. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
 
 plot <- plot(emmeans(model, ~ environment * group), adjust = 'mvt', by = 'group', combine = TRUE, reverse = TRUE, comparisons = TRUE, plotit = FALSE)
 
@@ -136,8 +208,8 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = group)) +
   geom_line(lwd = 1, col = '#ffb000', position = position_dodge(width = .4)) +
   geom_point(size = 3, col = '#ffb000', shape = 15, position = position_dodge(width = .4)) +
   theme_classic() +
-  scale_y_continuous(name="logits", limits = c(-20, 0)) +
-  scale_x_discrete(limits = c('short', 'long', 'island')) +
+  scale_y_continuous(name='Resumption (logits)', limits = c(-20, 0)) +
+  scale_x_discrete(name='Environment', labels = c('Short', 'Long', 'Island')) +
   theme(text = element_text(size = 12), 
         legend.margin=margin(0, 0, 0, -5)) +
   facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
@@ -148,14 +220,20 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = group)) +
 
 ### Proficiency Effects
 
-```{r echo = FALSE}
+```{r ept-proficiency-descriptive, echo = FALSE, out.width = '624px', fig.cap = 'Relationship between resumption rates and proficiency scores. Shaded regions are 95% confidence intervals as predicted by the linear models used to generate the trend lines.'}
+
+knitr::include_graphics('plots/orc/ept_resumption_proficiency.png')
+
+```
+
+```{r ept-proficiency-primary, echo = FALSE}
 
 model <- read_rds('models/ept_orc_glmer_md2.rds')
 
 table <- summary(model)$coefficients %>%
   as.data.frame() %>%
   rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
+  rename('*SE*' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
   mutate_if(is.character, str_replace_all,
             c('environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
               'group2' = 'Group(MLE)',
@@ -171,14 +249,14 @@ table %>%
 
 ```
 
-```{r echo = FALSE}
+```{r ept-proficiency-posthoc, echo = FALSE}
 
 trends <- emtrends(model, ~ environment * group, var = 'proficiency', adjust = 'mvt')
 test <- test(trends)
 
 table <- test %>%
   as.data.frame() %>%
-  rename('Group' = 'group', 'Environment' = 'environment', 'Estimate' = 'proficiency.trend', '*z*' = 'z.ratio', '*p*' = 'p.value') %>%
+  rename('Group' = 'group', 'Environment' = 'environment', 'Estimate' = 'proficiency.trend', '*z*' = 'z.ratio', '*p*' = 'p.value', '*SE*' = 'SE') %>%
   mutate(Group = recode(Group, korean = 'KLE', mandarin = 'MLE'),
          Environment = recode(Environment, short = 'Short', long = 'Long', island = 'Island')) %>%
   select(-df)
@@ -193,7 +271,7 @@ table %>%
 
 ```
 
-```{r echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Relationship between resumption rates and proficiency scores from post-hoc tests. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+```{r ept-proficiency-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Relationship between resumption rates and proficiency scores from post-hoc tests. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
 
 plot <- emmip(model, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
 
@@ -201,11 +279,17 @@ ggplot(plot, aes(x = xvar, y = yvar, group = environment, col = environment, lin
   theme_classic() +
   geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
   geom_line(lwd = .75) +
-  scale_y_continuous(name='logits') +
-  scale_x_continuous(name='mean-centered proficiency score') +
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_y_continuous(name='Resumption (logits)') +
+  scale_x_continuous(name='Proficiency (z-score)') +
+  scale_linetype_manual(name = 'Environment', 
+                        values = c('longdash', 'solid', 'twodash'), 
+                        labels = c('Short', 'Long', 'Island')) +
+  scale_color_manual(name = 'Environment', 
+                     values = c('#619CFF', '#00BA38', '#F8766D'), 
+                     labels = c('Short', 'Long', 'Island')) +
+  scale_fill_manual(name = 'Environment', 
+                    values = c('#619CFF', '#00BA38', '#F8766D'), 
+                    labels = c('Short', 'Long', 'Island')) +
   theme(legend.key.size = unit(2,"line")) +
   facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
 
@@ -215,7 +299,13 @@ ggplot(plot, aes(x = xvar, y = yvar, group = environment, col = environment, lin
 
 ### Resumption Subtypes
 
-```{r echo = FALSE}
+```{r ept-subtype-descriptive, echo = FALSE, out.width = '624px', fig.cap = 'Mean counts for resumption subtypes. Error bars are 95% confidence intervals. Because participants completed five trials per condition, the mean tokens per condition could not exceed five.'}
+
+knitr::include_graphics('plots/orc/ept_resumption_type_count.png')
+
+```
+
+```{r ept-subtype-primary, echo = FALSE}
 
 model <- read_rds('models/ept_orc_resumption_type_glmmtmb_model2.rds')
 
@@ -224,9 +314,7 @@ md <- read_rds('models/ept_orc_resumptoin_type_glmmtmb_data.rds')
 table <- summary(model)$coefficients$cond %>%
   as.data.frame() %>%
   rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
-  mutate_at(vars('p'), round, 3) %>%
-  mutate_at(vars('Estimate', 'SE', 'z'), round, 2) %>%
+  rename('*SE*' = 'Std. Error', 'z' = 'z value', 'p' = 'Pr(>|z|)') %>%
   mutate_if(is.character, str_replace_all, 
             c('subtype2' = 'Subtype(Full NP)',
               'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
@@ -243,13 +331,13 @@ table %>%
 
 ```
 
-```{r echo = FALSE}
+```{r ept-subtype-posthoc, echo = FALSE}
 
 pairs <- pairs(emmeans(model, ~ subtype * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
 
 table <- pairs %>%
   as.data.frame() %>%
-  rename('*p*' = 'p.value', '*t*' = 't.ratio',
+  rename('*p*' = 'p.value', '*t*' = 't.ratio', '*SE*' = 'SE',
          'Environment' = 'environment', 'Group' = 'group', 'Subtype' = 'subtype', 
          'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
   mutate_if(is.character, str_replace_all, 
@@ -267,7 +355,7 @@ table %>%
 
 ```
 
-```{r echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from negative binomial regression model on resumption subtypes. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+```{r ept-subtype-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from negative binomial regression model on resumption subtypes. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
 
 plot <- plot(emmeans(model, ~ subtype * environment * group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
 
@@ -277,15 +365,16 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = subtype, col = subtype
   geom_line(lwd = 1, position = position_dodge(width = .4)) +
   geom_point(size = 3, position = position_dodge(width = .4)) +
   theme_classic() +
-  scale_y_continuous(name="log count") +
-  scale_colour_manual(name='subtype', 
+  scale_y_continuous(name='Count (log)') +
+  scale_x_discrete(name='Environment', labels = c('Long', 'Island')) +
+  scale_colour_manual(name='Subtype', 
                       values=c('#ffb000', 'darkorange'),
                       breaks = c('pronoun', 'fullNP'),
-                      labels = c('pronoun', 'full NP')) +
-  scale_shape_manual(name='subtype', 
+                      labels = c('RP', 'Full NP')) +
+  scale_shape_manual(name='Subtype', 
                      values=c(15, 17),
                      breaks = c('pronoun', 'fullNP'),
-                     labels = c('pronoun', 'full NP')) +
+                     labels = c('RP', 'Full NP')) +
   theme(text = element_text(size = 12), 
         legend.margin=margin(0, 0, 0, -5)) +
   facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
@@ -296,20 +385,26 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = subtype, col = subtype
 
 ### Resumption Use
 
-```{r echo = FALSE}
+```{r ept-use-descriptive, echo = FALSE, out.width = '624px', fig.cap = 'Proportion of participants who used resumption. Error bars are 95% confidence intervals.'}
+
+knitr::include_graphics('plots/orc/ept_coverage_percent.png')
+
+```
+
+```{r ept-use-primary, echo = FALSE}
 
 model <- read_rds('models/ept_coverage_glmer_model1.rds')
 
 table <- summary(model)$coefficients %>%
   as.data.frame() %>%
   rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
+  rename('*SE*' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
   mutate_if(is.character, str_replace_all, 
             c('environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
               'group2' = 'Group(KLE)', 'group3' = 'Group(MLE)'))
 
-check <- table %>% 
-  mutate(OR = round(exp(abs(Estimate)), 2))
+# check <- table %>% 
+#   mutate(OR = round(exp(abs(Estimate)), 2))
 
 table %>%
   kable(caption = 'Summary of Logistic Regression Model on Resumption Use',
@@ -321,7 +416,7 @@ table %>%
 
 ```
 
-```{r echo = FALSE}
+```{r ept-use-posthoc, echo = FALSE}
 
 pairs <- pairs(emmeans(model, ~ environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
 
@@ -329,7 +424,7 @@ pairs <- pairs(emmeans(model, ~ environment * group), adjust = 'mvt', simple = '
 
 table <- pairs %>%
   as.data.frame() %>%
-  rename('*p*' = 'p.value', '*z*' = 'z.ratio',
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
          'Environment' = 'environment', 'Group' = 'group',
          'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
   mutate_if(is.character, str_replace_all, 
@@ -337,8 +432,8 @@ table <- pairs %>%
               'short' = 'Short', 'long' = 'Long', 'island' = 'Island')) %>%
   select(-df)
 
-check <- table %>%
-  mutate(OR = round(exp(abs(Estimate)), 2))
+# check <- table %>%
+#   mutate(OR = round(exp(abs(Estimate)), 2))
 
 table %>%
   kable(caption = 'Pairwise Comparisons for Logistic Regression Model on Resumption Use',
@@ -350,7 +445,7 @@ table %>%
 
 ```
 
-```{r echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from logistic regression model on resumption use. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+```{r ept-use-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from logistic regression model on resumption use. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
 
 plot <- plot(emmeans(model, ~ environment | group), combine = TRUE, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
 
@@ -360,8 +455,8 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = group)) +
   geom_line(lwd = 1, col = '#ffb000', position = position_dodge(width = .4)) +
   geom_point(size = 3, col = '#ffb000', shape = 15, position = position_dodge(width = .4)) +
   theme_classic() +
-  scale_y_continuous(name='logits') +
-  scale_x_discrete(limits = c('short', 'long', 'island')) +
+  scale_y_continuous(name='Usage Rate (logits)') +
+  scale_x_discrete(name='Environment', labels = c('Short', 'Long', 'Island')) +
   theme(text = element_text(size = 12), 
         legend.margin=margin(0, 0, 0, -5)) +
   facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
@@ -372,29 +467,43 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = group)) +
 
 ## Self-Paced Reading Task
 
+### Descriptive Statistics
+
+```{r spr-rrt-descriptive, echo = FALSE, out.width = '624px', fig.cap = 'Mean Residual Reading Times by Region. Error bars are 95% confidence intervals.'}
+
+knitr::include_graphics('plots/orc/spr_rrt.png')
+
+```
+
 ### RRTs at Region 1
 
-```{r echo = FALSE}
+```{r spr-rrt-region1-primary, echo = FALSE}
 
-data <- read_rds('data/spr_rrt_md.rds')
+# data <- read_rds('data/spr_rrt_md.rds')
 
 model <- read_rds('models/spr_doall_rrt_region1_md6.rds')
 
 table <- summary(model)$coefficients %>%
   as.data.frame() %>%
   rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', '*t*' = 't value', '*p*' = 'Pr(>|t|)') %>%
+  rename('*SE*' = 'Std. Error', '*t*' = 't value', '*p*' = 'Pr(>|t|)') %>%
   mutate_if(is.character, str_replace_all,
             c('dependency2' = 'Dependency(RP)', 
               'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
               'group2' = 'Group(KLE)', 'group3' = 'Group(MLE)')) %>%
   select(-df)
 
-# library(EMAtools)
-# check <- lme.dscore(model, data = filter(data, study == '210510_do', region2 == '1'), type = 'lme4')
+# model %>% emmeans(~ dependency) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ environment) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ group) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
 
 table %>%
-  kable(caption = 'Summary of Linear Regression Model for RRTs at Region 1',
+  kable(caption = 'Summary of Linear Regression Model on RRTs at Region 1',
         digits = c(2, 2, 2, 2, 3)
         ) %>%
   kable_classic(bootstrap_options = c('condensed')) %>%
@@ -403,13 +512,29 @@ table %>%
 
 ```
 
-```{r echo = FALSE}
+```{r spr-rrt-region1-emmeans, eval = FALSE, echo = FALSE}
 
-pairs <- pairs(emmeans(model, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+emmeans <- emmeans(model, ~ dependency * environment * group)
+
+emmeans %>% write_rds('models/spr_doall_rrt_region1_md6_emmeans.rds')
+
+```
+
+```{r spr-rrt-region1-posthoc, echo = FALSE}
+
+emmeans <- read_rds('models/spr_doall_rrt_region1_md6_emmeans.rds')
+
+pairs <- pairs(emmeans, 
+               adjust = 'mvt', 
+               simple = list('dependency', 'environment'), 
+               combine = TRUE, 
+               reverse = TRUE)
+
+# check <- as.data.frame(eff_size(pairs, sigma = sigma(model), edf = df.residual(model), method = 'identity'))
 
 table <- pairs %>%
   as.data.frame() %>%
-  rename('*p*' = 'p.value', '*z*' = 'z.ratio',
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
          'Dependency' = 'dependency', 'Environment' = 'environment', 'Group' = 'group',
          'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
   mutate_if(is.character, str_replace_all, 
@@ -419,18 +544,18 @@ table <- pairs %>%
   select(-df)
 
 table %>%
-  kable(caption = 'Pairwise Comparisons for Linear Regression Model for RRTs at Region 1',
+  kable(caption = 'Pairwise Comparisons for Linear Regression Model on RRTs at Region 1',
         digits = c(2, 2, 2, 2, 2, 2, 2, 3)
         ) %>%
   kable_classic(bootstrap_options = c('condensed')) %>%
-  footnote(general = '*P*-value adjustment: multivariate *t* method for 45 tests.',
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 27 tests.',
            footnote_as_chunk = TRUE)
 
 ```
 
-```{r echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from linear regression model for RRTs at Region 1. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+```{r spr-rrt-region1-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from linear regression model on RRTs at Region 1. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
 
-plot <- plot(emmeans(model, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+plot <- plot(emmeans, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
 
 ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
   geom_hline(yintercept = 0) +
@@ -440,8 +565,9 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = depe
   geom_point(size = 3, position = position_dodge(width = .4)) +
   theme_classic() +
   scale_y_continuous(name="RRT (ms)", breaks = seq(-100, 75, by = 25), limits = c(-110, 85)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  scale_x_discrete(name='Environment', labels = c('Short', 'Long', 'Island')) +
+  scale_colour_manual(name='Dependency', values=c('#648fff', '#ffb000'), labels=c('Gap', 'RP')) +
+  scale_shape_manual(name='Dependency', values=c(16, 15), labels=c('Gap', 'RP')) +
   theme(text = element_text(size = 12), 
         legend.margin=margin(0, 0, 0, -5)) +
   facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
@@ -452,14 +578,25 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = depe
 
 ### RRTs at Region 2
 
-```{r echo = FALSE}
+```{r spr-rrt-region2-primary, echo = FALSE}
+
+data <- read_rds('data/spr_rrt_md.rds')
 
 model <- read_rds('models/spr_doall_rrt_region2_md9.rds')
+
+# model %>% emmeans(~ dependency) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ environment) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ group) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
 
 table <- summary(model)$coefficients %>%
   as.data.frame() %>%
   rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', '*t*' = 't value', '*p*' = 'Pr(>|t|)') %>%
+  rename('*SE*' = 'Std. Error', '*t*' = 't value', '*p*' = 'Pr(>|t|)') %>%
   mutate_if(is.character, str_replace_all,
             c('dependency2' = 'Dependency(RP)', 
               'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
@@ -467,10 +604,10 @@ table <- summary(model)$coefficients %>%
   select(-df)
 
 # library(EMAtools)
-# check <- lme.dscore(model, data = filter(data, study == '210510_do', region2 == '1'), type = 'lme4')
+# check <- lme.dscore(model, data = filter(data, study == '210510_do', region2 == '2'), type = 'lme4')
 
 table %>%
-  kable(caption = 'Summary of Linear Regression Model for RRTs at Region 2',
+  kable(caption = 'Summary of Linear Regression Model on RRTs at Region 2',
         digits = c(2, 2, 2, 2, 3)
         ) %>%
   kable_classic(bootstrap_options = c('condensed')) %>%
@@ -479,13 +616,30 @@ table %>%
 
 ```
 
-```{r echo = FALSE}
 
-pairs <- pairs(emmeans(model, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+```{r spr-rrt-region2-emmeans, eval = FALSE, echo = FALSE}
+
+emmeans <- emmeans(model, ~ dependency * environment * group)
+
+emmeans %>% write_rds('models/spr_doall_rrt_region2_md9_emmeans.rds')
+
+```
+
+```{r spr-rrt-region2-posthoc, echo = FALSE}
+
+emmeans <- read_rds('models/spr_doall_rrt_region2_md9_emmeans.rds')
+
+pairs <- pairs(emmeans, 
+               adjust = 'mvt', 
+               simple = list('dependency', 'environment'), 
+               combine = TRUE, 
+               reverse = TRUE)
+
+# check <- as.data.frame(eff_size(pairs, sigma = sigma(model), edf = df.residual(model), method = 'identity'))
 
 table <- pairs %>%
   as.data.frame() %>%
-  rename('*p*' = 'p.value', '*z*' = 'z.ratio',
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
          'Dependency' = 'dependency', 'Environment' = 'environment', 'Group' = 'group',
          'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
   mutate_if(is.character, str_replace_all, 
@@ -495,18 +649,18 @@ table <- pairs %>%
   select(-df)
 
 table %>%
-  kable(caption = 'Pairwise Comparisons for Linear Regression Model for RRTs at Region 2',
+  kable(caption = 'Pairwise Comparisons for Linear Regression Model on RRTs at Region 2',
         digits = c(2, 2, 2, 2, 2, 2, 2, 3)
         ) %>%
   kable_classic(bootstrap_options = c('condensed')) %>%
-  footnote(general = '*P*-value adjustment: multivariate *t* method for 45 tests.',
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 27 tests.',
            footnote_as_chunk = TRUE)
 
 ```
 
-```{r echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from linear regression model for RRTs at Region 2. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+```{r spr-rrt-region2-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from linear regression model on RRTs at Region 2. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
 
-plot <- plot(emmeans(model, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+plot <- plot(emmeans, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
 
 ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
   geom_hline(yintercept = 0) +
@@ -516,8 +670,9 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = depe
   geom_point(size = 3, position = position_dodge(width = .4)) +
   theme_classic() +
   scale_y_continuous(name="RRT (ms)", breaks = seq(-100, 75, by = 25), limits = c(-110, 85)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  scale_x_discrete(name='Environment', labels = c('Short', 'Long', 'Island')) +
+  scale_colour_manual(name='Dependency', values=c('#648fff', '#ffb000'), labels=c('Gap', 'RP')) +
+  scale_shape_manual(name='Dependency', values=c(16, 15), labels=c('Gap', 'RP')) +
   theme(text = element_text(size = 12), 
         legend.margin=margin(0, 0, 0, -5)) +
   facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
@@ -528,25 +683,31 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = depe
 
 ### RRTs at Region 3
 
-```{r echo = FALSE}
+```{r spr-rrt-region3-primary, echo = FALSE}
 
 model <- read_rds('models/spr_doall_rrt_region3_md6.rds')
+
+# model %>% emmeans(~ dependency) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ environment) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ group) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
 
 table <- summary(model)$coefficients %>%
   as.data.frame() %>%
   rownames_to_column('Parameter') %>%
-  rename('SE' = 'Std. Error', '*t*' = 't value', '*p*' = 'Pr(>|t|)') %>%
+  rename('*SE*' = 'Std. Error', '*t*' = 't value', '*p*' = 'Pr(>|t|)') %>%
   mutate_if(is.character, str_replace_all,
             c('dependency2' = 'Dependency(RP)', 
               'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
               'group2' = 'Group(KLE)', 'group3' = 'Group(MLE)')) %>%
   select(-df)
 
-# library(EMAtools)
-# check <- lme.dscore(model, data = filter(data, study == '210510_do', region2 == '1'), type = 'lme4')
-
 table %>%
-  kable(caption = 'Summary of Linear Regression Model for RRTs at Region 3',
+  kable(caption = 'Summary of Linear Regression Model on RRTs at Region 3',
         digits = c(2, 2, 2, 2, 3)
         ) %>%
   kable_classic(bootstrap_options = c('condensed')) %>%
@@ -555,13 +716,30 @@ table %>%
 
 ```
 
-```{r echo = FALSE}
 
-pairs <- pairs(emmeans(model, ~ dependency * environment * group), adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+```{r spr-rrt-region3-emmeans, eval = FALSE, echo = FALSE}
+
+emmeans <- emmeans(model, ~ dependency * environment * group)
+
+emmeans %>% write_rds('models/spr_doall_rrt_region3_md6_emmeans.rds')
+
+```
+
+```{r spr-rrt-region3-posthoc, echo = FALSE}
+
+emmeans <- read_rds('models/spr_doall_rrt_region3_md6_emmeans.rds')
+
+pairs <- pairs(emmeans, 
+               adjust = 'mvt', 
+               simple = list('dependency', 'environment'), 
+               combine = TRUE, 
+               reverse = TRUE)
+
+# check <- as.data.frame(eff_size(pairs, sigma = sigma(model), edf = df.residual(model), method = 'identity'))
 
 table <- pairs %>%
   as.data.frame() %>%
-  rename('*p*' = 'p.value', '*z*' = 'z.ratio',
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
          'Dependency' = 'dependency', 'Environment' = 'environment', 'Group' = 'group',
          'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
   mutate_if(is.character, str_replace_all, 
@@ -571,18 +749,18 @@ table <- pairs %>%
   select(-df)
 
 table %>%
-  kable(caption = 'Pairwise Comparisons for Linear Regression Model for RRTs at Region 3',
+  kable(caption = 'Pairwise Comparisons for Linear Regression Model on RRTs at Region 3',
         digits = c(2, 2, 2, 2, 2, 2, 2, 3)
         ) %>%
   kable_classic(bootstrap_options = c('condensed')) %>%
-  footnote(general = '*P*-value adjustment: multivariate *t* method for 45 tests.',
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 27 tests.',
            footnote_as_chunk = TRUE)
 
 ```
 
-```{r echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from linear regression model for RRTs at Region 3. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+```{r spr-rrt-region3-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from linear regression model on RRTs at Region 3. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
 
-plot <- plot(emmeans(model, ~ dependency * environment * group), comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+plot <- plot(emmeans, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
 
 ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
   geom_hline(yintercept = 0) +
@@ -591,26 +769,376 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = depe
   geom_line(lwd = 1, position = position_dodge(width = .4)) +
   geom_point(size = 3, position = position_dodge(width = .4)) +
   theme_classic() +
-  scale_y_continuous(name="RRT (ms)", breaks = seq(-100, 75, by = 25), limits = c(-110, 85)) +
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")) +
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")) +
+  scale_y_continuous(name='RRT (ms)', breaks = seq(-100, 75, by = 25), limits = c(-110, 85)) +
+  scale_x_discrete(name='Environment', labels = c('Short', 'Long', 'Island')) +
+  scale_colour_manual(name='Dependency', values=c('#648fff', '#ffb000'), labels=c('Gap', 'RP')) +
+  scale_shape_manual(name='Dependency', values=c(16, 15), labels=c('Gap', 'RP')) +
   theme(text = element_text(size = 12), 
         legend.margin=margin(0, 0, 0, -5)) +
   facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
 
-# ggsave("plots/orc/spr_rrt_region2_emmeans.png", width=6.5, height=2, dpi=600)
+ggsave("plots/orc/spr_rrt_region3_emmeans.png", width=6.5, height=2, dpi=600)
 
 ```
 
 ### Proficiency Effects for RRTs at Region 2
 
+```{r spr-rrt-proficiency-primary, echo = FALSE}
+
+data <- read_rds('data/spr_rrt_proficiency_region2_modeling.rds')
+
+model <- read_rds('models/spr_orc_rrt_proficiency_region2_md4.rds')
+
+# model %>% emmeans(~ dependency) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ environment) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+# 
+# model %>% emmeans(~ group) %>%
+#   eff_size(sigma = sigma(model), df.residual(model))
+
+table <- summary(model)$coefficients %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('*SE*' = 'Std. Error', '*t*' = 't value', '*p*' = 'Pr(>|t|)') %>%
+  mutate_if(is.character, str_replace_all,
+            c('proficiency' = 'Proficiency', 
+              'dependency2' = 'Dependency(RP)', 
+              'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
+              'group2' = 'Group(MLE)')) %>%
+  select(-df)
+
+table %>%
+  kable(caption = 'Summary of Linear Regression Model for Proficiency Effects at Region 2',
+        digits = c(2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = 'Model formula: RRT ~ Proficiency * Dependency * Environment * Group + (1 + Dependency * Environment | Participant) + (1 | Item). Reference level: Gap + Short + KLE. Estimate unit: millisecond. Intercept: grand mean.',
+           footnote_as_chunk = TRUE)
+
+```
+
+```{r spr-rrt-proficiency-emtrends, eval = FALSE, echo = FALSE}
+
+emtrends <- emtrends(model, ~ dependency * environment * group, var = 'proficiency')
+
+emtrends %>% write_rds('models/spr_orc_rrt_proficiency_region2_md4_emtrends.rds')
+
+```
+
+```{r spr-rrt-proficiency-posthoc1, echo = FALSE}
+
+emtrends <- read_rds('models/spr_orc_rrt_proficiency_region2_md4_emtrends.rds')
+
+test <- test(emtrends, 
+               adjust = 'mvt', 
+               simple = list('dependency', 'environment'), 
+               combine = TRUE, 
+               reverse = TRUE)
+
+# check <- as.data.frame(eff_size(pairs, sigma = sigma(model), edf = df.residual(model), method = 'identity'))
+
+table <- test %>%
+  as.data.frame() %>%
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
+         'Dependency' = 'dependency', 'Environment' = 'environment', 'Group' = 'group',
+         'Estimate' = 'proficiency.trend') %>%
+  mutate_at(c('Dependency', 'Environment', 'Group'), as.character) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('korean' = 'KLE', 'mandarin' = 'MLE',
+              'gap' = 'Gap', 'pronoun' = 'RP',
+              'short' = 'Short', 'long' = 'Long', 'island' = 'Island')) %>%
+  select(-df)
+
+table %>%
+  kable(caption = 'Post-Hoc Tests for Proficiency Trends by Dependency, Environment, and Group',
+        digits = c(2, 2, 2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 12 tests.',
+           footnote_as_chunk = TRUE)
+
+```
+
+```{r spr-rrt-proficiency-figure, echo = FALSE, fig.with = 6.5, fig.height = 3, fig.cap = 'Proficiency trends from linear regression model for proficiency effects at Region 2. Shaded regions are 95% confidence intervals.'}
+
+plot <- emmip(model, dependency ~ environment ~ proficiency * group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = dependency, col = dependency, linetype = dependency)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = dependency), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='RRT (ms)') +
+  scale_x_continuous(name='Proficiency (z-score)') +
+  scale_linetype_manual(name = 'Dependency', values = c('longdash', 'solid'), labels = c('Gap', 'RP')) +
+  scale_color_manual(name = 'Dependency', values = c('#648fff', '#ffb000'), labels = c('Gap', 'RP')) +
+  scale_fill_manual(name = 'Dependency', values = c('#648fff', '#ffb000'), labels = c('Gap', 'RP')) +
+  theme(text = element_text(size = 12), legend.key.size = unit(2,"line")) +
+  facet_grid2(vars(group), vars(environment), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`short` = 'Short', `long` = 'Long', `island` = 'Island', 
+                                       `korean` = 'KLE', `mandarin` = 'MLE')))
+
+# ggsave("plots/orc/spr_rrt_proficiency_emmeans.png", width=6.5, height=3, dpi=600)
+
+```
+
+```{r spr-rrt-proficiency-posthoc2, echo = FALSE}
+
+contrast <- emtrends %>%
+  pairs(simple = 'dependency', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+
+table <- contrast %>%
+  as.data.frame() %>%
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
+         'Contrast' = 'contrast', 'Environment' = 'environment', 'Group' = 'group',
+         'Estimate' = 'estimate') %>%
+  mutate_at(c('Contrast', 'Environment', 'Group'), as.character) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('korean' = 'KLE', 'mandarin' = 'MLE',
+              'gap' = 'Gap', 'pronoun' = 'RP',
+              'short' = 'Short', 'long' = 'Long', 'island' = 'Island')) %>%
+  select(-df)
+
+table %>%
+  kable(caption = 'Post-Hoc Tests for Proficiency &times; Dependency Interactions by Environment and Group',
+        digits = c(2, 2, 2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 6 tests.',
+           footnote_as_chunk = TRUE)
+
+```
+
 ### Comprehension Question Accuracy
+
+```{r spr-accuracy-descriptive, echo = FALSE, out.width = '624px', fig.cap = 'Mean accuracy rates on comprehension questions. Error bars are 95% confidence intervals.'}
+
+knitr::include_graphics('plots/orc/spr_accuracy.png')
+
+```
+
+```{r spr-accuracy-primary, echo = FALSE}
+
+model <- read_rds('models/spr_doall_acc_md4.rds')
+
+table <- summary(model)$coefficients %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('*SE*' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
+  mutate_if(is.character, str_replace_all,
+            c('dependency2' = 'Dependency(RP)', 
+              'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
+              'group2' = 'Group(KLE)', 'group3' = 'Group(MLE)'))
+
+# check <- table %>%
+#   mutate(OR = round(exp(abs(Estimate)), 2))
+
+table %>%
+  kable(caption = 'Summary of Logistic Regression Model on Accuracy Data',
+        digits = c(2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = 'Model formula: RRT ~ Dependency * Environment * Group + (1 | Participant) + (1 + Dependency | Item). Reference level: Gap + Short + ENS. Estimate unit: logit. Intercept: grand mean.',
+           footnote_as_chunk = TRUE)
+
+```
+
+```{r spr-accuracy-posthoc, echo = FALSE}
+
+emmeans <- emmeans(model, ~ dependency * environment * group)
+
+pairs <- pairs(emmeans, adjust = 'mvt', simple = 'each', combine = TRUE, reverse = TRUE)
+
+table <- pairs %>%
+  as.data.frame() %>%
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
+         'Dependency' = 'dependency', 
+         'Environment' = 'environment', 'Group' = 'group', 
+         'Contrast' = 'contrast', 'Estimate' = 'estimate') %>%
+  mutate_if(is.character, str_replace_all, 
+            c('gap' = 'Gap', 'pronoun' = 'RP',
+              'english' = 'ENS', 'korean' = 'KLE', 'mandarin' = 'MLE',
+              'short' = 'Short', 'long' = 'Long', 'island' = 'Island')) %>% 
+  select(-df)
+
+# check <- table %>%
+#   mutate(OR = round(exp(abs(Estimate)), 2))
+
+table %>%
+  kable(caption = 'Pairwise Comparisons for Logistic Regression Model on Accuracy Data',
+        digits = c(2, 2, 2, 2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 45 tests.',
+           footnote_as_chunk = TRUE)
+
+```
+
+```{r spr-accuracy-figure, echo = FALSE, fig.with = 6.5, fig.height = 2, fig.cap = 'Estimated marginal means from logistic regression model on accuracy data. Transparent bars are 95% confidence intervals; solid bars are comparison bars from post-hoc tests.'}
+
+plot <- plot(emmeans, comparisons = TRUE, adjust = 'mvt', plotit = FALSE)
+
+ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = dependency, shape = dependency)) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0, lwd = 5, alpha = .5, position = position_dodge(width = .4)) +
+  geom_errorbar(aes(ymin = case_when(is.na(lcmpl)~the.emmean, TRUE ~ lcmpl), ymax = case_when(is.na(rcmpl)~the.emmean, TRUE ~ rcmpl)), width = 0, lwd = 1, position = position_dodge(width = .4)) +
+  geom_line(lwd = 1, position = position_dodge(width = .4)) +
+  geom_point(size = 3, position = position_dodge(width = .4)) +
+  theme_classic() +
+  scale_y_continuous(name='Accuracy (logits)') +
+  scale_x_discrete(name='Environment', labels = c('Short', 'Long', 'Island')) +
+  scale_colour_manual(name='Dependency', values=c('#648fff', '#ffb000'), labels=c('Gap', 'RP')) +
+  scale_shape_manual(name='Dependency', values=c(16, 15), labels=c('Gap', 'RP')) +
+  theme(text = element_text(size = 12), 
+        legend.margin=margin(0, 0, 0, -5)) +
+  facet_wrap(~group, labeller = as_labeller(c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+# ggsave("plots/orc/spr_accuracy_emmeans.png", width=6.5, height=2, dpi=600)
+
+```
 
 ### Proficiency Effects for Comprehension Question Accuracy
 
+```{r spr-accuracy-proficiency-primary, echo = FALSE}
+
+model <- read_rds('models/spr_orc_acc_proficiencyz_model8.rds')
+
+table <- summary(model)$coefficients %>%
+  as.data.frame() %>%
+  rownames_to_column('Parameter') %>%
+  rename('*SE*' = 'Std. Error', '*z*' = 'z value', '*p*' = 'Pr(>|z|)') %>%
+  mutate_if(is.character, str_replace_all,
+            c('dependency2' = 'Dependency(RP)',
+              'environment2' = 'Environment(Long)', 'environment3' = 'Environment(Island)',
+              'group2' = 'Group(MLE)',
+              'proficiency' = 'Proficiency'))
+
+check <- table %>%
+  mutate(OR = round(exp(abs(Estimate)), 2))
+
+table %>%
+  kable(caption = 'Summary of Logistic Regression Model for Proficiency Effects on Accuracy Data',
+        digits = c(2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = 'Model formula: Resumption ~ Environment * Group + (1 | Participant) + (1 + Proficiency + Group | Item). Reference level: Gap + Short + KLE. Estimate unit: logit. Intercept: grand mean.',
+           footnote_as_chunk = TRUE)
+
+```
+
+```{r spr-accuracy-proficiency-emtrends, eval = FALSE, echo = FALSE}
+
+emtrends <- emtrends(model, ~ dependency * environment * group, var = 'proficiency')
+
+#emtrends %>% write_rds('models/spr_orc_accuracy_proficiency_emtrends.rds')
+
+```
+
+```{r spr-accuracy-proficiency-posthoc1, echo = FALSE}
+
+#emtrends <- read_rds('models/spr_orc_accuracy_proficiency_emtrends.rds')
+
+test <- test(emtrends, 
+               adjust = 'mvt', 
+               simple = list('dependency', 'environment'), 
+               combine = TRUE, 
+               reverse = TRUE)
+
+table <- test %>%
+  as.data.frame() %>%
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
+         'Dependency' = 'dependency', 'Environment' = 'environment', 'Group' = 'group',
+         'Estimate' = 'proficiency.trend') %>%
+  mutate_at(c('Dependency', 'Environment', 'Group'), as.character) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('korean' = 'KLE', 'mandarin' = 'MLE',
+              'gap' = 'Gap', 'pronoun' = 'RP',
+              'short' = 'Short', 'long' = 'Long', 'island' = 'Island')) %>%
+  select(-df)
+
+table %>%
+  kable(caption = 'Post-Hoc Tests for Proficiency Trends by Dependency, Environment, and Group',
+        digits = c(2, 2, 2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 12 tests.',
+           footnote_as_chunk = TRUE)
+
+```
+
+```{r spr-accuracy-proficiency-figure, echo = FALSE, fig.with = 6.5, fig.height = 3, fig.cap = 'Proficiency trends from logistic regression model on accuracy data. Shaded regions are 95% confidence intervals.'}
+
+plot <- emmip(model, dependency ~ environment ~ proficiency * group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+# Proficiency:Dependency ...
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = dependency, col = dependency, linetype = dependency)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = dependency), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='Accuracy (logits)') +
+  scale_x_continuous(name='Proficiency (z-score)') +
+  scale_linetype_manual(name = 'Dependency', values = c('longdash', 'solid'), labels = c('Gap', 'RP')) +
+  scale_color_manual(name = 'Dependency', values = c('#648fff', '#ffb000'), labels = c('Gap', 'RP')) +
+  scale_fill_manual(name = 'Dependency', values = c('#648fff', '#ffb000'), labels = c('Gap', 'RP')) +
+  theme(text = element_text(size = 12), legend.key.size = unit(2,"line")) +
+  facet_grid2(vars(group), vars(environment), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`short` = 'Short', `long` = 'Long', `island` = 'Island',
+                                       `korean` = 'KLE', `mandarin` = 'MLE')))
+
+# Proficiency:Environment ...
+
+# ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+#   theme_classic() +
+#   geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+#   geom_line(lwd = .75) +
+#   scale_y_continuous(name='logits') +
+#   scale_x_continuous(name='scaled proficiency score') +
+#   scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+#   scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+#   scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+#   theme(text = element_text(size = 12), legend.key.size = unit(2,"line")) +
+#   facet_grid2(vars(group), vars(dependency), axes = 'all', remove_labels = 'y',
+#               labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP',
+#                                        `korean` = 'KLE', `mandarin` = 'MLE')))
+
+# ggsave("plots/orc/spr_accuracy_proficiency_emmeans.png", width=6.5, height=3, dpi=600)
+
+```
+
+```{r spr-accuracy-proficiency-posthoc2, echo = FALSE}
+
+contrast <- emtrends %>%
+  pairs(simple = 'dependency', combine = TRUE, reverse = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+
+table <- contrast %>%
+  as.data.frame() %>%
+  rename('*p*' = 'p.value', '*z*' = 'z.ratio', '*SE*' = 'SE',
+         'Contrast' = 'contrast', 'Environment' = 'environment', 'Group' = 'group',
+         'Estimate' = 'estimate') %>%
+  mutate_at(c('Contrast', 'Environment', 'Group'), as.character) %>%
+  mutate_if(is.character, str_replace_all, 
+            c('korean' = 'KLE', 'mandarin' = 'MLE',
+              'gap' = 'Gap', 'pronoun' = 'RP',
+              'short' = 'Short', 'long' = 'Long', 'island' = 'Island')) %>%
+  select(-df)
+
+table %>%
+  kable(caption = 'Post-Hoc Tests for Proficiency &times; Dependency Interactions by Environment and Group',
+        digits = c(2, 2, 2, 2, 2, 2, 3)
+        ) %>%
+  kable_classic(bootstrap_options = c('condensed')) %>%
+  footnote(general = '*P*-value adjustment: multivariate *t* method for 6 tests.',
+           footnote_as_chunk = TRUE)
+
+```
+
+
 ## Acceptability Judgment Task
 
-# Results Tables from the SRC Study
+# SRC Study
 
 ## C-Test
 

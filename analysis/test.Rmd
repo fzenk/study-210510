@@ -1,0 +1,142 @@
+---
+title: 'Resumptive Relative Clause Dependencies in the Processing of Second Language English'
+author: 'Fred Zenker'
+documentclass: book
+output:
+  bookdown::html_document2:
+    number_sections: TRUE
+    fig_caption: TRUE
+mainfont: Times New Roman
+---
+
+```{css echo = FALSE}
+
+.header-section-number::after {
+  content: '.';
+}
+
+```
+
+```{r include = FALSE}
+
+# set global options ...
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+# load packages ...
+
+library(tidyverse)
+library(kableExtra)
+library(emmeans)
+library(ggh4x)
+library(magick)
+
+```
+
+```{r eval = FALSE, include = FALSE}
+
+# load main dataframe ...
+
+df <- read_csv('data/data.csv', col_types = cols(.default = 'c')) %>%
+  select(-audio_data)
+
+# load c-test data ...
+
+ct <- read_csv('data/ctest_scored.csv', col_types = cols(.default = 'f', accuracy = 'l'))
+
+# prep proficiency scores ...
+
+proficiency <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise(proficiency = sum(accuracy, na.rm=T)) %>%
+  ungroup()
+
+# prep ept data ...
+
+ep <- df %>%
+  filter(task == 'ept') %>%
+  arrange(study, group, participant) %>%
+  select_if(function(x){!all(is.na(x))})
+
+# prep sprt data ...
+
+spr <- df %>%
+  filter(task == 'sprt') %>%
+  arrange(study, group, participant) %>%
+  select_if(function(x){!all(is.na(x))})
+
+# prep ajt data ...
+
+ajt <- df %>%
+  filter(task %in% c('english_ajt', 'korean_ajt', 'mandarin_ajt')) %>%
+  arrange(study, group, participant) %>%
+  select_if(function(x){!all(is.na(x))})
+
+```
+
+# (APPENDIX) Results Tables from the ORC and SRC Studies {-}
+
+# ORC Study
+
+## C-Test
+
+```{r ctest-plot-setup, eval = FALSE, include = FALSE}
+
+# summarise ...
+
+plot <- ct %>%
+  group_by(study, group, participant) %>%
+  summarise(accuracy = mean(accuracy)) %>%
+  ungroup()
+
+check <- plot %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(accuracy),
+            min = min(accuracy),
+            max = max(accuracy)) %>%
+  ungroup()
+
+check <- ct %>%
+  group_by(study, group) %>%
+  summarise(mean = mean(accuracy)) %>%
+  ungroup()
+
+# define plot data ...
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=group, y=accuracy*100, fill=group, label=participant))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=group, y=accuracy*100, fill=group, label=participant))
+
+# define plot styling ...
+
+s <- list(
+  geom_hline(yintercept=50),
+  geom_violin(col = NA),
+  geom_boxplot(width = .1, fill='white'),
+  #geom_jitter(size=1, shape=1, alpha=.25, position = position_jitter(seed=2, width=.15)),
+  #geom_text(size = 2.5, col = "black", position = position_jitter(seed=2)),
+  theme_classic(),
+  scale_x_discrete(name='Group',
+                   limits = c('english', 'korean', 'mandarin'), labels = c('ENS', 'KLE', 'MLE')),
+  scale_y_continuous(name="Accuracy (%)",
+                     limits=c(0, 100)),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5),
+        legend.position = "hide")
+)
+
+# print and save ...
+
+p1 + s
+ggsave('plots/orc/ctest.png', width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave('plots/src/ctest.png', width=6.5, height=2, dpi=600)
+
+```
+
+
+```{r ctest-figure, echo = FALSE, out.width = '624px', fig.cap = 'Accuracy rates on the English C-test. Center lines mark median values; boxes represent interquartile ranges; whiskers extend to the furthest data points within 1.5 times the interquartile range from the box; points are outliers.'}
+
+knitr::include_graphics('plots/orc/ctest.png')
+
+```

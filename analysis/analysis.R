@@ -552,7 +552,7 @@ check <- temp2 %>%
 
 # summarise for plotting ...
 
-plot <- temp %>%
+plot <- temp2 %>%
   filter(is.na(condition) == FALSE) %>%
   mutate(type = as.character(type)) %>%
   group_by(study, group, condition) %>%
@@ -582,9 +582,9 @@ s <- list(
   geom_bar(stat = "identity", col = NA, width = .5, alpha=.8),
   geom_text(size = 3, col = "black", position = position_stack(vjust = 0.5)),
   theme_classic(),
-  scale_x_discrete(name="environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('short', 'long', 'island')),
-  scale_y_continuous(name="% responses", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)),
-  scale_fill_manual(name="dependency", values=c('#648fff', 'gray85', 'gray60', '#ffb000'), labels = c('gap', 'modified', 'nontarget', 'resumption')),
+  scale_x_discrete(name="Environment", limits = c('cond1', 'cond2', 'cond3'), labels = c('Short', 'Long', 'Island')),
+  scale_y_continuous(name="Responses (%)", limits=c(0, 101), breaks=c(0, 20, 40, 60, 80, 100)),
+  scale_fill_manual(name="Dependency", values=c('#648fff', 'gray85', 'gray60', '#ffb000'), labels = c('Gap', 'Modified', 'Nontarget', 'Resumption')),
   theme(text = element_text(size = 12), plot.title = element_text(size = 12, hjust = .5), legend.position = "right", legend.margin=margin(1, 1, 1, 1)),
   facet_wrap(~group, labeller = as_labeller(groups))
 )
@@ -592,10 +592,10 @@ s <- list(
 # print and save ...
 
 p1 + s
-ggsave("plots/orc/ept_barplot_with_nontarget.png", width=6.5, height=2.75, dpi=600)
+ggsave('plots/orc/ept_barplot_with_nontarget.png', width=6.5, height=2.75, dpi=600)
 
 p2 + s
-ggsave("plots/src/ept_barplot_with_nontarget.png", width=6.5, height=2.75, dpi=600)
+ggsave('plots/src/ept_barplot_with_nontarget.png', width=6.5, height=2.75, dpi=600)
 
 #------------------------------------------------------------------------------#
 # plot - bar - filler ----
@@ -1305,11 +1305,11 @@ s <- list(
   theme_classic(),
   geom_smooth(method=lm, alpha = .1),
   geom_point(shape = 16, alpha = .1, size = 2),
-  scale_y_continuous(name='% resumption'),
-  scale_x_continuous(name='mean-centered proficiency score'),
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_y_continuous(name='Resumption (%)'),
+  scale_x_continuous(name='Proficiency (z-score)'),
+  scale_linetype_manual(name='Environment', values = c('longdash', 'solid', 'twodash'), labels = c('Short', 'Long', 'Island')),
+  scale_color_manual(name='Environment', values = c('#619CFF', '#00BA38', '#F8766D'), labels = c('Short', 'Long', 'Island')),
+  scale_fill_manual(name='Environment', values = c('#619CFF', '#00BA38', '#F8766D'), labels = c('Short', 'Long', 'Island')),
   theme(legend.key.size = unit(2,"line")),
   facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
 )
@@ -1854,7 +1854,8 @@ s <- list(
                 width = 0, lwd = 5, linetype = 1, alpha = .5, col = '#ffb000',
                 position = position_dodge(width = .4)),
   theme_classic(),
-  scale_y_continuous(name = '% participants'),
+  scale_y_continuous(name = 'Participants (%)'),
+  scale_x_discrete(name = 'Environment', labels = c('Short', 'Long', 'Island')),
   theme(text = element_text(size = 12),
         legend.position = 'none',
         plot.title = element_text(size = 12, hjust = .5)),
@@ -2129,15 +2130,16 @@ s <- list(
                 width = 0, lwd = 5, linetype = 1, alpha = .5,
                 position = position_dodge(width = .4)),
   theme_classic(),
-  scale_y_continuous(name="mean count"),
-  scale_colour_manual(name='subtype', 
+  scale_y_continuous(name='Count'),
+  scale_x_discrete(name='Environment', labels = c('Short', 'Long', 'Island')),
+  scale_colour_manual(name='Subtype', 
                       values=c('#ffb000', 'darkorange'),
                       breaks = c('pronoun', 'fullNP'),
-                      labels = c('pronoun', 'full NP')),
-  scale_shape_manual(name='subtype', 
+                      labels = c('RP', 'Full NP')),
+  scale_shape_manual(name='Subtype', 
                      values=c(15, 17),
                      breaks = c('pronoun', 'fullNP'),
-                     labels = c('pronoun', 'full NP')),
+                     labels = c('RP', 'Full NP')),
   theme(text = element_text(size = 12),
         legend.position = 'right',
         legend.margin = margin(t = -.4, unit = 'cm'),
@@ -2777,10 +2779,10 @@ s <- list(
   geom_point(size = 3, position = position_dodge(width = .4)),
   geom_errorbar(aes(ymin=mean-ci, ymax=mean+ci), width=0, lwd=5, linetype=1, alpha = .5, position = position_dodge(width = .4)),
   theme_classic(),
-  scale_x_discrete(name="environment", limits = c("short", "long", "island"), labels = c("short", "long", "island")),
-  scale_y_continuous(name="% accuracy", limits=c(70, 100)),
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c("gap", "resumption")),
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c("gap", "resumption")),
+  scale_x_discrete(name="Environment", limits = c("short", "long", "island"), labels = c("Short", "Long", "Island")),
+  scale_y_continuous(name="Accuracy (%)", limits=c(70, 100)),
+  scale_colour_manual(name="Dependency", values=c('#648fff', '#ffb000'), labels=c("Gap", "RP")),
+  scale_shape_manual(name="Dependency", values=c(16, 15), labels=c("Gap", "RP")),
   theme(text = element_text(size = 12), 
         axis.title.y = element_text(margin=margin(r=-3)),
         legend.margin=margin(0, 0, 0, -5)),
@@ -3103,14 +3105,16 @@ s <- list(
   geom_errorbar(aes(ymin=mean_rrt-ci, ymax=mean_rrt+ci), width=0, lwd=5, linetype=1, alpha = .5, position = position_dodge(width = .4)),
   theme_classic(),
   scale_y_continuous(name="RRT (ms)", breaks = seq(-150, 150, by = 50), limits=c(-150, 150)),
-  scale_x_continuous(name="region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
-  scale_colour_manual(name="dependency", values=c('#648fff', '#ffb000'), labels=c('gap', 'resumption')),
-  scale_shape_manual(name="dependency", values=c(16, 15), labels=c('gap', 'resumption')),
+  scale_x_continuous(name="Region", limits=c(-3.25, 4.25), breaks = c(-3, -2, -1, 0, 1, 2, 3, 4)),
+  scale_colour_manual(name="Dependency", values=c('#648fff', '#ffb000'), labels=c('Gap', 'RP')),
+  scale_shape_manual(name="Dependency", values=c(16, 15), labels=c('Gap', 'RP')),
   theme(text = element_text(size = 12),
         legend.position = 'bottom',
         legend.margin = margin(t = -.4, unit = 'cm'),
         plot.title = element_text(size = 12, hjust = .5)),
-  facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y')
+  facet_grid2(vars(panel), vars(environment), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`short` = 'Short', `long` = 'Long', `island` = 'Island', 
+                                     `ENS` = 'ENS', `KLE` = 'KLE', `MLE` = 'MLE')))
 )
 
 # s <- list(
@@ -4194,18 +4198,27 @@ anova(model9, model11, refit = FALSE)
 
 # filter data for analysis
 
-md <- spr_crit_clean %>%
-  filter(region2 == 3,
-         study == '210510_do')
+spr_crit_clean <- spr_trim
+
+md <- spr_crit_clean
+
+# md <- spr_crit_clean %>%
+#   filter(region2 == 3,
+#          study == '210510_do')
+
+# select columns ...
+
+md <- md %>%
+  select(study, group, participant, item, region2, dependency, environment, rrt)
 
 # set class of columns ...
 
 md <- md %>%
-  mutate(dependency = as.factor(dependency),
-         environment = as.factor(environment),
-         group = as.factor(group),
-         rrt = as.numeric(rrt)) %>%
+  mutate_at(c('study', 'group', 'participant', 'item', 'region2', 'dependency', 'environment'), factor) %>%
+  mutate(rrt = as.numeric(rrt)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+summary(md)
 
 # apply deviation coding ...
 
@@ -4229,7 +4242,7 @@ tic()
 model1 <- lmer(rrt ~ dependency * environment * group + 
                  (1 | participant) + 
                  (1 | item), 
-               data = md,
+               data = filter(md, study == '210510_do', region2 == '3'),
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_doall_rrt_region3_md1.rds')
 summary(model1)
@@ -4258,6 +4271,12 @@ beep()
 # dependency2:environment3:group2   23.33136   25.00058 5820.22038   0.933 0.350738    
 # dependency2:environment2:group3   13.46667   24.19955 5819.48786   0.556 0.577901    
 # dependency2:environment3:group3   27.21359   24.16396 5813.31036   1.126 0.260125 
+
+library(EMAtools)
+check <- lme.dscore(model1, data = filter(md, study == '210510_do', region2 == '3'), type = 'lme4')
+check <- check %>%
+  as.data.frame() %>%
+  mutate(d = round(d, 2))
 
 #------------------------------------------------------------------------------#
 # + + model 2
@@ -4455,9 +4474,9 @@ tic()
 model6 <- lmer(rrt ~ dependency * environment * group + 
                  (1 | participant) + 
                  (1 + group | item), 
-               data = md,
-               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_doall_rrt_region3_md6.rds')
+               data = filter(md, study == '210510_do', region2 == '3'),
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) #%>%
+  #write_rds('models/spr_doall_rrt_region3_md6.rds')
 summary(model6)
 toc()
 beep()
@@ -4607,293 +4626,32 @@ beep()
 # proficiency - RRTs - region 2 ----
 #------------------------------------------------------------------------------#
 
-#------------------------------------------------------------------------------#
-# + d-score ----
-#------------------------------------------------------------------------------#
-
-# read in data ...
-
-spr2 <- read_csv('data/spr_crit_clean.csv')
-
-# filter for analysis ...
-
-spr2 <- spr2 %>%
-  filter(region2 == '2',
-         group %in% c('korean', 'mandarin'))
+md <- spr_crit_clean
 
 # select columns ...
 
-spr2 <- spr2 %>%
-  select(study, group, participant, item, dependency, environment, rrt)
+md <- md %>%
+  select(study, group, participant, item, region2, dependency, environment, rrt)
 
-# add proficiency scores
+# add proficiency scores ...
 
-spr2 <- spr2 %>%
+md <- md %>%
   left_join(proficiency, by = c('study', 'group', 'participant')) %>%
-  mutate(proficiency = scale(proficiency, scale = FALSE))
-
-# set column classes ...
-
-spr2 <- spr2 %>%
-  mutate_at(c('study', 'dependency', 'environment', 'group', 'participant', 'item'), as.factor) %>%
-  mutate_at(c('proficiency', 'rrt'), as.numeric) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-         
-summary(spr_prof)
-
-# summarise ...
-
-spr3 <- spr2 %>%
-  group_by(study, group, participant, dependency, environment, proficiency) %>%
-  summarise(rrt = mean(rrt)) %>%
-  ungroup() %>%
-  group_by(study, group, participant, environment, proficiency) %>%
-  summarise(dif = rrt[dependency == 'gap'] - rrt[dependency == 'pronoun']) %>%
+  group_by(study, group) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
   ungroup()
 
-#------------------------------------------------------------------------------#
-# + + plot - type 1 ----
-#------------------------------------------------------------------------------#
-
-# plot ...
-
-p1 <- ggplot(data=filter(spr3, study == '210510_do'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
-p2 <- ggplot(data=filter(spr3, study == '210510_su'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
-
-s <- list(
-  geom_point(alpha = .1, shape = 16, size = 2),
-  geom_smooth(method=lm, lwd = 1, alpha = .2), 
-  theme_classic(),
-  scale_x_continuous(name='proficiency'),
-  scale_y_continuous(name='RP advantage (ms)'),
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
-  guides(color = guide_legend(override.aes = list(shape = NA))),
-  theme(text = element_text(size = 12),
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.key.size = unit(2,"line"),
-        legend.position = 'right'),
-  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
-)
-
-p1 + s
-ggsave("plots/orc/spr_rrt_dscore_proficiency_effect_type1.png", width=6.5, height=2, dpi=600)
-
-p2 + s
-ggsave("plots/src/spr_rrt_dscore_proficiency_effect_type1.png", width=6.5, height=2, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + + plot - type 2 ----
-#------------------------------------------------------------------------------#
-
-# plot ...
-
-p1 <- ggplot(data=filter(spr3, study == '210510_do'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
-p2 <- ggplot(data=filter(spr3, study == '210510_su'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
-
-s <- list(
-  geom_point(alpha = .3, shape = 16),
-  geom_smooth(method=lm, lwd = .75, alpha = .1), 
-  theme_classic(),
-  scale_x_continuous(name='proficiency'),
-  scale_y_continuous(name='RP advantage (ms)'),
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
-  theme(text = element_text(size = 12),
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.key.size = unit(2,"line"),
-        legend.position = 'none'),
-  facet_grid2(vars(group), vars(environment), axes = 'all', remove_labels = 'y',
-              labeller = as_labeller(c(`short` = 'short', `long` = 'long', `island` = 'island', `korean` = 'KLE', `mandarin` = 'MLE')))
-)
-
-p1 + s
-ggsave("plots/orc/spr_rrt_dscore_proficiency_effect_type2.png", width=6.5, height=3, dpi=600)
-
-p2 + s
-ggsave("plots/src/spr_rrt_dscore_proficiency_effect_type2.png", width=6.5, height=3, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + + modeling: orc ----
-#------------------------------------------------------------------------------#
-
-# apply deviation coding ...
-
-contrasts(spr3$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-contrasts(spr3$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-
-# view contrasts ...
-
-contrasts(md$environment)
-contrasts(md$group)
-
-# fit models ...
-
-model1 <- lmer(dif ~ proficiency * environment * group + 
-                 (1 | participant),
-               data = filter(spr3, study == '210510_do')) 
-summary(model1)
-
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                      45.5634     7.3950 129.0000   6.161 8.53e-09 ***
-# proficiency                      -1.1095     0.9564 129.0000  -1.160   0.2482    
-# environment2                     37.5107    15.0685 258.0000   2.489   0.0134 *  
-# environment3                     22.3705    15.0685 258.0000   1.485   0.1389    
-# group2                           11.0272    14.7900 129.0000   0.746   0.4573    
-# proficiency:environment2         -0.4581     1.9489 258.0000  -0.235   0.8143    
-# proficiency:environment3         -0.5832     1.9489 258.0000  -0.299   0.7650    
-# proficiency:group2                2.1756     1.9129 129.0000   1.137   0.2575    
-# environment2:group2             -20.9343    30.1371 258.0000  -0.695   0.4879    
-# environment3:group2              -0.4185    30.1371 258.0000  -0.014   0.9889    
-# proficiency:environment2:group2  -1.4538     3.8978 258.0000  -0.373   0.7095    
-# proficiency:environment3:group2  -5.4659     3.8978 258.0000  -1.402   0.1620  
-
-model2 <- lmer(dif ~ proficiency * environment * group + 
-                 (1 + environment | participant),
-               data = filter(spr3, study == '210510_do')) 
-summary(model2)
-
-# does not converge
-
-trends <- emtrends(model1, ~ group * environment, var = 'proficiency', adjust = 'mvt')
-test(trends)
-
-# group    environment proficiency.trend   SE  df t.ratio p.value
-# korean   short                  -3.004 2.11 374  -1.425  0.6299
-# mandarin short                   1.479 2.07 374   0.715  0.9781
-# korean   long                   -2.735 2.11 374  -1.298  0.7226
-# mandarin long                    0.294 2.07 374   0.142  1.0000
-# korean   island                 -0.854 2.11 374  -0.405  0.9990
-# mandarin island                 -1.837 2.07 374  -0.888  0.9381
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: mvt method for 6 tests 
-
-# plot ...
-
-plot <- emmip(model1, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
-
-ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
-  theme_classic() +
-  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
-  geom_line(lwd = .75) +
-  scale_y_continuous(name='RP advantage (ms)') +
-  scale_x_continuous(name='mean-centered proficiency score') +
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
-  theme(legend.key.size = unit(2,"line")) +
-  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
-
-ggsave("plots/orc/spr_rrt_dscore_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + + modeling: src ----
-#------------------------------------------------------------------------------#
-
-# apply deviation coding ...
-
-contrasts(spr3$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-contrasts(spr3$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-
-# view contrasts ...
-
-contrasts(md$environment)
-contrasts(md$group)
-
-# fit models ...
-
-model1 <- lmer(dif ~ proficiency * environment * group + 
-                 (1 | participant),
-               data = filter(spr3, study == '210510_su')) 
-summary(model1)
-
-# optimizer (nloptwrap) convergence code: 0 (OK)
-# boundary (singular) fit: see help('isSingular')
-# Fixed effects:
-#   Estimate Std. Error       df t value Pr(>|t|)    
-# (Intercept)                      63.6215    10.3792 380.0000   6.130 2.21e-09 ***
-# proficiency                       0.3824     1.2144 380.0000   0.315   0.7530    
-# environment2                    122.6877    25.4503 380.0000   4.821 2.07e-06 ***
-# environment3                     17.7967    25.4503 380.0000   0.699   0.4848    
-# group2                           25.1412    20.7584 380.0000   1.211   0.2266    
-# proficiency:environment2          3.9876     2.9763 380.0000   1.340   0.1811    
-# proficiency:environment3          7.6532     2.9763 380.0000   2.571   0.0105 *  
-# proficiency:group2                0.4140     2.4289 380.0000   0.170   0.8647    
-# environment2:group2              93.5430    50.9006 380.0000   1.838   0.0669 .  
-# environment3:group2              95.7858    50.9006 380.0000   1.882   0.0606 .  
-# proficiency:environment2:group2 -11.2422     5.9526 380.0000  -1.889   0.0597 .  
-# proficiency:environment3:group2  -4.3285     5.9526 380.0000  -0.727   0.4676  
-
-trends <- emtrends(model1, ~ group * environment, var = 'proficiency', adjust = 'mvt')
-test(trends)
-
-# group    environment proficiency.trend   SE  df t.ratio p.value
-# korean   short                  -6.300 3.16 380  -1.994  0.2494
-# mandarin short                  -0.696 2.79 380  -0.249  0.9999
-# korean   long                    3.309 3.14 380   1.053  0.8739
-# mandarin long                   -2.329 2.79 380  -0.835  0.9549
-# korean   island                  3.517 3.14 380   1.120  0.8393
-# mandarin island                  4.793 2.79 380   1.717  0.4184
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: mvt method for 6 tests 
-
-# plot ...
-
-plot <- emmip(model1, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
-
-ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
-  theme_classic() +
-  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
-  geom_line(lwd = .75) +
-  scale_y_continuous(name='RP advantage (ms)') +
-  scale_x_continuous(name='mean-centered proficiency score') +
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
-  theme(legend.key.size = unit(2,"line")) +
-  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
-
-ggsave("plots/src/spr_rrt_dscore_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + lmer - RRT ----
-#------------------------------------------------------------------------------#
-
-# read in data
-
-spr_crit_clean <- read_csv('data/spr_crit_clean.csv')
-
-# filter data for analysis
-
-md <- spr_crit_clean %>%
-  filter(region2 == 2,
-         group %in% c('korean', 'mandarin'),
-         study == '210510_do') %>%
-  select(study, group, rrt, dependency, environment, participant, item)
-
-# add proficiency scores
+# filter to KLEs and MLEs ...
 
 md <- md %>%
-  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
-  mutate(proficiency = scale(proficiency, scale = FALSE))
-
-# add proficiency scores
-
-md <- md %>%
-  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
-  mutate(proficiency = scale(proficiency, scale = FALSE))
+  filter(group %in% c('korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group))
 
 # set class of columns ...
 
 md <- md %>%
-  mutate(dependency = as.factor(dependency),
-         environment = as.factor(environment),
-         group = as.factor(group),
-         proficiency = as.numeric(proficiency),
-         rrt = as.numeric(rrt)) %>%
+  mutate_at(c('study', 'group', 'participant', 'item', 'region2', 'dependency', 'environment'), factor) %>%
+  mutate(rrt = as.numeric(rrt)) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
 summary(md)
@@ -4910,8 +4668,12 @@ contrasts(md$dependency)
 contrasts(md$environment)
 contrasts(md$group)
 
+# save ...
+
+md %>% write_rds('data/spr_rrt_proficiency_region2_modeling.rds')
+
 #------------------------------------------------------------------------------#
-# + + model 1
+# + orc - model 1
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -4920,43 +4682,387 @@ tic()
 model1 <- lmer(rrt ~ proficiency * dependency * environment * group + 
                  (1 | participant) + 
                  (1 | item), 
-               data = md,
+               data = filter(md, study == '210510_do', region2 == '2'),
                control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_do_rrt_proficiency_region2_md1.rds')
+  write_rds('models/spr_orc_rrt_proficiency_region2_md1.rds')
 summary(model1)
 toc()
 beep()
 
-pairwise <- model1 %>%
-  emmeans(~ proficiency * dependency * environment * group) %>%
-  contrast('pairwise', simple = 'all', combine = TRUE) %>%
-  summary(by = NULL, adjust = 'holm')
-pairwise
+# 1.03 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error        df t value Pr(>|t|)    
+# (Intercept)                                  -43.6097    10.1964  128.0711  -4.277 3.67e-05 ***
+# proficiency                                    2.9209     1.3051  128.1961   2.238  0.02695 *  
+# dependency2                                  -47.5697     5.7964 3659.9120  -8.207 3.11e-16 ***
+# environment2                                  12.9824     7.0896 3664.5713   1.831  0.06715 .  
+# environment3                                  20.1840     7.0917 3664.0004   2.846  0.00445 ** 
+# group2                                        -5.2392    20.1742  128.5193  -0.260  0.79551    
+# proficiency:dependency2                        0.9565     0.7466 3659.4630   1.281  0.20026    
+# proficiency:environment2                      -1.9212     0.9107 3669.1335  -2.110  0.03496 *  
+# proficiency:environment3                       0.2567     0.9153 3669.3987   0.281  0.77910    
+# dependency2:environment2                     -37.0482    14.1910 3669.2761  -2.611  0.00907 ** 
+# dependency2:environment3                     -21.6024    14.1838 3655.2388  -1.523  0.12784    
+# proficiency:group2                            -5.9093     2.6103  128.1960  -2.264  0.02526 *  
+# dependency2:group2                           -11.5699    11.5901 3650.4814  -0.998  0.31822    
+# environment2:group2                            1.5773    14.1996 3643.2993   0.111  0.91156    
+# environment3:group2                            4.3470    14.2062 3633.6820   0.306  0.75962    
+# proficiency:dependency2:environment2           0.6555     1.8211 3667.6667   0.360  0.71891    
+# proficiency:dependency2:environment3           0.3601     1.8320 3656.4283   0.197  0.84420    
+# proficiency:dependency2:group2                -1.9419     1.4916 3662.7382  -1.302  0.19304    
+# proficiency:environment2:group2               -2.1429     1.8218 3668.4132  -1.176  0.23956    
+# proficiency:environment3:group2               -0.4571     1.8310 3668.6825  -0.250  0.80289    
+# dependency2:environment2:group2               18.6641    28.3608 3662.2289   0.658  0.51052    
+# dependency2:environment3:group2               -1.2767    28.3616 3645.6464  -0.045  0.96410    
+# proficiency:dependency2:environment2:group2    1.3632     3.6405 3656.0562   0.374  0.70808    
+# proficiency:dependency2:environment3:group2    5.7581     3.6599 3664.4785   1.573  0.11574 
 
-trends <- emtrends(model1, ~ group * dependency * environment , var = 'proficiency', adjust = 'mvt')
+# test significance of Proficiency trend for each combination of Dependency, Environment, and Group ...
+
+trends <- emtrends(model1, ~ dependency * environment * group, var = 'proficiency', adjust = 'mvt', pbkrtest.limit = 3822)
 test(trends)
 
+# dependency environment group    proficiency.trend   SE  df z.ratio p.value
+# gap        short       korean               4.609 2.21 Inf   2.085  0.2523
+# pronoun    short       korean               7.385 2.21 Inf   3.338  0.0084 **
+# gap        long        korean               3.772 2.21 Inf   1.710  0.4829
+# pronoun    long        korean               6.522 2.23 Inf   2.929  0.0306 *
+# gap        island      korean               6.354 2.23 Inf   2.850  0.0388 *
+# pronoun    island      korean               6.611 2.22 Inf   2.979  0.0264 *
+# gap        short       mandarin             1.724 2.16 Inf   0.799  0.9860
+# pronoun    short       mandarin             0.184 2.17 Inf   0.085  1.0000
+# gap        long        mandarin            -1.937 2.16 Inf  -0.897  0.9686
+# pronoun    long        mandarin            -2.140 2.16 Inf  -0.990  0.9420
+# gap        island      mandarin             0.133 2.17 Inf   0.061  1.0000
+# pronoun    island      mandarin             1.832 2.17 Inf   0.845  0.9790
+# Degrees-of-freedom method: asymptotic 
+# P value adjustment: mvt method for 12 tests
+
+# test the interaction between Proficiency and Dependency at each level of Environment and Group ...
+
+pairs <- model1 %>%
+  emtrends(~ dependency * environment * group, var = 'proficiency', pbkrtest.limit = 3822) %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairs
+
+# contrast      environment group    estimate   SE   df t.ratio p.value
+# gap - pronoun short       korean     -2.776 1.85 3662  -1.504  0.5744
+# gap - pronoun long        korean     -2.750 1.86 3665  -1.479  0.5931
+# gap - pronoun island      korean     -0.257 1.88 3664  -0.137  1.0000
+# gap - pronoun short       mandarin    1.540 1.80 3668   0.858  0.9490
+# gap - pronoun long        mandarin    0.203 1.79 3667   0.113  1.0000
+# gap - pronoun island      mandarin   -1.699 1.80 3668  -0.942  0.9220
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 6 tests 
+
+# plot ...
+
+plot <- emmip(model1, dependency ~ environment ~ proficiency * group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = dependency, col = dependency, linetype = dependency)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = dependency), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='RRT (ms)') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid'), labels = c('gap', 'RP')) +
+  scale_color_manual(values = c('#648fff', '#ffb000'), labels = c('gap', 'RP')) +
+  scale_fill_manual(values = c('#648fff', '#ffb000'), labels = c('gap', 'RP')) +
+  theme(text = element_text(size = 12), legend.key.size = unit(2,"line")) +
+  facet_grid2(vars(group), vars(environment), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`short` = 'short', `long` = 'long', `island` = 'island', 
+                                       `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_rrt_proficiency_emmeans_md1.png", width=6.5, height=2.75, dpi=600)
 
 #------------------------------------------------------------------------------#
-# modeling for accuracy data ----
+# + orc - model 2
 #------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model2 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 + dependency | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do', region2 == '2'),
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_rrt_proficiency_region2_md2.rds')
+summary(model2)
+toc()
+beep()
+
+# 1.09 sec elapsed
+# no warnings
+
+anova(model1, model2)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)    
+# model1   27 50859 51028 -25403    50805                         
+# model2   29 50848 51029 -25395    50790 15.198  2  0.0005009 ***
+
+#------------------------------------------------------------------------------#
+# + orc - model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model3 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 + dependency + environment | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do', region2 == '2'),
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_rrt_proficiency_region2_md3.rds')
+summary(model3)
+toc()
+beep()
+
+# 3.67 sec elapsed
+# convergence warning?
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+
+anova(model2, model3, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)   
+# model2   29 50731 50912 -25337    50673                        
+# model3   36 50724 50949 -25326    50652 21.353  7   0.003282 **
+
+#------------------------------------------------------------------------------#
+# + orc - model 4 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 | item), 
+               data = filter(md, study == '210510_do', region2 == '2'),
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_rrt_proficiency_region2_md4.rds')
+summary(model4)
+toc()
+beep()
+
+model4 <- read_rds('models/spr_orc_rrt_proficiency_region2_md4.rds')
+
+# 17.35 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# no other convergence warnings
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                                 -43.8312    10.2384 128.5624  -4.281 3.61e-05 ***
+# proficiency                                   2.8993     1.3091 127.9912   2.215   0.0285 *  
+# dependency2                                 -47.3339     7.3425 133.1558  -6.447 1.94e-09 ***
+# environment2                                 12.6113     7.5337 230.5102   1.674   0.0955 .  
+# environment3                                 20.1672     8.1119 173.1504   2.486   0.0139 *  
+# group2                                       -4.9963    20.2361 128.3286  -0.247   0.8054    
+# proficiency:dependency2                       1.0030     0.9473 131.7205   1.059   0.2916    
+# proficiency:environment2                     -1.9304     0.9682 226.2677  -1.994   0.0474 *  
+# proficiency:environment3                      0.1675     1.0476 171.9225   0.160   0.8731    
+# dependency2:environment2                    -36.5683    15.1159 181.7547  -2.419   0.0165 *  
+# dependency2:environment3                    -21.7180    16.4314 170.6127  -1.322   0.1880    
+# proficiency:group2                           -5.8763     2.6182 127.9910  -2.244   0.0265 *  
+# dependency2:group2                          -11.1089    14.6825 133.1004  -0.757   0.4506    
+# environment2:group2                           1.3741    15.0894 231.4177   0.091   0.9275    
+# environment3:group2                           5.2638    16.2458 173.8637   0.324   0.7463    
+# proficiency:dependency2:environment2          0.6798     1.9409 177.7219   0.350   0.7266    
+# proficiency:dependency2:environment3          0.5198     2.1239 170.1641   0.245   0.8070    
+# proficiency:dependency2:group2               -2.0096     1.8932 131.4634  -1.062   0.2904    
+# proficiency:environment2:group2              -2.1105     1.9367 226.4869  -1.090   0.2770    
+# proficiency:environment3:group2              -0.3582     2.0956 172.0356  -0.171   0.8645    
+# dependency2:environment2:group2              19.2850    30.2095 181.3903   0.638   0.5240    
+# dependency2:environment3:group2              -1.8379    32.8569 170.4669  -0.056   0.9555    
+# proficiency:dependency2:environment2:group2   1.3075     3.8801 177.4856   0.337   0.7365    
+# proficiency:dependency2:environment3:group2   5.6226     4.2437 169.4365   1.325   0.1870 
+
+anova(model3, model4, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)    
+# model3   36 50724 50949 -25326    50652                         
+# model4   47 50706 51000 -25306    50612 39.758 11  3.935e-05 ***
+
+# test significance of Proficiency trend for each combination of Dependency, Environment, and Group ...
+
+trends <- emtrends(model4, ~ dependency * environment * group, var = 'proficiency', adjust = 'mvt', pbkrtest.limit = 3822)
+test <- test(trends)
+test
+test %>% write_rds('models/spr_orc_rrt_proficiency_region2_md4_trends.rds')
+
+# dependency environment group    proficiency.trend   SE  df t.ratio p.value
+# gap        short       korean              4.6322 2.24 129   2.070  0.2854
+# pronoun    short       korean              7.3951 2.20 128   3.356  0.0105 *
+# gap        long        korean              3.7440 2.61 127   1.437  0.7170
+# pronoun    long        korean              6.5330 2.24 130   2.911  0.0392 *
+# gap        island      korean              6.1246 2.48 131   2.472  0.1216
+# pronoun    island      korean              6.5960 2.15 129   3.061  0.0256 *
+# gap        short       mandarin            1.7386 2.19 127   0.795  0.9897
+# pronoun    short       mandarin            0.1819 2.16 127   0.084  1.0000
+# gap        long        mandarin           -1.9138 2.55 126  -0.750  0.9935
+# pronoun    long        mandarin           -2.1370 2.18 125  -0.981  0.9562
+# gap        island      mandarin            0.0614 2.41 127   0.025  1.0000
+# pronoun    island      mandarin            1.8359 2.10 127   0.873  0.9798
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 12 tests 
+
+# test the interaction between Proficiency and Dependency at each level of Environment and Group ...
+
+pairs <- model4 %>%
+  emtrends(~ dependency * environment * group, var = 'proficiency', pbkrtest.limit = 3822) %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairs
+pairs %>% write_rds('models/spr_orc_rrt_proficiency_region2_md4_pairs.rds')
+
+pairs2 <- model4 %>%
+  emtrends(~ dependency * environment * group, var = 'proficiency') %>%
+  contrast('pairwise', simple = 'dependency', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'mvt')
+pairs2
+
+# contrast      environment group    estimate   SE  df t.ratio p.value
+# gap - pronoun short       korean     -2.763 1.89 128  -1.462  0.6039
+# gap - pronoun long        korean     -2.789 2.10 128  -1.328  0.7020
+# gap - pronoun island      korean     -0.471 2.47 131  -0.191  1.0000
+# gap - pronoun short       mandarin    1.557 1.84 124   0.847  0.9498
+# gap - pronoun long        mandarin    0.223 2.03 121   0.110  1.0000
+# gap - pronoun island      mandarin   -1.774 2.39 125  -0.741  0.9734
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 6 tests 
+
+# plot ...
+
+plot <- emmip(model4, dependency ~ environment ~ proficiency * group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = dependency, col = dependency, linetype = dependency)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = dependency), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='RRT (ms)') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid'), labels = c('gap', 'RP')) +
+  scale_color_manual(values = c('#648fff', '#ffb000'), labels = c('gap', 'RP')) +
+  scale_fill_manual(values = c('#648fff', '#ffb000'), labels = c('gap', 'RP')) +
+  theme(text = element_text(size = 12), legend.key.size = unit(2,"line")) +
+  facet_grid2(vars(group), vars(environment), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`short` = 'short', `long` = 'long', `island` = 'island', 
+                                       `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_rrt_proficiency_emmeans.png", width=6.5, height=2.75, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + orc - model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + dependency | item), 
+               data = filter(md, study == '210510_do', region2 == '2'),
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_rrt_proficiency_region2_md5.rds')
+summary(model5)
+toc()
+beep()
+
+# 29.5 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# no other convergence warnings
+
+anova(model4, model5, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance Chisq Df Pr(>Chisq)
+# model4   47 50706 51000 -25306    50612                    
+# model5   49 50708 51014 -25305    50610 2.044  2     0.3599
+
+#------------------------------------------------------------------------------#
+# + orc - model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + group | item), 
+               data = filter(md, study == '210510_do', region2 == '2'),
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_rrt_proficiency_region2_m6.rds')
+summary(model6)
+toc()
+beep()
+
+# 33.55 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+
+anova(model4, model6, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model4   47 50706 51000 -25306    50612                     
+# model6   49 50706 51012 -25304    50608 4.4289  2     0.1092
+
+#------------------------------------------------------------------------------#
+# + orc - model 7
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model7 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 + dependency * environment | participant) + 
+                 (1 + environment | item), 
+               data = filter(md, study == '210510_do', region2 == '2'),
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_rrt_proficiency_region2_m7.rds')
+summary(model7)
+toc()
+beep()
+
+# 83.06 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# no additional warnings
+
+anova(model4, model7, refit = FALSE)
+
+# npar   AIC   BIC logLik deviance  Chisq Df Pr(>Chisq)
+# model4   47 50706 51000 -25306    50612                     
+# model7   52 50712 51037 -25304    50608 3.4354  5     0.6332
+
+#------------------------------------------------------------------------------#
+# modeling - accuracy ----
+#------------------------------------------------------------------------------#
+
+# read in data
+
+spr_crit_clean <- read_csv('data/spr_crit_clean.csv')
 
 # prep dataframe ...
 
-temp <- spr_trim %>%
+md <- spr_crit_clean %>%
   group_by(study, group, participant, item, dependency, environment, acc_rate, accuracy) %>%
   summarise() %>%
   ungroup() %>%
   mutate(dependency = fct_drop(dependency),
          environment = fct_drop(environment),
-         accuracy = as.logical(accuracy),
-         participant = as.factor(participant),
-         item = as.factor(item)) %>%
+         accuracy = as.logical(accuracy)) %>%
+  mutate_at(c('study', 'group', 'participant', 'item'), factor) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+summary(md)
 
 # count participants ...
 
-check <- temp %>%
+check <- md %>%
   group_by(study, group, participant) %>%
   summarise() %>%
   ungroup() %>%
@@ -4966,7 +5072,7 @@ check <- temp %>%
 
 # generate plot ...
 
-plot <- temp %>%
+plot <- md %>%
   mutate(accuracy = as.logical(accuracy)) %>%
   group_by(study, group, participant, item, dependency, environment, accuracy) %>%
   summarise() %>%
@@ -4991,24 +5097,6 @@ ggplot(data=plot, aes(x=environment, y=mean, group=dependency, col=dependency, s
   theme(text = element_text(size = 12)) +
   facet_grid(study~group)
 
-#------------------------------------------------------------------------------#
-# + orc ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-        filter(study == '210510_do')
-
-# set class of columns ...
-
-md <- md %>%
-  mutate(dependency = as.factor(dependency),
-         environment = as.factor(environment),
-         group = as.factor(group),
-         accuracy = as.logical(accuracy)) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-
 # apply deviation coding ...
 
 contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
@@ -5022,7 +5110,7 @@ contrasts(md$environment)
 contrasts(md$group)
 
 #------------------------------------------------------------------------------#
-# + + model 1 
+# + orc - model 1 
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5031,7 +5119,7 @@ tic()
 model1 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 | participant) + 
                   (1 | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_do'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_doall_acc_md1.rds')
 summary(model1)
@@ -5081,7 +5169,7 @@ pairwise
 # P value adjustment: holm method for 9 tests 
 
 #------------------------------------------------------------------------------#
-# + + model 2 
+# + orc - model 2 
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5090,7 +5178,7 @@ tic()
 model2 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 + dependency | participant) + 
                   (1 | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_do'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_doall_acc_md2.rds')
 summary(model2)
@@ -5128,7 +5216,7 @@ anova(model1, model2)
 # model2   22 3416.7 3566.5 -1686.3   3372.7 3.6103  2     0.1645
 
 #------------------------------------------------------------------------------#
-# + + model 3 
+# + orc - model 3 
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5137,7 +5225,7 @@ tic()
 model3 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 + environment | participant) + 
                   (1 | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_do'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_doall_acc_md3.rds')
 summary(model3)
@@ -5175,7 +5263,7 @@ anova(model1, model3)
 # model3   25 3420.6 3590.8 -1685.3   3370.6 5.6928  5     0.3373
 
 #------------------------------------------------------------------------------#
-# + + model 4 (final) ----
+# + orc - model 4 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5184,7 +5272,7 @@ tic()
 model4 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 | participant) + 
                   (1 + dependency | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_do'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_doall_acc_md4.rds')
 summary(model4)
@@ -5296,7 +5384,7 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = depe
 ggsave("plots/orc/spr_accuracy_emmeans.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
-# + + model 5 
+# + orc - model 5 
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5305,7 +5393,7 @@ tic()
 model5 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 | participant) + 
                   (1 + environment | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_do'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_doall_acc_md5.rds')
 summary(model5)
@@ -5343,7 +5431,7 @@ anova(model1, model5)
 # model5   25 3422.7 3592.9 -1686.3   3372.7 3.6602  5     0.5993
 
 #------------------------------------------------------------------------------#
-# + + model 6 
+# + orc - model 6 
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5352,7 +5440,7 @@ tic()
 model6 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 | participant) + 
                   (1 + group | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_do'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_doall_acc_md6.rds')
 summary(model6)
@@ -5390,37 +5478,7 @@ anova(model1, model6)
 # model6   25 3425.3 3595.5 -1687.7   3375.3 1.0016  5     0.9624
 
 #------------------------------------------------------------------------------#
-# + src ----
-#------------------------------------------------------------------------------#
-
-# filter data for analysis
-
-md <- temp %>%
-  filter(study == '210510_su')
-
-# set class of columns ...
-
-md <- md %>%
-  mutate(dependency = as.factor(dependency),
-         environment = as.factor(environment),
-         group = as.factor(group),
-         accuracy = as.logical(accuracy)) %>%
-  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
-
-# apply deviation coding ...
-
-contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
-contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-contrasts(md$group) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
-
-# view contrasts ...
-
-contrasts(md$dependency)
-contrasts(md$environment)
-contrasts(md$group)
-
-#------------------------------------------------------------------------------#
-# + + model 1 
+# + src - model 1 
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5429,7 +5487,7 @@ tic()
 model1 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 | participant) + 
                   (1 | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_su'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_suall_acc_md1.rds')
 summary(model1)
@@ -5460,7 +5518,7 @@ beep()
 # dependency2:environment3:group3 -0.48257    0.59876  -0.806  0.42027 
 
 #------------------------------------------------------------------------------#
-# + + model 2
+# + src - model 2
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5469,7 +5527,7 @@ tic()
 model2 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 + dependency | participant) + 
                   (1 | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_su'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_suall_acc_md2.rds')
 summary(model2)
@@ -5506,7 +5564,7 @@ anova(model1, model2)
 # model2   22 3416.5 3563.1 -1686.2   3372.5 0.4238  2     0.8091
 
 #------------------------------------------------------------------------------#
-# + + model 3
+# + src - model 3
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5515,7 +5573,7 @@ tic()
 model3 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 + dependency + environment | participant) + 
                   (1 | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_su'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_suall_acc_md3.rds')
 summary(model3)
@@ -5553,7 +5611,7 @@ anova(model2, model3)
 # model3   29 3424.3 3617.6 -1683.2   3366.3 6.1645  7     0.5207
 
 #------------------------------------------------------------------------------#
-# + + model 4 (final) ----
+# + src - model 4 (final) ----
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5562,7 +5620,7 @@ tic()
 model4 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 + dependency | participant) + 
                   (1 + dependency | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_su'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_suall_acc_md4.rds')
 summary(model4)
@@ -5650,7 +5708,7 @@ ggplot(plot, aes(x = environment, y = the.emmean, group = dependency, col = depe
 ggsave("plots/src/spr_accuracy_emmeans.png", width=6.5, height=2, dpi=600)
 
 #------------------------------------------------------------------------------#
-# + + model 5
+# + src - model 5
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5659,7 +5717,7 @@ tic()
 model5 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 + dependency | participant) + 
                   (1 + dependency + environment | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_su'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_suall_acc_md5.rds')
 summary(model5)
@@ -5697,7 +5755,7 @@ anova(model4, model5)
 # model5   31 3428.4 3634.9 -1683.2   3366.4 5.6549  7     0.5806
 
 #------------------------------------------------------------------------------#
-# + + model 6
+# + src - model 6
 #------------------------------------------------------------------------------#
 
 # fit model ...
@@ -5706,7 +5764,7 @@ tic()
 model6 <- glmer(accuracy ~ dependency * environment * group + 
                   (1 + dependency | participant) + 
                   (1 + dependency + group | item), 
-                data = md, family = binomial, 
+                data = filter(md, study == '210510_su'), family = binomial, 
                 control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
   write_rds('models/spr_suall_acc_md6.rds')
 summary(model6)
@@ -5744,119 +5802,34 @@ anova(model4, model6)
 # model6   31 3429.3 3635.9 -1683.7   3367.3 4.7241  7     0.6936
 
 #------------------------------------------------------------------------------#
-# scatter plot of proficiency effects for accuracy data ----
+# proficiency - accuracy - binary - glmer ----
 #------------------------------------------------------------------------------#
 
-# trim based on accuracy
+# read in data
 
-trim <- spr_crit_clean %>%
-  group_by(study, group, participant) %>%
-  mutate(acc_rate = mean(as.logical(accuracy))) %>%
-  ungroup() %>%
-  filter(acc_rate >.5)
+spr_crit_clean <- read_csv('data/spr_crit_clean.csv')
 
-plot <- trim %>%
-  group_by(study, group, participant, acc_rate) %>%
-  summarise() %>%
-  ungroup()
-
-plot <- plot %>%
-  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
-  filter(proficiency != 'NA') %>%
-  group_by(study) %>%
-  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
-  ungroup()
-
-# facet labels
-
-groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
-
-# define data for plots
-
-p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=acc_rate*100))
-p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=acc_rate*100))
-
-# generate plot
-
-s <- list(
-  geom_smooth(method=lm, col="#785ef0"), 
-  geom_point(shape = 1),
-  theme_classic(),
-  scale_x_continuous(name='proficiency'),
-  scale_y_continuous(name="% accuracy", limits = c(0, 100)),
-  scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")),
-  theme(text = element_text(size = 12),
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.position = "right"),
-  facet_wrap(~group, labeller = as_labeller(groups))
-)
-
-# write plots
-
-p1 + s
-ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
-
-p2 + s
-ggsave("plots/src/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
-
-
-
-
-md <- plot %>% 
-  filter(study == '210510_do', group == 'mandarin')
-cor(md$proficiency, md$acc_rate) 
-model <- lm(proficiency ~ acc_rate, data = md)
-summary(model)
-
-# doen
-# Coefficients:
-#   Estimate Std. Error t value Pr(>|t|)    
-# (Intercept)   0.2326     0.1280   1.817   0.0727 .  
-# acc_rate      0.6504     0.1335   4.872 4.98e-06 ***
-
-# doko
-# Coefficients:
-#   Estimate Std. Error t value Pr(>|t|)    
-# (Intercept)   0.1328     0.1201   1.105 0.273121    
-# acc_rate      0.5456     0.1405   3.884 0.000246 ***
-
-# dozh
-# Coefficients:
-#   Estimate Std. Error t value Pr(>|t|)   
-# (Intercept)  0.04817    0.16075   0.300  0.76538   
-# acc_rate     0.59116    0.17370   3.403  0.00114 **
-
-# ENS -> b = 0.65, t = 4.87, p < .001
-# KLE -> b = 0.55, t = 3.88, p < .001
-# MLE -> b = 0.59, t = 3.40, p = .001
-
-#------------------------------------------------------------------------------#
-# proficiency - accuracy ----
-#------------------------------------------------------------------------------#
-
-# set class of columns ...
+# prep dataframe ...
 
 md <- spr_crit_clean %>%
-  mutate(dependency = as.factor(dependency),
-         environment = as.factor(environment),
-         group = as.factor(group),
+  group_by(study, group, participant, item, dependency, environment, acc_rate, accuracy) %>%
+  summarise() %>%
+  ungroup() %>%
+  mutate(dependency = fct_drop(dependency),
+         environment = fct_drop(environment),
          accuracy = as.logical(accuracy)) %>%
+  mutate_at(c('study', 'group', 'participant', 'item'), factor) %>%
   mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
 
-# check minimum accuracy rate
+summary(md)
+
+# check minimum accuracy rate ...
 
 min(md$acc_rate)
 
-# add mean-centered proficiency scores ...
+# 0.5286885
 
-md <- md %>%
-  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
-  mutate(proficiency = as.numeric(proficiency)) %>%
-  group_by(study) %>%
-  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
-  ungroup()
-
-# filter for analysis ...
+# filter to KLEs and MLEs ...
 
 md <- md %>%
   filter(group %in% c('korean', 'mandarin')) %>%
@@ -5871,6 +5844,22 @@ check <- md %>%
   group_by(study, group) %>%
   summarise(n = n()) %>%
   ungroup()
+
+kable(check, format = 'markdown')
+
+# |study     |group    |  n|
+# |:---------|:--------|--:|
+# |210510_do |korean   | 66|
+# |210510_do |mandarin | 67|
+# |210510_su |korean   | 63|
+# |210510_su |mandarin | 69|
+
+# add proficiency scores ...
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = as.numeric(proficiency),
+         group = fct_drop(group))
 
 # remove participants with no proficiency scores ...
 
@@ -5887,6 +5876,35 @@ check <- md %>%
   summarise(n = n()) %>%
   ungroup()
 
+kable(check, format = 'markdown')
+
+# |study     |group    |  n|
+# |:---------|:--------|--:|
+# |210510_do |korean   | 66|
+# |210510_do |mandarin | 67|
+# |210510_su |korean   | 63|
+# |210510_su |mandarin | 68|
+
+# standardize proficiency scores ...
+
+temp <- md %>%
+  group_by(study, participant, proficiency) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study) %>%
+  mutate(proficiency_z = scale(proficiency)) %>%
+  ungroup()
+
+md <- md %>%
+  left_join(temp, by = c('study', 'participant', 'proficiency')) %>%
+  mutate(proficiency_z = as.numeric(proficiency_z))
+
+md <- md %>%
+  select(-proficiency) %>%
+  rename(proficiency = proficiency_z)
+
+# check dataframe ...
+
 summary(md)
 
 # apply deviation coding ...
@@ -5902,175 +5920,276 @@ contrasts(md$environment)
 contrasts(md$group)
 
 #------------------------------------------------------------------------------#
-# + plot ----
+# + orc - model 1 
 #------------------------------------------------------------------------------#
 
-plot <- md %>%
-  group_by(study, group, dependency, environment, participant, proficiency) %>%
-  summarise(accuracy = mean(accuracy)*100) %>%
-  ungroup()
-
-p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=accuracy, group = environment, col = environment, fill = environment, linetype = environment))
-p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=accuracy, group = environment, col = environment, fill = environment, linetype = environment))
-
-# generate plot
-
-s <- list(
-  geom_point(alpha = .1, shape = 16, size = 2),
-  geom_smooth(method=lm, lwd = 1, alpha = .2), 
-  theme_classic(),
-  scale_x_continuous(name='proficiency'),
-  scale_y_continuous(name='accuracy rate'),
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
-  guides(color = guide_legend(override.aes = list(shape = NA))),
-  theme(text = element_text(size = 12),
-        plot.title = element_text(size = 12, hjust = .5), 
-        legend.key.size = unit(2,"line"),
-        legend.position = 'right'),
-  facet_grid2(vars(dependency), vars(group), axes = 'all', remove_labels = 'y',
-              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `korean` = 'KLE', `mandarin` = 'MLE')))
-)
-
-p1 + s
-ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3.5, dpi=600)
-
-p2 + s
-ggsave("plots/src/spr_accuracy_proficiency_effect.png", width=6.5, height=3.5, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + lmer - accuracy rate ----
-#------------------------------------------------------------------------------#
-
-model1 <- lmer(accuracy ~ proficiency * dependency * environment * group + 
-                  (1 | participant),
-                data = filter(plot, study == '210510_do')) 
-summary(model1)
-
-# Fixed effects:
-#   Estimate Std. Error         df t value Pr(>|t|)
-# (Intercept)                                  9.122e-01  1.097e-02  1.290e+02  83.183  < 2e-16
-# proficiency                                  6.085e-03  1.188e-03  1.290e+02   5.121 1.08e-06 ***
-# dependency2                                  8.333e-02  1.201e-02  6.450e+02   6.941 9.53e-12 ***
-# environment2                                -6.632e-03  1.470e-02  6.450e+02  -0.451 0.652115
-# environment3                                -2.378e-03  1.470e-02  6.450e+02  -0.162 0.871549
-# group2                                       6.682e-02  2.193e-02  1.290e+02   3.047 0.002806 **
-# proficiency:dependency2                     -4.496e-03  1.301e-03  6.450e+02  -3.456 0.000584 ***
-# proficiency:environment2                     2.114e-03  1.593e-03  6.450e+02   1.327 0.185120
-# proficiency:environment3                     1.069e-03  1.593e-03  6.450e+02   0.671 0.502517
-# dependency2:environment2                     1.580e-02  2.941e-02  6.450e+02   0.537 0.591383
-# dependency2:environment3                     3.628e-03  2.941e-02  6.450e+02   0.123 0.901845
-# proficiency:group2                          -1.816e-03  2.377e-03  1.290e+02  -0.764 0.446301
-# dependency2:group2                          -9.081e-02  2.401e-02  6.450e+02  -3.782 0.000170 ***
-# environment2:group2                         -1.644e-02  2.941e-02  6.450e+02  -0.559 0.576240
-# environment3:group2                         -5.101e-02  2.941e-02  6.450e+02  -1.735 0.083280 .
-# proficiency:dependency2:environment2         1.066e-03  3.187e-03  6.450e+02   0.335 0.737995
-# proficiency:dependency2:environment3        -2.962e-03  3.187e-03  6.450e+02  -0.929 0.353065
-# proficiency:dependency2:group2               1.868e-04  2.602e-03  6.450e+02   0.072 0.942796
-# proficiency:environment2:group2             -6.297e-03  3.187e-03  6.450e+02  -1.976 0.048586 *
-# proficiency:environment3:group2             -8.860e-03  3.187e-03  6.450e+02  -2.780 0.005589 **
-# dependency2:environment2:group2             -5.782e-03  5.882e-02  6.450e+02  -0.098 0.921727
-# dependency2:environment3:group2              3.716e-02  5.882e-02  6.450e+02   0.632 0.527771
-# proficiency:dependency2:environment2:group2  3.028e-03  6.373e-03  6.450e+02   0.475 0.634832
-# proficiency:dependency2:environment3:group2 -1.319e-04  6.373e-03  6.450e+02  -0.021 0.983490
-
-trends <- emtrends(model1, ~ group * environment * dependency, var = 'proficiency', adjust = 'mvt')
-test(trends)
-
-# group    environment dependency proficiency.trend      SE  df t.ratio p.value
-# korean   short       gap                 0.005144 0.00268 556   1.919  0.4610
-# mandarin short       gap                 0.008770 0.00263 556   3.332  0.0108 *
-# korean   long        gap                 0.010630 0.00268 556   3.966  0.0010 **
-# mandarin long        gap                 0.006445 0.00263 556   2.449  0.1524
-# korean   island      gap                 0.012091 0.00268 556   4.511  0.0001 ***
-# mandarin island      gap                 0.006923 0.00263 556   2.630  0.0952
-# korean   short       pronoun             0.001668 0.00268 556   0.622  0.9998
-# mandarin short       pronoun             0.004516 0.00263 556   1.716  0.6225
-# korean   long        pronoun             0.006707 0.00268 556   2.502  0.1333
-# mandarin long        pronoun             0.004771 0.00263 556   1.813  0.5444
-# korean   island      pronoun             0.005720 0.00268 556   2.134  0.3101
-# mandarin island      pronoun            -0.000359 0.00263 556  -0.136  1.0000
-# Degrees-of-freedom method: kenward-roger 
-# P value adjustment: mvt method for 12 tests
-
-# plot ...
-
-plot <- emmip(model1, environment ~ proficiency | group ~ dependency, cov.reduce = range, CIs = TRUE, plotit = FALSE) %>%
-  mutate(yvar = yvar *100,
-         LCL = LCL * 100,
-         UCL = UCL * 100)
-
-ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
-  theme_classic() +
-  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
-  geom_line(lwd = .75) +
-  scale_y_continuous(name='accuracy rate') +
-  scale_x_continuous(name='mean-centered proficiency score') +
-  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
-  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
-  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
-  theme(legend.key.size = unit(2,"line")) +
-  facet_grid2(vars(dependency), vars(group), axes = 'all', remove_labels = 'y',
-              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `korean` = 'KLE', `mandarin` = 'MLE')))
-
-ggsave("plots/orc/spr_accuracy_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
-
-#------------------------------------------------------------------------------#
-# + glmer - accuracy ----
-#------------------------------------------------------------------------------#
-
-# fit models ...
+# fit model ...
 
 tic()
-model1 <- glmer(accuracy ~ proficiency * group + 
+model1 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
                   (1 | participant) + 
                   (1 | item), 
                 data = filter(md, study == '210510_do'), family = binomial, 
-                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_orc_proficiency_acc_md1.rds')
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model1.rds')
 summary(model1)
 toc()
+beep()
 
-# 71.232 sec elapsed
-# Fixed effects:
-#                    Estimate Std. Error z value Pr(>|z|)    
-# (Intercept)         3.71321    0.22463  16.530  < 2e-16 ***
-# proficiency         0.11224    0.02216   5.064 4.11e-07 ***
-# group2              1.34763    0.41397   3.255  0.00113 ** 
-# proficiency:group2 -0.01808    0.04412  -0.410  0.68196 
+# 23.91 sec elapsed
+# no warnings
 
-test(emtrends(model1, ~ group, var = 'proficiency', adjust = 'mvt'))
+#------------------------------------------------------------------------------#
+# + orc - model 2
+#------------------------------------------------------------------------------#
 
-# group    proficiency.trend     SE  df z.ratio p.value
-# korean               0.121 0.0313 Inf   3.869  0.0002 ***
-# mandarin             0.103 0.0312 Inf   3.308  0.0019 **
+# fit model ...
 
 tic()
-model2 <- glmer(accuracy ~ proficiency * environment * group + 
-                  (1 | participant) + 
+model2 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 + dependency | participant) + 
                   (1 | item), 
-                data = filter(md, study == '210510_do', dependency == 'gap'), family = binomial, 
-                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_orc_proficiency_acc_md2.rds')
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model2.rds')
 summary(model2)
 toc()
+beep()
 
-# 461.832 sec elapsed
-# Model failed to converge with max|grad| = 0.00278253 (tol = 0.002, component 1)
+# 25.52 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+
+anova(model1, model2)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   26 2515.8 2679.3 -1231.9   2463.8                     
+# model2   28 2519.4 2695.5 -1231.7   2463.4 0.3961  2     0.820
+
+#------------------------------------------------------------------------------#
+# + orc - model 3
+#------------------------------------------------------------------------------#
+
+# fit model ...
 
 tic()
 model3 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
-                  (1 | participant) + 
+                  (1 + environment | participant) + 
                   (1 | item), 
                 data = filter(md, study == '210510_do'), family = binomial, 
-                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
-  write_rds('models/spr_orc_proficiency_acc_md3.rds')
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model3.rds')
 summary(model3)
 toc()
+beep()
 
-# 3406.738 sec elapsed (56.78 min)
-# Model failed to converge with max|grad| = 0.00625195 (tol = 0.002, component 1)
+# 398.54 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+
+anova(model1, model3)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   26 2515.8 2679.3 -1231.9   2463.8                     
+# model3   31 2518.7 2713.7 -1228.3   2456.7 7.1117  5     0.2125
+
+#------------------------------------------------------------------------------#
+# + orc - model 4
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model4 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + dependency| item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model4.rds')
+summary(model4)
+toc()
+beep()
+
+# 365.78 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+
+anova(model1, model4)
+
+#        npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   26 2515.8 2679.3 -1231.9   2463.8                     
+# model4   28 2517.5 2693.7 -1230.8   2461.5 2.2299  2     0.3279
+
+#------------------------------------------------------------------------------#
+# + orc - model 5
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model5 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + environment | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model5.rds')
+summary(model5)
+toc()
+beep()
+
+# 418.02 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+
+anova(model1, model5)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   26 2515.8 2679.3 -1231.9   2463.8                     
+# model5   31 2523.0 2718.1 -1230.5   2461.0 2.7177  5     0.7434
+
+#------------------------------------------------------------------------------#
+# + orc - model 6
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model6 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + group | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model6.rds')
+summary(model6)
+toc()
+beep()
+
+# 469.94 sec elapsed
+# no warnings
+
+anova(model1, model6)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   26 2515.8 2679.3 -1231.9   2463.8                     
+# model6   28 2519.1 2695.2 -1231.5   2463.1 0.6754  2     0.7134
+
+#------------------------------------------------------------------------------#
+# + orc - model 7
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model7 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + proficiency | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model7.rds')
+summary(model7)
+toc()
+beep()
+
+# 376.92 sec elapsed
+# no warnings
+
+anova(model1, model7)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)  
+# model1   26 2515.8 2679.3 -1231.9   2463.8                       
+# model7   28 2511.2 2687.4 -1227.6   2455.2 8.5519  2     0.0139 *
+
+#------------------------------------------------------------------------------#
+# + orc - model 8 (final) ----
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model8 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + proficiency + group | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model8.rds')
+summary(model8)
+toc()
+beep()
+
+# 90.7 sec elapsed
+# no warnings
+# Fixed effects:
+#   Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)                                    2.735970   0.148062  18.479  < 2e-16 ***
+# proficiency_z                                  0.577121   0.127939   4.511 6.45e-06 ***
+# dependency2                                    1.217950   0.130881   9.306  < 2e-16 ***
+# environment2                                  -0.210182   0.160517  -1.309  0.19040    
+# environment3                                  -0.109304   0.161772  -0.676  0.49925    
+# group2                                         0.957923   0.237023   4.041 5.31e-05 ***
+# proficiency_z:dependency2                     -0.079498   0.120259  -0.661  0.50858    
+# proficiency_z:environment2                     0.104581   0.143895   0.727  0.46736    
+# proficiency_z:environment3                    -0.066100   0.148109  -0.446  0.65538    
+# dependency2:environment2                      -0.028616   0.320155  -0.089  0.92878    
+# dependency2:environment3                       0.200609   0.321418   0.624  0.53254    
+# proficiency_z:group2                          -0.008883   0.227744  -0.039  0.96889    
+# dependency2:group2                            -0.539063   0.260481  -2.069  0.03850 *  
+# environment2:group2                           -0.186126   0.321796  -0.578  0.56300    
+# environment3:group2                           -0.325205   0.324182  -1.003  0.31579    
+# proficiency_z:dependency2:environment2         0.243630   0.290840   0.838  0.40221    
+# proficiency_z:dependency2:environment3        -0.243120   0.297004  -0.819  0.41303    
+# proficiency_z:dependency2:group2              -0.227404   0.240375  -0.946  0.34413    
+# proficiency_z:environment2:group2             -0.535021   0.297572  -1.798  0.07218 .  
+# proficiency_z:environment3:group2             -0.835885   0.308562  -2.709  0.00675 ** 
+# dependency2:environment2:group2                0.013043   0.639941   0.020  0.98374    
+# dependency2:environment3:group2                0.517355   0.642457   0.805  0.42066    
+# proficiency_z:dependency2:environment2:group2  0.041781   0.579508   0.072  0.94252    
+# proficiency_z:dependency2:environment3:group2 -0.586791   0.597287  -0.982  0.32589 
+
+anova(model1, model8)
+
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)  
+# model1   26 2515.8 2679.3 -1231.9   2463.8                      
+# model8   31 2516.2 2711.3 -1227.1   2454.2 9.529  5    0.08974 .
+
+#------------------------------------------------------------------------------#
+# + orc - model 9
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model9 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 + proficiency * group | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_acc_proficiencyz_model9.rds')
+summary(model9)
+toc()
+beep()
+
+# 183.94 sec elapsed
+# optimizer (bobyqa) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Warning messages:
+#   1: In vcov.merMod(object, use.hessian = use.hessian) :
+#   variance-covariance matrix computed from finite-difference Hessian is
+# not positive definite or contains NA values: falling back to var-cov estimated from RX
+# 2: In vcov.merMod(object, correlation = correlation, sigm = sig) :
+#   variance-covariance matrix computed from finite-difference Hessian is
+# not positive definite or contains NA values: falling back to var-cov estimated from RX
+
+anova(model1, model9)
+
+# npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+# model1   26 2515.8 2679.3 -1231.9   2463.8                     
+# model9   35 2523.6 2743.8 -1226.8   2453.6 10.209  9     0.3338
+
+anova(model8, model9)
+
+# npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+# model8   31 2516.2 2711.3 -1227.1   2454.2                    
+# model9   35 2523.6 2743.8 -1226.8   2453.6  0.68  4     0.9538
 
 #==============================================================================#
 # ::::: acceptability judgment task (ajt) ::::::::::::::::::::::::::::::::: ----
@@ -12854,3 +12973,685 @@ pairs
 # error
 
 warnings()
+
+#------------------------------------------------------------------------------#
+# spr - proficiency - d-score ----
+#------------------------------------------------------------------------------#
+
+# read in data ...
+
+spr2 <- read_csv('data/spr_crit_clean.csv')
+
+# filter for analysis ...
+
+spr2 <- spr2 %>%
+  filter(region2 == '2',
+         group %in% c('korean', 'mandarin'))
+
+# select columns ...
+
+spr2 <- spr2 %>%
+  select(study, group, participant, item, dependency, environment, rrt)
+
+# add proficiency scores
+
+spr2 <- spr2 %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+# set column classes ...
+
+spr2 <- spr2 %>%
+  mutate_at(c('study', 'dependency', 'environment', 'group', 'participant', 'item'), as.factor) %>%
+  mutate_at(c('proficiency', 'rrt'), as.numeric) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+summary(spr_prof)
+
+# summarise ...
+
+spr3 <- spr2 %>%
+  group_by(study, group, participant, dependency, environment, proficiency) %>%
+  summarise(rrt = mean(rrt)) %>%
+  ungroup() %>%
+  group_by(study, group, participant, environment, proficiency) %>%
+  summarise(dif = rrt[dependency == 'gap'] - rrt[dependency == 'pronoun']) %>%
+  ungroup()
+
+#------------------------------------------------------------------------------#
+# + + plot - type 1 ----
+#------------------------------------------------------------------------------#
+
+# plot ...
+
+p1 <- ggplot(data=filter(spr3, study == '210510_do'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(spr3, study == '210510_su'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  geom_smooth(method=lm, lwd = 1, alpha = .2), 
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name='RP advantage (ms)'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/spr_rrt_dscore_proficiency_effect_type1.png", width=6.5, height=2, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_rrt_dscore_proficiency_effect_type1.png", width=6.5, height=2, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + plot - type 2 ----
+#------------------------------------------------------------------------------#
+
+# plot ...
+
+p1 <- ggplot(data=filter(spr3, study == '210510_do'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(spr3, study == '210510_su'), aes(x=proficiency, y=dif, group = environment, col = environment, fill = environment, linetype = environment))
+
+s <- list(
+  geom_point(alpha = .3, shape = 16),
+  geom_smooth(method=lm, lwd = .75, alpha = .1), 
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name='RP advantage (ms)'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'none'),
+  facet_grid2(vars(group), vars(environment), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`short` = 'short', `long` = 'long', `island` = 'island', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/spr_rrt_dscore_proficiency_effect_type2.png", width=6.5, height=3, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_rrt_dscore_proficiency_effect_type2.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + modeling: orc ----
+#------------------------------------------------------------------------------#
+
+# apply deviation coding ...
+
+contrasts(spr3$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(spr3$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+
+# view contrasts ...
+
+contrasts(md$environment)
+contrasts(md$group)
+
+# fit models ...
+
+model1 <- lmer(dif ~ proficiency * environment * group + 
+                 (1 | participant),
+               data = filter(spr3, study == '210510_do')) 
+summary(model1)
+
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                      45.5634     7.3950 129.0000   6.161 8.53e-09 ***
+# proficiency                      -1.1095     0.9564 129.0000  -1.160   0.2482    
+# environment2                     37.5107    15.0685 258.0000   2.489   0.0134 *  
+# environment3                     22.3705    15.0685 258.0000   1.485   0.1389    
+# group2                           11.0272    14.7900 129.0000   0.746   0.4573    
+# proficiency:environment2         -0.4581     1.9489 258.0000  -0.235   0.8143    
+# proficiency:environment3         -0.5832     1.9489 258.0000  -0.299   0.7650    
+# proficiency:group2                2.1756     1.9129 129.0000   1.137   0.2575    
+# environment2:group2             -20.9343    30.1371 258.0000  -0.695   0.4879    
+# environment3:group2              -0.4185    30.1371 258.0000  -0.014   0.9889    
+# proficiency:environment2:group2  -1.4538     3.8978 258.0000  -0.373   0.7095    
+# proficiency:environment3:group2  -5.4659     3.8978 258.0000  -1.402   0.1620  
+
+model2 <- lmer(dif ~ proficiency * environment * group + 
+                 (1 + environment | participant),
+               data = filter(spr3, study == '210510_do')) 
+summary(model2)
+
+# does not converge
+
+trends <- emtrends(model1, ~ group * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# group    environment proficiency.trend   SE  df t.ratio p.value
+# korean   short                  -3.004 2.11 374  -1.425  0.6299
+# mandarin short                   1.479 2.07 374   0.715  0.9781
+# korean   long                   -2.735 2.11 374  -1.298  0.7226
+# mandarin long                    0.294 2.07 374   0.142  1.0000
+# korean   island                 -0.854 2.11 374  -0.405  0.9990
+# mandarin island                 -1.837 2.07 374  -0.888  0.9381
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 6 tests 
+
+# plot ...
+
+plot <- emmip(model1, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='RP advantage (ms)') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_rrt_dscore_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + + modeling: src ----
+#------------------------------------------------------------------------------#
+
+# apply deviation coding ...
+
+contrasts(spr3$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(spr3$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+
+# view contrasts ...
+
+contrasts(md$environment)
+contrasts(md$group)
+
+# fit models ...
+
+model1 <- lmer(dif ~ proficiency * environment * group + 
+                 (1 | participant),
+               data = filter(spr3, study == '210510_su')) 
+summary(model1)
+
+# optimizer (nloptwrap) convergence code: 0 (OK)
+# boundary (singular) fit: see help('isSingular')
+# Fixed effects:
+#   Estimate Std. Error       df t value Pr(>|t|)    
+# (Intercept)                      63.6215    10.3792 380.0000   6.130 2.21e-09 ***
+# proficiency                       0.3824     1.2144 380.0000   0.315   0.7530    
+# environment2                    122.6877    25.4503 380.0000   4.821 2.07e-06 ***
+# environment3                     17.7967    25.4503 380.0000   0.699   0.4848    
+# group2                           25.1412    20.7584 380.0000   1.211   0.2266    
+# proficiency:environment2          3.9876     2.9763 380.0000   1.340   0.1811    
+# proficiency:environment3          7.6532     2.9763 380.0000   2.571   0.0105 *  
+# proficiency:group2                0.4140     2.4289 380.0000   0.170   0.8647    
+# environment2:group2              93.5430    50.9006 380.0000   1.838   0.0669 .  
+# environment3:group2              95.7858    50.9006 380.0000   1.882   0.0606 .  
+# proficiency:environment2:group2 -11.2422     5.9526 380.0000  -1.889   0.0597 .  
+# proficiency:environment3:group2  -4.3285     5.9526 380.0000  -0.727   0.4676  
+
+trends <- emtrends(model1, ~ group * environment, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# group    environment proficiency.trend   SE  df t.ratio p.value
+# korean   short                  -6.300 3.16 380  -1.994  0.2494
+# mandarin short                  -0.696 2.79 380  -0.249  0.9999
+# korean   long                    3.309 3.14 380   1.053  0.8739
+# mandarin long                   -2.329 2.79 380  -0.835  0.9549
+# korean   island                  3.517 3.14 380   1.120  0.8393
+# mandarin island                  4.793 2.79 380   1.717  0.4184
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 6 tests 
+
+# plot ...
+
+plot <- emmip(model1, environment ~ proficiency | group, cov.reduce = range, CIs = TRUE, plotit = FALSE)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='RP advantage (ms)') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_wrap(~group, labeller = as_labeller(c(`korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/src/spr_rrt_dscore_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + lmer - RRT ----
+#------------------------------------------------------------------------------#
+
+# read in data
+
+spr_crit_clean <- read_csv('data/spr_crit_clean.csv')
+
+# filter data for analysis
+
+md <- spr_crit_clean %>%
+  filter(region2 == 2,
+         group %in% c('korean', 'mandarin'),
+         study == '210510_do') %>%
+  select(study, group, rrt, dependency, environment, participant, item)
+
+# add proficiency scores
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+# add proficiency scores
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE))
+
+# set class of columns ...
+
+md <- md %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         proficiency = as.numeric(proficiency),
+         rrt = as.numeric(rrt)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+summary(md)
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+contrasts(md$group)
+
+#------------------------------------------------------------------------------#
+# + + model 1
+#------------------------------------------------------------------------------#
+
+# fit model ...
+
+tic()
+model1 <- lmer(rrt ~ proficiency * dependency * environment * group + 
+                 (1 | participant) + 
+                 (1 | item), 
+               data = md,
+               control = lmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_do_rrt_proficiency_region2_md1.rds')
+summary(model1)
+toc()
+beep()
+
+pairwise <- model1 %>%
+  emmeans(~ proficiency * dependency * environment * group) %>%
+  contrast('pairwise', simple = 'all', combine = TRUE) %>%
+  summary(by = NULL, adjust = 'holm')
+pairwise
+
+trends <- emtrends(model1, ~ group * dependency * environment , var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+#------------------------------------------------------------------------------#
+# reset column names and factor levels ----
+#------------------------------------------------------------------------------#
+
+df <- read_csv('data/data.csv', col_types = cols(.default = 'c'))
+
+df2 <- df %>%
+  mutate_at(c('study', 'group', 'task', 'dependency', 'environment', 'type', 'subtype'), factor) %>%
+  mutate(study = recode(study, '210510_do' = 'ORC', '210510_su' = 'SRC'),
+         group = recode(group, english = 'ENS', korean = 'KLE', mandarin = 'MLE'),
+         dependency = recode(dependency, filler = 'Filler', gap = 'Gap', pronoun = 'RP'),
+         environment = recode(environment, filler = 'Filler', island = 'Island', long = 'Long', short = 'Short'),
+         type = recode(type, critical = 'Critical', filler = 'Filler', gap = 'Gap', nontarget = 'Nontarget', other = 'Other', resumption = 'Resumption'))
+
+names(df2) <- str_to_title(names(df2))
+
+check <- df2 %>%
+  select(Study, Group, Task, Dependency, Environment, Type, Subtype) %>%
+  mutate_all(factor)
+
+summary(check)
+
+# study, group, task, dependency, environment, type, subtype  
+
+#------------------------------------------------------------------------------#
+# spr - scatter plot of proficiency effects for accuracy data ----
+#------------------------------------------------------------------------------#
+
+# trim based on accuracy
+
+trim <- spr_crit_clean %>%
+  group_by(study, group, participant) %>%
+  mutate(acc_rate = mean(as.logical(accuracy))) %>%
+  ungroup() %>%
+  filter(acc_rate >.5)
+
+plot <- trim %>%
+  group_by(study, group, participant, acc_rate) %>%
+  summarise() %>%
+  ungroup()
+
+plot <- plot %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  filter(proficiency != 'NA') %>%
+  group_by(study) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
+  ungroup()
+
+# facet labels
+
+groups <- c(`english` = 'ENS', `korean` = 'KLE', `mandarin` = 'MLE')
+
+# define data for plots
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=acc_rate*100))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=acc_rate*100))
+
+# generate plot
+
+s <- list(
+  geom_smooth(method=lm, col="#785ef0"), 
+  geom_point(shape = 1),
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name="% accuracy", limits = c(0, 100)),
+  scale_fill_manual(name='group', values=c("#9b82f3", "#00a78f")),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.position = "right"),
+  facet_wrap(~group, labeller = as_labeller(groups))
+)
+
+# write plots
+
+p1 + s
+ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_accuracy_proficiency_effect.png", width=6.5, height=3, dpi=600)
+
+
+
+
+md <- plot %>% 
+  filter(study == '210510_do', group == 'mandarin')
+cor(md$proficiency, md$acc_rate) 
+model <- lm(proficiency ~ acc_rate, data = md)
+summary(model)
+
+# doen
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   0.2326     0.1280   1.817   0.0727 .  
+# acc_rate      0.6504     0.1335   4.872 4.98e-06 ***
+
+# doko
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)   0.1328     0.1201   1.105 0.273121    
+# acc_rate      0.5456     0.1405   3.884 0.000246 ***
+
+# dozh
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)   
+# (Intercept)  0.04817    0.16075   0.300  0.76538   
+# acc_rate     0.59116    0.17370   3.403  0.00114 **
+
+# ENS -> b = 0.65, t = 4.87, p < .001
+# KLE -> b = 0.55, t = 3.88, p < .001
+# MLE -> b = 0.59, t = 3.40, p = .001
+
+#------------------------------------------------------------------------------#
+# spr - proficiency - accuracy - percent - lmer ----
+#------------------------------------------------------------------------------#
+
+# set class of columns ...
+
+md <- spr_crit_clean %>%
+  mutate(dependency = as.factor(dependency),
+         environment = as.factor(environment),
+         group = as.factor(group),
+         accuracy = as.logical(accuracy)) %>%
+  mutate(environment = fct_relevel(environment, 'short', 'long', 'island'))
+
+# check minimum accuracy rate
+
+min(md$acc_rate)
+
+# add mean-centered proficiency scores ...
+
+md <- md %>%
+  left_join(proficiency, by = c('study', 'group', 'participant')) %>%
+  mutate(proficiency = as.numeric(proficiency)) %>%
+  group_by(study) %>%
+  mutate(proficiency = scale(proficiency, scale = FALSE)) %>%
+  ungroup()
+
+# filter for analysis ...
+
+md <- md %>%
+  filter(group %in% c('korean', 'mandarin')) %>%
+  mutate(group = fct_drop(group))
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+# remove participants with no proficiency scores ...
+
+md <- md %>%
+  filter(is.na(proficiency) == FALSE)
+
+# check participants ...
+
+check <- md %>%
+  group_by(study, group, participant) %>%
+  summarise() %>%
+  ungroup() %>%
+  group_by(study, group) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+summary(md)
+
+# apply deviation coding ...
+
+contrasts(md$dependency) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+contrasts(md$environment) <- contr.treatment(3) - matrix(rep(1/3, 6), ncol=2)
+contrasts(md$group) <- contr.treatment(2) - matrix(rep(1/2, 2), ncol=1)
+
+# view contrasts ...
+
+contrasts(md$dependency)
+contrasts(md$environment)
+contrasts(md$group)
+
+#------------------------------------------------------------------------------#
+# + plot ----
+#------------------------------------------------------------------------------#
+
+plot <- md %>%
+  group_by(study, group, dependency, environment, participant, proficiency) %>%
+  summarise(accuracy = mean(accuracy)*100) %>%
+  ungroup()
+
+p1 <- ggplot(data=filter(plot, study == '210510_do'), aes(x=proficiency, y=accuracy, group = environment, col = environment, fill = environment, linetype = environment))
+p2 <- ggplot(data=filter(plot, study == '210510_su'), aes(x=proficiency, y=accuracy, group = environment, col = environment, fill = environment, linetype = environment))
+
+# generate plot
+
+s <- list(
+  geom_point(alpha = .1, shape = 16, size = 2),
+  geom_smooth(method=lm, lwd = 1, alpha = .2), 
+  theme_classic(),
+  scale_x_continuous(name='proficiency'),
+  scale_y_continuous(name='accuracy rate'),
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')),
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')),
+  guides(color = guide_legend(override.aes = list(shape = NA))),
+  theme(text = element_text(size = 12),
+        plot.title = element_text(size = 12, hjust = .5), 
+        legend.key.size = unit(2,"line"),
+        legend.position = 'right'),
+  facet_grid2(vars(dependency), vars(group), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `korean` = 'KLE', `mandarin` = 'MLE')))
+)
+
+p1 + s
+ggsave("plots/orc/spr_accuracy_proficiency_effect.png", width=6.5, height=3.5, dpi=600)
+
+p2 + s
+ggsave("plots/src/spr_accuracy_proficiency_effect.png", width=6.5, height=3.5, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + lmer - accuracy rate ----
+#------------------------------------------------------------------------------#
+
+model1 <- lmer(accuracy ~ proficiency * dependency * environment * group + 
+                 (1 | participant),
+               data = filter(plot, study == '210510_do')) 
+summary(model1)
+
+# Fixed effects:
+#   Estimate Std. Error         df t value Pr(>|t|)
+# (Intercept)                                  9.122e-01  1.097e-02  1.290e+02  83.183  < 2e-16
+# proficiency                                  6.085e-03  1.188e-03  1.290e+02   5.121 1.08e-06 ***
+# dependency2                                  8.333e-02  1.201e-02  6.450e+02   6.941 9.53e-12 ***
+# environment2                                -6.632e-03  1.470e-02  6.450e+02  -0.451 0.652115
+# environment3                                -2.378e-03  1.470e-02  6.450e+02  -0.162 0.871549
+# group2                                       6.682e-02  2.193e-02  1.290e+02   3.047 0.002806 **
+# proficiency:dependency2                     -4.496e-03  1.301e-03  6.450e+02  -3.456 0.000584 ***
+# proficiency:environment2                     2.114e-03  1.593e-03  6.450e+02   1.327 0.185120
+# proficiency:environment3                     1.069e-03  1.593e-03  6.450e+02   0.671 0.502517
+# dependency2:environment2                     1.580e-02  2.941e-02  6.450e+02   0.537 0.591383
+# dependency2:environment3                     3.628e-03  2.941e-02  6.450e+02   0.123 0.901845
+# proficiency:group2                          -1.816e-03  2.377e-03  1.290e+02  -0.764 0.446301
+# dependency2:group2                          -9.081e-02  2.401e-02  6.450e+02  -3.782 0.000170 ***
+# environment2:group2                         -1.644e-02  2.941e-02  6.450e+02  -0.559 0.576240
+# environment3:group2                         -5.101e-02  2.941e-02  6.450e+02  -1.735 0.083280 .
+# proficiency:dependency2:environment2         1.066e-03  3.187e-03  6.450e+02   0.335 0.737995
+# proficiency:dependency2:environment3        -2.962e-03  3.187e-03  6.450e+02  -0.929 0.353065
+# proficiency:dependency2:group2               1.868e-04  2.602e-03  6.450e+02   0.072 0.942796
+# proficiency:environment2:group2             -6.297e-03  3.187e-03  6.450e+02  -1.976 0.048586 *
+# proficiency:environment3:group2             -8.860e-03  3.187e-03  6.450e+02  -2.780 0.005589 **
+# dependency2:environment2:group2             -5.782e-03  5.882e-02  6.450e+02  -0.098 0.921727
+# dependency2:environment3:group2              3.716e-02  5.882e-02  6.450e+02   0.632 0.527771
+# proficiency:dependency2:environment2:group2  3.028e-03  6.373e-03  6.450e+02   0.475 0.634832
+# proficiency:dependency2:environment3:group2 -1.319e-04  6.373e-03  6.450e+02  -0.021 0.983490
+
+trends <- emtrends(model1, ~ group * environment * dependency, var = 'proficiency', adjust = 'mvt')
+test(trends)
+
+# group    environment dependency proficiency.trend      SE  df t.ratio p.value
+# korean   short       gap                 0.005144 0.00268 556   1.919  0.4610
+# mandarin short       gap                 0.008770 0.00263 556   3.332  0.0108 *
+# korean   long        gap                 0.010630 0.00268 556   3.966  0.0010 **
+# mandarin long        gap                 0.006445 0.00263 556   2.449  0.1524
+# korean   island      gap                 0.012091 0.00268 556   4.511  0.0001 ***
+# mandarin island      gap                 0.006923 0.00263 556   2.630  0.0952
+# korean   short       pronoun             0.001668 0.00268 556   0.622  0.9998
+# mandarin short       pronoun             0.004516 0.00263 556   1.716  0.6225
+# korean   long        pronoun             0.006707 0.00268 556   2.502  0.1333
+# mandarin long        pronoun             0.004771 0.00263 556   1.813  0.5444
+# korean   island      pronoun             0.005720 0.00268 556   2.134  0.3101
+# mandarin island      pronoun            -0.000359 0.00263 556  -0.136  1.0000
+# Degrees-of-freedom method: kenward-roger 
+# P value adjustment: mvt method for 12 tests
+
+# plot ...
+
+plot <- emmip(model1, environment ~ proficiency | group ~ dependency, cov.reduce = range, CIs = TRUE, plotit = FALSE) %>%
+  mutate(yvar = yvar *100,
+         LCL = LCL * 100,
+         UCL = UCL * 100)
+
+ggplot(plot, aes(x = proficiency, y = yvar, group = environment, col = environment, linetype = environment)) +
+  theme_classic() +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = environment), alpha = .1, col = NA) +
+  geom_line(lwd = .75) +
+  scale_y_continuous(name='accuracy rate') +
+  scale_x_continuous(name='mean-centered proficiency score') +
+  scale_linetype_manual(values = c('longdash', 'solid', 'twodash')) +
+  scale_color_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  scale_fill_manual(values = c('#619CFF', '#00BA38', '#F8766D')) +
+  theme(legend.key.size = unit(2,"line")) +
+  facet_grid2(vars(dependency), vars(group), axes = 'all', remove_labels = 'y',
+              labeller = as_labeller(c(`gap` = 'gap', `pronoun` = 'RP', `korean` = 'KLE', `mandarin` = 'MLE')))
+
+ggsave("plots/orc/spr_accuracy_proficiency_emmeans_md1.png", width=6.5, height=3, dpi=600)
+
+#------------------------------------------------------------------------------#
+# + glmer - accuracy ----
+#------------------------------------------------------------------------------#
+
+# fit models ...
+
+tic()
+model1 <- glmer(accuracy ~ proficiency * group + 
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_proficiency_acc_md1.rds')
+summary(model1)
+toc()
+
+# 71.232 sec elapsed
+# Fixed effects:
+#                    Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)         3.71321    0.22463  16.530  < 2e-16 ***
+# proficiency         0.11224    0.02216   5.064 4.11e-07 ***
+# group2              1.34763    0.41397   3.255  0.00113 ** 
+# proficiency:group2 -0.01808    0.04412  -0.410  0.68196 
+
+test(emtrends(model1, ~ group, var = 'proficiency', adjust = 'mvt'))
+
+# group    proficiency.trend     SE  df z.ratio p.value
+# korean               0.121 0.0313 Inf   3.869  0.0002 ***
+# mandarin             0.103 0.0312 Inf   3.308  0.0019 **
+
+tic()
+model2 <- glmer(accuracy ~ proficiency * environment * group + 
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md, study == '210510_do', dependency == 'gap'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_proficiency_acc_md2.rds')
+summary(model2)
+toc()
+
+# 461.832 sec elapsed
+# Model failed to converge with max|grad| = 0.00278253 (tol = 0.002, component 1)
+
+tic()
+model3 <- glmer(accuracy ~ proficiency * dependency * environment * group + 
+                  (1 | participant) + 
+                  (1 | item), 
+                data = filter(md, study == '210510_do'), family = binomial, 
+                control = glmerControl(optimizer = 'bobyqa', optCtrl=list(maxfun=1e6))) %>%
+  write_rds('models/spr_orc_proficiency_acc_md3.rds')
+summary(model3)
+toc()
+
+# 3406.738 sec elapsed (56.78 min)
+# Model failed to converge with max|grad| = 0.00625195 (tol = 0.002, component 1)
